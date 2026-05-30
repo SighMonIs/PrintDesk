@@ -389,8 +389,12 @@ body.mobile .parent-hdr input,body.mobile .child-row input{font-size:14px!import
 </div>
 
 <script>
+// ── Config — edit these two lines with your URLs ──────────
+const DEFAULT_GAS_URL   = 'https://script.google.com/macros/s/AKfycbwX8JuM3jg1zo11mIADvzSv4DTvLGnw6WvdjVvxJ5rcI97fhgJo9GFbmFlJRHD5rfDg/exec';
+const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MqYD3vQxsptOXetUdOyW3uAH2aleEZP7PgLg88IOTrI/edit?gid=1046151655#gid=1046151655';
+
 // ── State ─────────────────────────────────────────────────
-let GAS_URL  = localStorage.getItem('pd_gas_url')  || '';
+let GAS_URL  = localStorage.getItem('pd_gas_url')  || DEFAULT_GAS_URL;
 let orders   = [];
 let cats     = [];
 let editOId  = null;
@@ -828,8 +832,8 @@ function buildSwatches(){
 
 function openSettings(){
   buildSwatches();
-  document.getElementById('settingsGasUrl').value=GAS_URL;
-  const sheetUrl=localStorage.getItem('pd_sheet_url')||'';
+  document.getElementById('settingsGasUrl').value=GAS_URL||DEFAULT_GAS_URL;
+  const sheetUrl=localStorage.getItem('pd_sheet_url')||DEFAULT_SHEET_URL;
   document.getElementById('settingsSheetUrl').value=sheetUrl;
   updateSheetLink(sheetUrl);
   const saved=localStorage.getItem('pd_accent');
@@ -869,7 +873,7 @@ window.addEventListener('resize',checkMobile);
 
 // ── Boot ──────────────────────────────────────────────────
 loadAccent();
-updateSheetLink(localStorage.getItem('pd_sheet_url')||'');
+updateSheetLink(localStorage.getItem('pd_sheet_url')||DEFAULT_SHEET_URL);
 loadAll();
 </script>
 </body>
