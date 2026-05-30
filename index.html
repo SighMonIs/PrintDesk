@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>PrintDesk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0f0f10; --surface:#18181b; --surface2:#1f1f23;
+  --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.14);
+  --text:#e8e8e6; --muted:#888885;
+  --accent:#e8d5a3; --accent2:#c4a96b;
+  --green:#5cb87a; --blue:#5b9cf6; --amber:#e8a93a; --red:#e05c5c;
+  --radius:8px; --radius-lg:12px;
+}
+html,body{height:100%;background:var(--bg);}
+body{font-family:'Sora',sans-serif;color:var(--text);font-size:13px;line-height:1.5;}
+.app{max-width:1400px;margin:0 auto;padding:2rem 1.5rem 4rem;}
+
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;gap:12px;flex-wrap:wrap;}
+.logo{font-size:20px;font-weight:600;color:var(--accent);letter-spacing:-0.5px;font-family:'DM Mono',monospace;}
+.logo-sub{font-size:12px;color:var(--muted);margin-left:10px;}
+.hdr-actions{display:flex;gap:8px;align-items:center;}
+
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;font-size:12px;font-weight:500;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;white-space:nowrap;transition:all 0.12s;}
+.btn:hover{border-color:rgba(255,255,255,0.25);background:#2a2a2f;}
+.btn.primary{background:var(--accent);color:#1a1408;border-color:var(--accent2);font-weight:600;}
+.btn.primary:hover{background:var(--accent2);}
+.btn.icon-only{width:34px;padding:0;justify-content:center;}
+.btn.sm{height:28px;padding:0 10px;font-size:11px;}
+.btn.sm.icon-only{width:28px;padding:0;}
+.btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.75rem;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;}
+.stat-val{font-size:24px;font-weight:600;font-family:'DM Mono',monospace;}
+.stat-val.accent{color:var(--accent);}
+
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:1rem;flex-wrap:wrap;}
+.toolbar input,.toolbar select{height:34px;padding:0 10px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;}
+.toolbar input{min-width:200px;flex:1;}
+.toolbar select option{background:var(--surface2);}
+
+.tbl-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
+table{width:100%;border-collapse:collapse;table-layout:fixed;}
+thead th{background:var(--surface);padding:10px 12px;text-align:left;font-size:11px;font-weight:500;color:var(--muted);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default;}
+thead th.sortable{cursor:pointer;}
+thead th.sortable:hover{color:var(--text);}
+thead th.sort-active{color:var(--accent);}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--surface2);}
+tbody td{padding:9px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
+td.mono{font-family:'DM Mono',monospace;font-size:12px;}
+tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
+
+.badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:0.3px;}
+.b-pending  {background:rgba(232,169,58,0.15);color:var(--amber);border:1px solid rgba(232,169,58,0.3);}
+.b-printing {background:rgba(91,156,246,0.15);color:var(--blue); border:1px solid rgba(91,156,246,0.3);}
+.b-complete {background:rgba(92,184,122,0.15);color:var(--green);border:1px solid rgba(92,184,122,0.3);}
+.b-cancelled{background:rgba(224,92,92,0.15); color:var(--red);  border:1px solid rgba(224,92,92,0.3);}
+
+.order-id-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;display:inline-block;}
+.addr-cell{font-size:11px;color:var(--muted);}
+.cat-path{font-size:12px;}
+.cat-sep{color:var(--muted);margin:0 3px;font-size:11px;}
+
+.note-btn{background:transparent;border:none;cursor:pointer;padding:4px;border-radius:var(--radius);display:inline-flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.12s;}
+.note-btn.has-note{color:var(--accent);}
+.note-btn.no-note{color:var(--muted);opacity:0.4;}
+.note-btn:hover{background:var(--surface2);opacity:1;}
+
+.icon-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:15px;transition:all 0.12s;}
+.icon-btn:hover{background:var(--surface2);color:var(--text);}
+.icon-btn.del:hover{color:var(--red);border-color:rgba(224,92,92,0.3);background:rgba(224,92,92,0.08);}
+
+.empty{padding:3rem;text-align:center;color:var(--muted);}
+.empty i{font-size:32px;display:block;margin-bottom:10px;opacity:0.4;}
+
+/* Setup banner */
+.setup-banner{background:rgba(232,213,163,0.08);border:1px solid rgba(232,213,163,0.2);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem;}
+.setup-banner h3{font-size:14px;font-weight:600;color:var(--accent);margin-bottom:0.75rem;}
+.setup-banner p{color:var(--muted);font-size:12px;line-height:1.7;}
+.url-input-row{display:flex;gap:8px;margin-top:10px;}
+.url-input-row input{flex:1;height:34px;padding:0 10px;font-size:12px;font-family:'DM Mono',monospace;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;}
+
+.statusbar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:8px 1.5rem;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);z-index:10;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.dot.err{background:var(--red);}
+.dot.spin{background:var(--amber);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);width:100%;max-width:660px;padding:1.75rem;animation:up 0.15s ease;margin:auto;}
+.modal.sm{max-width:420px;}
+.modal.md{max-width:520px;}
+@keyframes up{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:1.25rem;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.5rem;}
+
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px;}
+.field input,.field select,.field textarea{width:100%;height:36px;padding:0 10px;font-size:13px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;transition:border-color 0.12s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent2);}
+.field select option{background:var(--surface2);}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.field-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+
+.addr-wrap{position:relative;}
+.addr-wrap input.validated{border-color:var(--green);}
+.addr-tick{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--green);font-size:15px;display:none;pointer-events:none;}
+.pac-container{background:var(--surface2)!important;border:1px solid var(--border2)!important;border-radius:var(--radius)!important;font-family:'Sora',sans-serif!important;font-size:13px!important;box-shadow:0 8px 24px rgba(0,0,0,0.5)!important;}
+.pac-item{padding:8px 12px!important;color:var(--text)!important;border-top:1px solid var(--border)!important;cursor:pointer;}
+.pac-item:hover{background:var(--surface)!important;}
+.pac-item-query{color:var(--accent)!important;font-size:13px!important;}
+.pac-icon{display:none!important;}
+
+.models-section{margin-top:1.25rem;}
+.models-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.models-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.model-rows{display:flex;flex-direction:column;gap:8px;}
+.model-row{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;}
+.model-row-top{display:grid;grid-template-columns:1fr 1fr 70px 90px 32px;gap:8px;align-items:end;}
+.mf label{display:block;font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;}
+.mf input,.mf select{width:100%;height:32px;padding:0 8px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
+.mf input:focus,.mf select:focus{border-color:var(--accent2);}
+.mf select option{background:var(--surface2);}
+.model-notes{margin-top:8px;}
+.model-notes input{width:100%;height:32px;padding:0 8px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
+.model-notes input:focus{border-color:var(--accent2);}
+.rm-btn{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:15px;transition:all 0.12s;flex-shrink:0;}
+.rm-btn:hover{color:var(--red);border-color:rgba(224,92,92,0.3);background:rgba(224,92,92,0.08);}
+.order-total-bar{display:flex;align-items:center;justify-content:space-between;background:rgba(232,213,163,0.06);border:1px solid rgba(232,213,163,0.15);border-radius:var(--radius);padding:10px 14px;margin-top:10px;}
+.order-total-lbl{font-size:12px;color:var(--muted);}
+.order-total-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--accent);}
+
+.note-view{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap;min-height:60px;}
+
+.parent-block{border:1px solid var(--border2);border-radius:var(--radius-lg);margin-bottom:12px;overflow:hidden;}
+.parent-hdr{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);}
+.parent-hdr input{flex:1;height:30px;padding:0 8px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
+.parent-hdr input:focus{border-color:var(--accent2);}
+.parent-price-wrap{display:flex;align-items:center;gap:6px;}
+.parent-price-wrap input{width:80px;height:30px;padding:0 8px;font-size:12px;font-family:'DM Mono',monospace;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
+.parent-price-label{font-size:10px;color:var(--muted);white-space:nowrap;}
+.children-area{padding:8px 12px 10px 28px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--border);}
+.child-row{display:flex;align-items:center;gap:8px;}
+.child-row input.child-name{flex:1;height:28px;padding:0 8px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
+.child-price-wrap{display:flex;align-items:center;gap:5px;}
+.child-price-wrap input{width:72px;height:28px;padding:0 8px;font-size:12px;font-family:'DM Mono',monospace;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
+.child-price-wrap input:disabled{opacity:0.35;cursor:not-allowed;}
+.override-btn{font-size:10px;color:var(--muted);background:transparent;border:1px solid var(--border2);border-radius:4px;padding:2px 6px;cursor:pointer;white-space:nowrap;transition:all 0.12s;}
+.override-btn:hover{color:var(--accent);border-color:var(--accent2);}
+.override-btn.active{color:var(--accent);border-color:var(--accent2);background:rgba(232,213,163,0.08);}
+.add-child-btn{font-size:11px;color:var(--muted);background:transparent;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 0;transition:color 0.12s;}
+.add-child-btn:hover{color:var(--accent);}
+.cat-hdrs{display:grid;grid-template-columns:1fr 110px 32px;gap:8px;margin-bottom:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+
+.settings-section{margin-bottom:1.25rem;}
+.settings-section-title{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.colour-swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all 0.12s;}
+.swatch:hover{transform:scale(1.1);}
+.swatch.active{border-color:var(--text);}
+.colour-custom{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.colour-custom input[type=color]{width:36px;height:36px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface2);cursor:pointer;padding:2px;}
+.colour-custom label{font-size:12px;color:var(--muted);}
+.settings-link{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--accent);text-decoration:none;padding:6px 10px;border:1px solid rgba(232,213,163,0.2);border-radius:var(--radius);background:rgba(232,213,163,0.05);transition:all 0.12s;}
+.settings-link:hover{background:rgba(232,213,163,0.1);}
+
+/* ── Mobile — applied via JS .mobile class on body ── */
+body.mobile .app{padding:1rem 0.75rem 5rem;}
+body.mobile .hdr{margin-bottom:1.25rem;gap:10px;}
+body.mobile .hdr-actions{flex-wrap:wrap;}
+body.mobile .hdr-actions .btn:not(.icon-only) .btn-label{display:none;}
+body.mobile .hdr-actions .btn:not(.icon-only){padding:0 10px;}
+body.mobile .stats{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1.25rem;}
+body.mobile .stat{padding:10px 12px;}
+body.mobile .stat-val{font-size:20px;}
+body.mobile .toolbar{flex-direction:column;align-items:stretch;}
+body.mobile .toolbar input,body.mobile .toolbar select{min-width:0;width:100%;}
+body.mobile .tbl-wrap{border:none;border-radius:0;background:transparent;overflow:visible;}
+body.mobile table,body.mobile thead,body.mobile tbody,
+body.mobile tr,body.mobile th,body.mobile td{display:block;}
+body.mobile thead{display:none;}
+body.mobile tbody tr{background:var(--surface);border:1px solid var(--border2)!important;border-radius:var(--radius-lg);margin-bottom:8px;padding:12px;overflow:visible;white-space:normal;}
+body.mobile tbody tr.group-first{border-top:1px solid var(--border2)!important;}
+body.mobile tbody td{display:flex;align-items:flex-start;gap:8px;padding:3px 0;overflow:visible;white-space:normal;text-overflow:unset;font-size:13px;}
+body.mobile tbody td::before{content:attr(data-label);font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;min-width:70px;flex-shrink:0;padding-top:2px;}
+body.mobile tbody td[data-label=""]{justify-content:flex-end;padding-top:6px;}
+body.mobile tbody td[data-label=""]::before{display:none;}
+body.mobile td.card-order-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+body.mobile td.card-order-num::before{display:none;}
+body.mobile .card-actions{justify-content:flex-end!important;border-top:1px solid var(--border);margin-top:6px;padding-top:8px!important;}
+body.mobile .card-actions::before{display:none!important;}
+body.mobile .modal-bg{padding:0;align-items:flex-end;}
+body.mobile .modal,body.mobile .modal.sm,body.mobile .modal.md{max-width:100%;width:100%;border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:1.25rem 1rem 1.5rem;max-height:92vh;overflow-y:auto;margin:0;}
+body.mobile .field-row{grid-template-columns:1fr;}
+body.mobile .model-row-top{grid-template-columns:1fr 1fr;}
+body.mobile .model-row-top .mf:first-child{grid-column:1 / -1;}
+body.mobile .parent-hdr{flex-wrap:wrap;}
+body.mobile .child-row{flex-wrap:wrap;}
+body.mobile .child-row input.child-name{min-width:0;}
+body.mobile .statusbar{padding:8px 1rem;font-size:11px;}
+body.mobile input,body.mobile select,body.mobile textarea{font-size:16px!important;}
+body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,
+body.mobile .parent-hdr input,body.mobile .child-row input{font-size:14px!important;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Setup banner -->
+  <div class="setup-banner" id="setupBanner" style="display:none">
+    <h3><i class="ti ti-plug" style="vertical-align:-2px;margin-right:6px"></i>Connect to Google Sheet</h3>
+    <p>Paste your Google Apps Script Web App URL below to connect PrintDesk to your data.</p>
+    <div class="url-input-row">
+      <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/…/exec">
+      <button class="btn primary" onclick="saveGasUrl()"><i class="ti ti-check"></i> Connect</button>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="hdr">
+    <div>
+      <span class="logo">PrintDesk</span>
+      <span class="logo-sub">order manager</span>
+    </div>
+    <div class="hdr-actions">
+      <button class="btn" onclick="openCatModal()"><i class="ti ti-category"></i><span class="btn-label"> Categories</span></button>
+      <button class="btn" onclick="loadAll()"><i class="ti ti-refresh"></i><span class="btn-label"> Refresh</span></button>
+      <button class="btn primary" onclick="openAddModal()"><i class="ti ti-plus"></i><span class="btn-label"> New Order</span></button>
+      <button class="btn icon-only" onclick="openSettings()" title="Settings"><i class="ti ti-settings"></i></button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total orders</div><div class="stat-val" id="s-total">—</div></div>
+    <div class="stat"><div class="stat-label">Pending</div><div class="stat-val" id="s-pending">—</div></div>
+    <div class="stat"><div class="stat-label">Printing</div><div class="stat-val" id="s-printing">—</div></div>
+    <div class="stat"><div class="stat-label">Revenue</div><div class="stat-val accent" id="s-revenue">—</div></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Search customer, model, address, notes…" oninput="renderTable()">
+    <select id="filterStatus" onchange="renderTable()">
+      <option value="">All statuses</option>
+      <option>Pending</option><option>Printing</option><option>Complete</option><option>Cancelled</option>
+    </select>
+    <select id="filterCat" onchange="renderTable()"><option value="">All categories</option></select>
+  </div>
+
+  <!-- Table -->
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:70px">Order #</th>
+          <th class="sortable" style="width:130px" data-key="customer" onclick="sortBy('customer')">Customer</th>
+          <th style="width:155px">Address</th>
+          <th class="sortable" style="width:135px" data-key="model" onclick="sortBy('model')">Model</th>
+          <th style="width:200px">Category</th>
+          <th class="sortable" style="width:48px" data-key="qty" onclick="sortBy('qty')">Qty</th>
+          <th class="sortable" style="width:80px" data-key="total" onclick="sortBy('total')">Total</th>
+          <th style="width:105px">Status</th>
+          <th class="sortable" style="width:100px" data-key="date" onclick="sortBy('date')">Date</th>
+          <th style="width:44px">Note</th>
+          <th style="width:70px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="statusbar">
+  <div class="dot" id="dot"></div>
+  <span id="statusMsg">Loading…</span>
+</div>
+
+<!-- Order Modal -->
+<div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modalTitle">New Order</div>
+    <div class="field-row">
+      <div class="field"><label>Customer name</label><input id="f-customer" type="text" placeholder="Jane Smith"></div>
+      <div class="field"><label>Date</label><input id="f-date" type="date"></div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Delivery address</label>
+        <div class="addr-wrap">
+          <input id="f-address" type="text" placeholder="Start typing an address…" autocomplete="off">
+          <i class="ti ti-map-pin-check addr-tick" id="addrTick"></i>
+        </div>
+      </div>
+      <div class="field"><label>Order status</label>
+        <select id="f-status"><option>Pending</option><option>Printing</option><option>Complete</option><option>Cancelled</option></select>
+      </div>
+    </div>
+    <div class="models-section">
+      <div class="models-hdr">
+        <span class="models-label">Models</span>
+        <button class="btn sm" onclick="addModelRow()"><i class="ti ti-plus"></i> Add model</button>
+      </div>
+      <div class="model-rows" id="modelRows"></div>
+      <div class="order-total-bar">
+        <span class="order-total-lbl">Order total</span>
+        <span class="order-total-val" id="orderTotal">$0.00</span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="saveBtn" onclick="saveOrder()"><i class="ti ti-check"></i> Save Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- Note Modal -->
+<div class="modal-bg" id="noteModal" onclick="if(event.target===this)closeNoteModal()">
+  <div class="modal sm" onclick="event.stopPropagation()">
+    <div class="modal-title" id="noteModalTitle">Note</div>
+    <div class="note-view" id="noteModalBody"></div>
+    <div class="modal-actions"><button class="btn primary" onclick="closeNoteModal()">Close</button></div>
+  </div>
+</div>
+
+<!-- Category Modal -->
+<div class="modal-bg" id="catModal" onclick="if(event.target===this)closeCatModal()">
+  <div class="modal md" onclick="event.stopPropagation()">
+    <div class="modal-title">Manage categories</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Each parent category has a default price. Child categories inherit it unless overridden.</p>
+    <div id="parentList"></div>
+    <button class="btn" style="width:100%;margin-top:4px" onclick="addParent()"><i class="ti ti-plus"></i> Add parent category</button>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeCatModal()">Cancel</button>
+      <button class="btn primary" onclick="saveCats()"><i class="ti ti-cloud-upload"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-bg" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+  <div class="modal md" onclick="event.stopPropagation()">
+    <div class="modal-title"><i class="ti ti-settings" style="margin-right:8px;vertical-align:-2px"></i>Settings</div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">API Connection</div>
+      <div class="field">
+        <label>Google Apps Script URL</label>
+        <input type="url" id="settingsGasUrl" placeholder="https://script.google.com/macros/s/…/exec">
+        <div class="field-hint">Your deployed Web App URL from Google Apps Script.</div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Google Sheet</div>
+      <div class="field">
+        <label>Google Sheet URL</label>
+        <input type="url" id="settingsSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…">
+      </div>
+      <a id="sheetLink" href="#" target="_blank" class="settings-link" style="opacity:0.4"><i class="ti ti-table"></i> Open Google Sheet</a>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Accent colour</div>
+      <div class="colour-swatches" id="swatchRow"></div>
+      <div class="colour-custom">
+        <input type="color" id="customColour" oninput="previewAccent(this.value)">
+        <label>Custom colour</label>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeSettings()">Cancel</button>
+      <button class="btn primary" onclick="applySettings()"><i class="ti ti-check"></i> Save settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────
+let GAS_URL  = localStorage.getItem('pd_gas_url')  || '';
+let orders   = [];
+let cats     = [];
+let editOId  = null;
+let sortKey  = 'date';
+let sortDir  = -1;
+let mCounter = 0;
+let acInst   = null;
+let validAddr = '';
+let busy      = false;
+
+// ── API ───────────────────────────────────────────────────
+async function api(action, data) {
+  let url = GAS_URL + '?action=' + action + '&t=' + Date.now();
+  if (data) url += '&data=' + encodeURIComponent(JSON.stringify(data));
+  const res  = await fetch(url);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
+async function apiOrderId(action, orderId) {
+  const url = GAS_URL + '?action=' + action + '&orderId=' + encodeURIComponent(orderId) + '&t=' + Date.now();
+  const res  = await fetch(url);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
+// ── Setup ─────────────────────────────────────────────────
+function saveGasUrl() {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  if (!url.startsWith('https://')) { alert('Please paste a valid URL.'); return; }
+  GAS_URL = url;
+  localStorage.setItem('pd_gas_url', url);
+  document.getElementById('setupBanner').style.display = 'none';
+  loadAll();
+}
+
+// ── Load ──────────────────────────────────────────────────
+async function loadAll() {
+  if (!GAS_URL) {
+    document.getElementById('setupBanner').style.display = '';
+    setStatus('err', 'Not connected — open Settings to add your API URL');
+    renderTable();
+    return;
+  }
+  setStatus('spin', 'Loading…');
+  try {
+    const data = await api('getAll');
+    if (data.error) { setStatus('err', 'Error: ' + data.error); return; }
+    orders = (data.orders || []).map(normalise);
+    cats   = data.cats && data.cats.length ? parseCats(data.cats) : defaultCats();
+    populateCatFilter();
+    renderTable();
+    setStatus('ok', 'Connected · ' + uniqueOrderCount() + ' orders');
+  } catch(e) {
+    setStatus('err', 'Load failed: ' + e.message);
+  }
+}
+
+function normalise(o) {
+  return {
+    id:       String(o.id       || ''),
+    orderId:  String(o.orderId  || ''),
+    customer: String(o.customer || ''),
+    address:  String(o.address  || ''),
+    model:    String(o.model    || ''),
+    catId:    String(o.catId    || ''),
+    qty:      Number(o.qty      || 0),
+    price:    Number(o.price    || 0),
+    total:    Number(o.total    || 0),
+    status:   String(o.status   || ''),
+    date:     String(o.date     || ''),
+    notes:    String(o.notes    || '')
+  };
+}
+
+// ── Categories ────────────────────────────────────────────
+function parseCats(flatRows) {
+  const parents = []; const byId = {};
+  flatRows.forEach(r => {
+    if (!String(r.parentId||'')) {
+      const p = {id:String(r.id),name:String(r.name),price:parseFloat(r.price)||0,children:[]};
+      parents.push(p); byId[p.id] = p;
+    }
+  });
+  flatRows.forEach(r => {
+    const pid = String(r.parentId||'');
+    if (pid && byId[pid]) {
+      const ov = (r.priceOverride!==''&&r.priceOverride!==null&&r.priceOverride!==undefined)
+        ? parseFloat(r.priceOverride) : null;
+      byId[pid].children.push({id:String(r.id),name:String(r.name),priceOverride:ov});
+    }
+  });
+  return parents;
+}
+
+function flattenCats(parents) {
+  const rows = [];
+  parents.forEach(p => {
+    rows.push({id:p.id,name:p.name,price:p.price,parentId:'',priceOverride:''});
+    (p.children||[]).forEach(c => rows.push({id:c.id,name:c.name,price:'',parentId:p.id,
+      priceOverride:c.priceOverride!==null&&c.priceOverride!==undefined?c.priceOverride:''}));
+  });
+  return rows;
+}
+
+function defaultCats() {
+  return [
+    {id:'p1',name:'Miniatures',price:12,children:[{id:'c1',name:'Hero Scale',priceOverride:null},{id:'c2',name:'Terrain',priceOverride:null}]},
+    {id:'p2',name:'Functional Parts',price:18,children:[{id:'c3',name:'Brackets',priceOverride:null}]},
+    {id:'p3',name:'Cosplay Props',price:35,children:[]},
+    {id:'p4',name:'Decorative',price:15,children:[]},
+    {id:'p5',name:'Custom',price:25,children:[]}
+  ];
+}
+
+function getCatLabel(catId) {
+  for (const p of cats) {
+    if (String(p.id)===catId) return {parent:p.name,child:null,price:p.price};
+    for (const c of (p.children||[])) {
+      if (String(c.id)===catId) {
+        const price = (c.priceOverride!==null&&c.priceOverride!==undefined) ? c.priceOverride : p.price;
+        return {parent:p.name,child:c.name,price};
+      }
+    }
+  }
+  return null;
+}
+
+function getCatEffectivePrice(catId) {
+  const info = getCatLabel(catId); return info ? info.price : 0;
+}
+
+// ── Render ────────────────────────────────────────────────
+function uniqueOrderCount() { return new Set(orders.map(o=>o.orderId)).size; }
+
+function buildOrderNumberMap(list) {
+  const map={}; let n=1;
+  list.forEach(o=>{ if(!map[o.orderId]) map[o.orderId]=n++; });
+  return map;
+}
+
+function renderTable() {
+  const q  = document.getElementById('search').value.toLowerCase();
+  const fs = document.getElementById('filterStatus').value;
+  const fc = document.getElementById('filterCat').value;
+
+  let list = orders.filter(o => {
+    if (fs && o.status!==fs) return false;
+    if (fc && o.catId!==fc) return false;
+    if (q && !([o.customer,o.model,o.notes,o.address].join(' ').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  list.sort((a,b)=>{
+    let av=a[sortKey]||'',bv=b[sortKey]||'';
+    if(['qty','total','price'].includes(sortKey)){av=+av;bv=+bv;}
+    return av<bv?-sortDir:av>bv?sortDir:0;
+  });
+
+  const uOrders=new Set(orders.map(o=>o.orderId)).size;
+  const revenue=orders.filter(o=>o.status==='Complete').reduce((s,o)=>s+o.total,0);
+  document.getElementById('s-total').textContent    = uOrders;
+  document.getElementById('s-pending').textContent  = new Set(orders.filter(o=>o.status==='Pending').map(o=>o.orderId)).size;
+  document.getElementById('s-printing').textContent = new Set(orders.filter(o=>o.status==='Printing').map(o=>o.orderId)).size;
+  document.getElementById('s-revenue').textContent  = '$'+revenue.toFixed(2);
+
+  const tbody = document.getElementById('tbody');
+  if (!list.length) {
+    tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;
+    return;
+  }
+
+  const numMap = buildOrderNumberMap(list);
+  const seen   = new Set();
+
+  tbody.innerHTML = list.map(o => {
+    const isFirst  = !seen.has(o.orderId); seen.add(o.orderId);
+    const catInfo  = getCatLabel(o.catId);
+    const bc       = 'b-'+(o.status||'pending').toLowerCase();
+    const addrShort= o.address ? o.address.split(',').slice(0,2).join(',') : '—';
+    const orderNum = '#'+numMap[o.orderId];
+    const hasNote  = !!o.notes.trim();
+    let catHtml = '—';
+    if (catInfo) catHtml = catInfo.child
+      ? `<span class="cat-path">${esc(catInfo.parent)}<span class="cat-sep">›</span>${esc(catInfo.child)}</span>`
+      : `<span class="cat-path">${esc(catInfo.parent)}</span>`;
+    const noteHtml = `<button class="note-btn ${hasNote?'has-note':'no-note'}" onclick="showNote(${JSON.stringify(esc(o.model))},${JSON.stringify(esc(o.notes))})" title="${hasNote?'View note':'No note'}"><i class="ti ti-notes"></i></button>`;
+    return `<tr class="${isFirst?'group-first':''}">
+      <td class="card-order-num">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
+      <td data-label="Customer" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
+      <td data-label="Address" class="addr-cell" title="${esc(o.address)}">${isFirst?esc(addrShort)||'—':''}</td>
+      <td data-label="Model" title="${esc(o.model)}">${esc(o.model)||'—'}</td>
+      <td data-label="Category">${catHtml}</td>
+      <td data-label="Qty" class="mono">${o.qty}</td>
+      <td data-label="Total" class="mono">$${o.total.toFixed(2)}</td>
+      <td data-label="Status"><span class="badge ${bc}">${o.status}</span></td>
+      <td data-label="Date" class="mono" style="font-size:12px">${o.date||'—'}</td>
+      <td data-label="Note">${noteHtml}</td>
+      <td class="card-actions" style="display:flex;gap:4px;padding:6px 8px">
+        ${isFirst?`<button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
+        <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function sortBy(k){document.querySelectorAll('thead th').forEach(t=>t.classList.remove('sort-active'));const th=document.querySelector(`[data-key="${k}"]`);if(th)th.classList.add('sort-active');if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}renderTable();}
+
+function showNote(model,note){document.getElementById('noteModalTitle').textContent=model?'Note — '+model:'Note';document.getElementById('noteModalBody').textContent=note||'(No note recorded)';document.getElementById('noteModal').classList.add('open');}
+function closeNoteModal(){document.getElementById('noteModal').classList.remove('open');}
+
+// ── Address autocomplete ──────────────────────────────────
+function initAutocomplete() {
+  const input = document.getElementById('f-address');
+  if (acInst) return;
+  acInst = new google.maps.places.Autocomplete(input, {types:['address']});
+  acInst.addListener('place_changed', () => {
+    const place = acInst.getPlace();
+    if (place && place.formatted_address) {
+      validAddr=place.formatted_address; input.value=validAddr;
+      input.classList.add('validated'); document.getElementById('addrTick').style.display='';
+    }
+  });
+  input.addEventListener('input', () => {
+    if (input.value!==validAddr) {
+      validAddr=''; input.classList.remove('validated');
+      document.getElementById('addrTick').style.display='none';
+    }
+  });
+}
+
+// ── Model rows ────────────────────────────────────────────
+function catOptions(selId) {
+  let html='<option value="">— select —</option>';
+  cats.forEach(p=>{
+    html+=`<option value="${p.id}" ${String(p.id)===String(selId)?'selected':''}>${esc(p.name)}</option>`;
+    (p.children||[]).forEach(c=>{
+      html+=`<option value="${c.id}" ${String(c.id)===String(selId)?'selected':''}>　› ${esc(c.name)}</option>`;
+    });
+  });
+  return html;
+}
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+
+function addModelRow(d) {
+  d=d||{}; const idx=mCounter++;
+  const el=document.createElement('div');
+  el.className='model-row'; el.dataset.idx=idx;
+  el.innerHTML=`
+    <div class="model-row-top">
+      <div class="mf"><label>Model name</label><input type="text" id="mm-${idx}" value="${esc(d.model||'')}" placeholder="Benchy, bracket…"></div>
+      <div class="mf"><label>Category</label><select id="mc-${idx}" onchange="catChanged(${idx})">${catOptions(d.catId)}</select></div>
+      <div class="mf"><label>Qty</label><input type="number" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"></div>
+      <div class="mf"><label>Price ($)</label><input type="number" id="mp-${idx}" value="${d.price||''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"></div>
+      <button class="rm-btn" onclick="removeModel(this)"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="model-notes"><input type="text" id="mn-${idx}" value="${esc(d.notes||'')}" placeholder="Notes for this model (colour, material…)"></div>`;
+  document.getElementById('modelRows').appendChild(el);
+  calcTotal();
+}
+
+function catChanged(idx){const catId=document.getElementById('mc-'+idx).value;const price=getCatEffectivePrice(catId);if(price){document.getElementById('mp-'+idx).value=price;calcTotal();}}
+function calcTotal(){let t=0;document.querySelectorAll('.model-row').forEach(r=>{const i=r.dataset.idx;t+=(parseFloat(document.getElementById('mq-'+i)?.value)||0)*(parseFloat(document.getElementById('mp-'+i)?.value)||0);});document.getElementById('orderTotal').textContent='$'+t.toFixed(2);}
+function removeModel(btn){if(document.querySelectorAll('.model-row').length<=1){alert('Need at least one model.');return;}btn.closest('.model-row').remove();calcTotal();}
+function getModelData(){return Array.from(document.querySelectorAll('.model-row')).map(r=>{const i=r.dataset.idx;return{model:document.getElementById('mm-'+i)?.value.trim()||'',catId:document.getElementById('mc-'+i)?.value||'',qty:parseInt(document.getElementById('mq-'+i)?.value)||1,price:parseFloat(document.getElementById('mp-'+i)?.value)||0,notes:document.getElementById('mn-'+i)?.value.trim()||''};});}
+
+// ── Modals ────────────────────────────────────────────────
+function openAddModal(){
+  editOId=null;acInst=null;validAddr='';
+  document.getElementById('modalTitle').textContent='New Order';
+  document.getElementById('f-customer').value='';
+  document.getElementById('f-address').value='';
+  document.getElementById('f-address').classList.remove('validated');
+  document.getElementById('addrTick').style.display='none';
+  document.getElementById('f-status').value='Pending';
+  document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('modelRows').innerHTML='';mCounter=0;addModelRow();
+  document.getElementById('orderModal').classList.add('open');
+  setTimeout(()=>{document.getElementById('f-customer').focus();initAutocomplete();},80);
+}
+
+function openEdit(orderId){
+  const rows=orders.filter(o=>o.orderId===orderId);if(!rows.length)return;
+  editOId=orderId;acInst=null;const first=rows[0];
+  document.getElementById('modalTitle').textContent='Edit Order';
+  document.getElementById('f-customer').value=first.customer;
+  document.getElementById('f-address').value=first.address||'';
+  validAddr=first.address||'';
+  if(first.address){document.getElementById('f-address').classList.add('validated');document.getElementById('addrTick').style.display='';}
+  else{document.getElementById('f-address').classList.remove('validated');document.getElementById('addrTick').style.display='none';}
+  document.getElementById('f-status').value=first.status;
+  document.getElementById('f-date').value=first.date;
+  document.getElementById('modelRows').innerHTML='';mCounter=0;
+  rows.forEach(r=>addModelRow({model:r.model,catId:r.catId,qty:r.qty,price:r.price,notes:r.notes}));
+  document.getElementById('orderModal').classList.add('open');
+  setTimeout(()=>initAutocomplete(),80);
+}
+
+function closeModal(){document.getElementById('orderModal').classList.remove('open');}
+
+// ── Save / Delete ─────────────────────────────────────────
+async function saveOrder(){
+  const customer=document.getElementById('f-customer').value.trim();
+  if(!customer){alert('Please enter a customer name.');return;}
+  if(busy)return;
+  const models=getModelData();
+  const orderId=editOId||uid();
+  const status=document.getElementById('f-status').value;
+  const date=document.getElementById('f-date').value;
+  const address=validAddr||document.getElementById('f-address').value.trim();
+  const newRows=models.map(m=>({id:uid(),orderId,customer,address,model:m.model,catId:m.catId,qty:m.qty,price:m.price,total:parseFloat((m.qty*m.price).toFixed(2)),status,date,notes:m.notes}));
+  busy=true;
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Saving…';
+  setStatus('spin','Saving…');closeModal();
+  orders=orders.filter(o=>o.orderId!==orderId);
+  orders.unshift(...newRows);renderTable();
+  try {
+    if(editOId) await apiOrderId('deleteOrder',editOId);
+    for(const row of newRows) await api('saveOrder',row);
+    setStatus('ok','Saved · '+uniqueOrderCount()+' orders');
+  } catch(e){
+    setStatus('err','Save failed: '+e.message);
+  } finally {
+    busy=false;btn.disabled=false;btn.innerHTML='<i class="ti ti-check"></i> Save Order';
+  }
+}
+
+async function deleteOrder(orderId){
+  const rows=orders.filter(o=>o.orderId===orderId);
+  if(!confirm(rows.length>1?`Delete this order (${rows.length} models)?`:'Delete this order?'))return;
+  setStatus('spin','Deleting…');
+  orders=orders.filter(o=>o.orderId!==orderId);renderTable();
+  try{
+    await apiOrderId('deleteOrder',orderId);
+    setStatus('ok','Deleted · '+uniqueOrderCount()+' orders');
+  }catch(e){setStatus('err','Delete failed: '+e.message);}
+}
+
+// ── Category modal ────────────────────────────────────────
+function openCatModal(){renderParentList();document.getElementById('catModal').classList.add('open');}
+function closeCatModal(){document.getElementById('catModal').classList.remove('open');}
+
+function renderParentList(){
+  document.getElementById('parentList').innerHTML=cats.map((p,pi)=>`
+    <div class="parent-block">
+      <div class="parent-hdr">
+        <input type="text" value="${esc(p.name)}" placeholder="Parent category name" oninput="cats[${pi}].name=this.value">
+        <div class="parent-price-wrap">
+          <span class="parent-price-label">Default $</span>
+          <input type="number" value="${p.price}" step="0.01" min="0" oninput="cats[${pi}].price=parseFloat(this.value)||0;renderParentList()">
+        </div>
+        <button class="icon-btn del" onclick="removeParent(${pi})"><i class="ti ti-trash"></i></button>
+      </div>
+      <div class="children-area">
+        ${(p.children||[]).map((c,ci)=>`
+          <div class="child-row">
+            <input class="child-name" type="text" value="${esc(c.name)}" placeholder="Child category" oninput="cats[${pi}].children[${ci}].name=this.value">
+            <div class="child-price-wrap">
+              <input type="number" value="${c.priceOverride!==null&&c.priceOverride!==undefined?c.priceOverride:p.price}" step="0.01" min="0" ${c.priceOverride!==null&&c.priceOverride!==undefined?'':'disabled'} id="cp-${pi}-${ci}" oninput="cats[${pi}].children[${ci}].priceOverride=parseFloat(this.value)||0">
+              <button class="override-btn ${c.priceOverride!==null&&c.priceOverride!==undefined?'active':''}" onclick="toggleOverride(${pi},${ci})">${c.priceOverride!==null&&c.priceOverride!==undefined?'Override on':'Override'}</button>
+            </div>
+            <button class="icon-btn del" onclick="removeChild(${pi},${ci})"><i class="ti ti-trash"></i></button>
+          </div>`).join('')}
+        <button class="add-child-btn" onclick="addChild(${pi})"><i class="ti ti-corner-down-right" style="font-size:12px"></i> Add child</button>
+      </div>
+    </div>`).join('');
+}
+
+function toggleOverride(pi,ci){const c=cats[pi].children[ci];c.priceOverride=(c.priceOverride!==null&&c.priceOverride!==undefined)?null:cats[pi].price;renderParentList();}
+function addParent(){cats.push({id:uid(),name:'',price:0,children:[]});renderParentList();}
+function removeParent(pi){cats.splice(pi,1);renderParentList();}
+function addChild(pi){if(!cats[pi].children)cats[pi].children=[];cats[pi].children.push({id:uid(),name:'',priceOverride:null});renderParentList();}
+function removeChild(pi,ci){cats[pi].children.splice(ci,1);renderParentList();}
+
+async function saveCats(){
+  setStatus('spin','Saving categories…');closeCatModal();populateCatFilter();
+  try{
+    await api('saveCats',flattenCats(cats));
+    setStatus('ok','Categories saved');setTimeout(loadAll,500);
+  }catch(e){setStatus('err','Failed: '+e.message);}
+}
+
+function populateCatFilter(){
+  const el=document.getElementById('filterCat');const cur=el.value;
+  while(el.options.length>1)el.remove(1);
+  cats.forEach(p=>{
+    const o=document.createElement('option');o.value=p.id;o.textContent=p.name;el.appendChild(o);
+    (p.children||[]).forEach(c=>{const oc=document.createElement('option');oc.value=c.id;oc.textContent='　› '+c.name;el.appendChild(oc);});
+  });
+  el.value=cur;
+}
+
+// ── Settings ──────────────────────────────────────────────
+const ACCENT_PRESETS=[
+  {label:'Gold',a:'#e8d5a3',a2:'#c4a96b'},{label:'Coral',a:'#f4a27a',a2:'#d97a4a'},
+  {label:'Mint',a:'#7dd8b0',a2:'#4db88a'},{label:'Lavender',a:'#b8a4f0',a2:'#8f74d8'},
+  {label:'Sky',a:'#7ec8f4',a2:'#4aa8d8'},{label:'Rose',a:'#f4a0b0',a2:'#d87080'},
+];
+
+function loadAccent(){
+  const saved=localStorage.getItem('pd_accent');
+  if(saved){try{const p=JSON.parse(saved);applyAccent(p.a,p.a2,false);}catch(e){}}
+}
+
+function applyAccent(a,a2,save=true){
+  document.documentElement.style.setProperty('--accent',a);
+  document.documentElement.style.setProperty('--accent2',a2);
+  if(save)localStorage.setItem('pd_accent',JSON.stringify({a,a2}));
+}
+
+function previewAccent(hex){
+  const a2=darken(hex,0.18);applyAccent(hex,a2);
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+}
+
+function darken(hex,amt){
+  let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  r=Math.max(0,Math.round(r*(1-amt)));g=Math.max(0,Math.round(g*(1-amt)));b=Math.max(0,Math.round(b*(1-amt)));
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+function buildSwatches(){
+  const row=document.getElementById('swatchRow');row.innerHTML='';
+  ACCENT_PRESETS.forEach(p=>{
+    const d=document.createElement('div');d.className='swatch';d.style.background=p.a;d.title=p.label;
+    d.onclick=()=>{applyAccent(p.a,p.a2);document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));d.classList.add('active');document.getElementById('customColour').value=p.a;};
+    row.appendChild(d);
+  });
+}
+
+function openSettings(){
+  buildSwatches();
+  document.getElementById('settingsGasUrl').value=GAS_URL;
+  const sheetUrl=localStorage.getItem('pd_sheet_url')||'';
+  document.getElementById('settingsSheetUrl').value=sheetUrl;
+  updateSheetLink(sheetUrl);
+  const saved=localStorage.getItem('pd_accent');
+  if(saved){try{document.getElementById('customColour').value=JSON.parse(saved).a;}catch(e){}}
+  document.getElementById('settingsModal').classList.add('open');
+}
+
+function closeSettings(){document.getElementById('settingsModal').classList.remove('open');}
+
+function applySettings(){
+  const gasUrl=document.getElementById('settingsGasUrl').value.trim();
+  const sheetUrl=document.getElementById('settingsSheetUrl').value.trim();
+  if(gasUrl){GAS_URL=gasUrl;localStorage.setItem('pd_gas_url',gasUrl);}
+  if(sheetUrl){localStorage.setItem('pd_sheet_url',sheetUrl);updateSheetLink(sheetUrl);}
+  closeSettings();
+  if(gasUrl) loadAll();
+}
+
+function updateSheetLink(url){
+  const link=document.getElementById('sheetLink');
+  if(url){link.href=url;link.style.opacity='1';}else{link.href='#';link.style.opacity='0.4';}
+}
+
+// ── Status ────────────────────────────────────────────────
+function setStatus(state,msg){
+  document.getElementById('dot').className='dot'+(state==='err'?' err':state==='spin'?' spin':'');
+  document.getElementById('statusMsg').textContent=msg;
+}
+
+// ── Mobile detection ──────────────────────────────────────
+function checkMobile(){
+  if(window.innerWidth<=640)document.body.classList.add('mobile');
+  else document.body.classList.remove('mobile');
+}
+checkMobile();
+window.addEventListener('resize',checkMobile);
+
+// ── Boot ──────────────────────────────────────────────────
+loadAccent();
+updateSheetLink(localStorage.getItem('pd_sheet_url')||'');
+loadAll();
+</script>
+</body>
+</html>
