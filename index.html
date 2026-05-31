@@ -532,8 +532,11 @@ async function api(action, data){
   return json;
 }
 async function apiPayload(body){
-  const url=GAS_URL+'?payload='+encodeURIComponent(JSON.stringify(body))+'&t='+Date.now();
-  const res=await fetch(url);
+  const res=await fetch(GAS_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
   const json=await res.json();
   if(json.error)throw new Error(json.error);
   return json;
