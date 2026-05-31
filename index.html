@@ -217,6 +217,17 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .settings-link{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--accent);text-decoration:none;padding:6px 10px;border:1px solid rgba(232,213,163,0.2);border-radius:var(--radius);background:rgba(232,213,163,0.05);transition:all 0.12s;}
 .settings-link:hover{background:rgba(232,213,163,0.1);}
 
+
+/* Colours modal */
+.colour-mgr-hdr{display:grid;grid-template-columns:40px 1fr 110px 80px 32px;gap:8px;margin-bottom:6px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;padding:0 2px;}
+.colour-row{display:grid;grid-template-columns:40px 1fr 110px 80px 32px;gap:8px;align-items:center;margin-bottom:6px;}
+.colour-swatch{width:36px;height:28px;border-radius:var(--radius);border:1px solid var(--border2);flex-shrink:0;cursor:pointer;}
+.colour-row input[type=text]{height:30px;padding:0 8px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;width:100%;}
+.colour-row input[type=text]:focus{border-color:var(--accent2);}
+.colour-row input[type=color]{width:100%;height:30px;padding:2px 4px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);cursor:pointer;}
+.colour-row .avail-check{display:flex;align-items:center;justify-content:center;}
+.colour-row .avail-check input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
+
 /* Mobile */
 body.mobile .app{padding:1rem 0.75rem 5rem;}
 body.mobile .hdr{margin-bottom:1.25rem;gap:10px;}
@@ -271,6 +282,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   <div class="hdr">
     <div><span class="logo">PrintDesk</span></div>
     <div class="hdr-actions">
+      <button class="btn" onclick="openColourModal()"><i class="ti ti-brush"></i><span class="btn-label"> Colours</span></button>
       <button class="btn" onclick="openCatModal()"><i class="ti ti-category"></i><span class="btn-label"> Categories</span></button>
       <button class="btn" onclick="openOptModal()"><i class="ti ti-list-details"></i><span class="btn-label"> Options</span></button>
       <button class="btn" onclick="loadAll()"><i class="ti ti-refresh"></i><span class="btn-label"> Refresh</span></button>
@@ -403,6 +415,24 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
+
+<!-- ══ Colours Modal ══ -->
+<div class="modal-bg" id="colourModal" onclick="if(event.target===this)closeColourModal()">
+  <div class="modal md" onclick="event.stopPropagation()">
+    <div class="modal-title"><i class="ti ti-brush" style="margin-right:8px;vertical-align:-2px"></i>Colours</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Manage your available filament colours. Tick <strong>Available</strong> if you currently have that colour in stock.</p>
+    <div class="colour-mgr-hdr">
+      <span>Swatch</span><span>Name</span><span>Hex code</span><span>Available</span><span></span>
+    </div>
+    <div id="colourList"></div>
+    <button class="btn" style="width:100%;margin-top:8px" onclick="addColour()"><i class="ti ti-plus"></i> Add colour</button>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeColourModal()">Cancel</button>
+      <button class="btn primary" onclick="saveColours()"><i class="ti ti-cloud-upload"></i> Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ Settings Modal ══ -->
 <div class="modal-bg" id="settingsModal" onclick="if(event.target===this)closeSettings()">
   <div class="modal md" onclick="event.stopPropagation()">
@@ -448,6 +478,7 @@ let GAS_URL = localStorage.getItem('pd_gas_url') || DEFAULT_GAS_URL;
 let orders    = [];
 let cats      = [];   // [{id,name,price}]
 let opts      = [];   // [{id,catId,name,display,options}]
+let colours   = [];   // [{id,name,code,available}]
 let editOId   = null;
 let sortKey   = 'date';
 let sortDir   = -1;
@@ -481,6 +512,10 @@ function nextRowId(){
 function nextCatId(){
   const nums=cats.map(c=>c.id).filter(id=>/^C\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(1)));
   return 'C'+padN((nums.length?Math.max(...nums):0)+1,4);
+}
+function nextColourId(){
+  const nums=colours.map(c=>c.id).filter(id=>/^COL\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(3)));
+  return 'COL'+padN((nums.length?Math.max(...nums):0)+1,4);
 }
 function nextOptId(){
   const nums=opts.map(o=>o.id).filter(id=>/^O\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(1)));
@@ -527,6 +562,7 @@ async function loadAll(){
     orders=(data.orders||[]).map(normalise);
     cats=data.cats&&data.cats.length?data.cats:defaultCats();
     opts=data.options||[];
+    colours=data.colours||[];
     populateCatFilter();
     renderTable();
     setStatus('ok','Connected · '+uniqueOrderCount()+' orders');
@@ -958,6 +994,36 @@ async function saveOpts(){
   try{
     await apiPayload({action:'saveOptions',options:opts});
     setStatus('ok','Options saved');setTimeout(loadAll,500);
+  }catch(e){setStatus('err','Failed: '+e.message);}
+}
+
+
+// ── Colours modal ─────────────────────────────────────────
+function openColourModal(){renderColourList();document.getElementById('colourModal').classList.add('open');}
+function closeColourModal(){document.getElementById('colourModal').classList.remove('open');}
+
+function renderColourList(){
+  document.getElementById('colourList').innerHTML=colours.map((c,i)=>`
+    <div class="colour-row">
+      <div class="colour-swatch" style="background:${esc(c.code||'#cccccc')};border-color:${esc(c.code||'#cccccc')}"></div>
+      <input type="text" value="${esc(c.name)}" placeholder="Colour name" oninput="colours[${i}].name=this.value">
+      <input type="color" value="${esc(c.code||'#cccccc')}" oninput="colours[${i}].code=this.value;renderColourList()">
+      <div class="avail-check"><input type="checkbox" ${c.available===true||String(c.available).toLowerCase()==='true'?'checked':''} onchange="colours[${i}].available=this.checked" title="Available"></div>
+      <button class="icon-btn del" onclick="removeColour(${i})"><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+}
+
+function addColour(){
+  colours.push({id:nextColourId(),name:'',code:'#cccccc',available:true});
+  renderColourList();
+}
+function removeColour(i){colours.splice(i,1);renderColourList();}
+
+async function saveColours(){
+  setStatus('spin','Saving colours…');closeColourModal();
+  try{
+    await apiPayload({action:'saveColours',colours});
+    setStatus('ok','Colours saved');
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
 
