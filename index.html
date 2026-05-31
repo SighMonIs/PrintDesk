@@ -554,10 +554,11 @@ function defaultCats(){
 // ── Render table ───────────────────────────────────────────
 function uniqueOrderCount(){return new Set(orders.map(o=>o.orderId)).size;}
 
-function buildOrderNumberMap(list){
-  const map={};let n=1;
-  list.forEach(o=>{if(!map[o.orderId])map[o.orderId]=n++;});
-  return map;
+function orderNumFromId(orderId) {
+  // Strip O prefix and leading zeros: O0000000007 → #7, O0000000042 → #42
+  // Falls back to showing the raw id if format doesn't match
+  const m = String(orderId).match(/^O?0*(\d+)$/);
+  return m ? '#' + m[1] : '#' + orderId;
 }
 
 function renderTable(){
@@ -590,7 +591,6 @@ function renderTable(){
   const tbody=document.getElementById('tbody');
   if(!list.length){tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;return;}
 
-  const numMap=buildOrderNumberMap(list);
   const seen=new Set();
 
   tbody.innerHTML=list.map(o=>{
@@ -598,7 +598,7 @@ function renderTable(){
     const cat=cats.find(c=>String(c.id)===String(o.catId));
     const bc='b-'+(o.status||'pending').toLowerCase();
     const addrShort=o.address?o.address.split(',').slice(0,2).join(','):'—';
-    const orderNum='#'+numMap[o.orderId];
+    const orderNum=orderNumFromId(o.orderId);
     const hasNote=!!o.notes.trim();
     const catHtml=cat?`<span class="cat-path">${esc(cat.name)}</span>`:'—';
     const noteHtml=`<button class="note-btn ${hasNote?'has-note':'no-note'}" onclick="showNote(${JSON.stringify(esc(o.model))},${JSON.stringify(esc(o.notes))})" title="${hasNote?'View note':'No note'}"><i class="ti ti-notes"></i></button>`;
