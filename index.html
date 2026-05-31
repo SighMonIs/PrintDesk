@@ -9,7 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places"></script>
-<script src="config.js"></script>
+<script>
+// Inline config — edit these values. config.js (if present) will override these.
+window.CONFIG = window.CONFIG || { GAS_URL: "", SHEET_URL: "" };
+</script>
+<script src="config.js" onerror="console.warn('config.js not found — using Settings URL')"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
