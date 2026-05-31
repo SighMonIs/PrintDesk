@@ -68,11 +68,22 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .b-complete {background:rgba(92,184,122,0.15);color:var(--green);border:1px solid rgba(92,184,122,0.3);}
 .b-cancelled{background:rgba(224,92,92,0.15); color:var(--red);  border:1px solid rgba(224,92,92,0.3);}
 
-.status-select{font-size:10px;font-weight:600;padding:2px 6px;border-radius:999px;text-transform:uppercase;letter-spacing:0.3px;border:none;cursor:pointer;appearance:none;-webkit-appearance:none;text-align:center;}
-.status-select.b-pending  {background:rgba(232,169,58,0.15);color:#e8a93a;}
-.status-select.b-printing {background:rgba(91,156,246,0.15); color:#5b9cf6;}
-.status-select.b-complete {background:rgba(92,184,122,0.15); color:#5cb87a;}
-.status-select.b-cancelled{background:rgba(224,92,92,0.15);  color:#e05c5c;}
+.status-select{
+  font-size:12px;font-weight:500;
+  height:30px;padding:0 8px;
+  border-radius:var(--radius);
+  border:1px solid var(--border2);
+  cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+  font-family:'Sora',sans-serif;
+  width:100%;
+  transition:border-color 0.12s;
+}
+.status-select:hover{border-color:rgba(255,255,255,0.25);}
+.status-select.b-pending  {background:rgba(232,169,58,0.12);color:#e8a93a;border-color:rgba(232,169,58,0.3);}
+.status-select.b-printing {background:rgba(91,156,246,0.12); color:#5b9cf6;border-color:rgba(91,156,246,0.3);}
+.status-select.b-complete {background:rgba(92,184,122,0.12); color:#5cb87a;border-color:rgba(92,184,122,0.3);}
+.status-select.b-cancelled{background:rgba(224,92,92,0.12);  color:#e05c5c;border-color:rgba(224,92,92,0.3);}
 .status-select option{background:var(--surface2);color:var(--text);font-size:12px;}
 
 .order-id-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;display:inline-block;}
@@ -299,7 +310,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
           <th style="width:160px">Options</th>
           <th class="sortable" style="width:44px" data-key="qty" onclick="sortBy('qty')">Qty</th>
           <th class="sortable" style="width:80px" data-key="total" onclick="sortBy('total')">Total</th>
-          <th style="width:110px">Status</th>
+          <th style="width:130px">Status</th>
           <th class="sortable" style="width:95px" data-key="date" onclick="sortBy('date')">Date</th>
           <th style="width:40px">Note</th>
           <th style="width:66px"></th>
