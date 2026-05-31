@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places"></script>
+<script src="config.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -427,12 +428,13 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 </div>
 
 <script>
-// ── Config ─────────────────────────────────────────────────
-const DEFAULT_GAS_URL   = 'https://script.google.com/macros/s/AKfycbwX8JuM3jg1zo11mIADvzSv4DTvLGnw6WvdjVvxJ5rcI97fhgJo9GFbmFlJRHD5rfDg/exec';
-const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MqYD3vQxsptOXetUdOyW3uAH2aleEZP7PgLg88IOTrI/edit?gid=1046151655#gid=1046151655';
+// ── Config (loaded from config.js) ────────────────────────
+// localStorage overrides config.js — used by the Settings modal
+const DEFAULT_GAS_URL   = (typeof CONFIG !== 'undefined' && CONFIG.GAS_URL)   || '';
+const DEFAULT_SHEET_URL = (typeof CONFIG !== 'undefined' && CONFIG.SHEET_URL) || '';
 
 // ── State ──────────────────────────────────────────────────
-let GAS_URL   = localStorage.getItem('pd_gas_url')  || DEFAULT_GAS_URL;
+let GAS_URL = localStorage.getItem('pd_gas_url') || DEFAULT_GAS_URL;
 let orders    = [];
 let cats      = [];   // [{id,name,price}]
 let opts      = [];   // [{id,catId,name,display,options}]
@@ -503,9 +505,9 @@ function saveGasUrl(){
 
 // ── Load ───────────────────────────────────────────────────
 async function loadAll(){
-  if(!GAS_URL||GAS_URL===DEFAULT_GAS_URL){
+  if(!GAS_URL||!GAS_URL.startsWith('https://')){
     document.getElementById('setupBanner').style.display='';
-    setStatus('err','Not connected — open Settings to add your API URL');
+    setStatus('err','Not connected — open Settings or update config.js');
     renderTable();return;
   }
   setStatus('spin','Loading…');
@@ -951,7 +953,7 @@ function buildSwatches(){const row=document.getElementById('swatchRow');row.inne
 function openSettings(){
   buildSwatches();
   document.getElementById('settingsGasUrl').value=GAS_URL||DEFAULT_GAS_URL;
-  const su=localStorage.getItem('pd_sheet_url')||DEFAULT_SHEET_URL;
+  const su=localStorage.getItem('pd_sheet_url')||DEFAULT_SHEET_URL||'';
   document.getElementById('settingsSheetUrl').value=su;updateSheetLink(su);
   const s=localStorage.getItem('pd_accent');if(s){try{document.getElementById('customColour').value=JSON.parse(s).a;}catch(e){}}
   document.getElementById('settingsModal').classList.add('open');
@@ -979,6 +981,7 @@ checkMobile();window.addEventListener('resize',checkMobile);
 // ── Boot ───────────────────────────────────────────────────
 loadAccent();
 updateSheetLink(localStorage.getItem('pd_sheet_url')||DEFAULT_SHEET_URL);
+document.getElementById('setupBanner').style.display='none';
 loadAll();
 </script>
 </body>
