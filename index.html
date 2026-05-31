@@ -532,14 +532,24 @@ async function api(action, data){
   return json;
 }
 async function apiPayload(body){
-  const res=await fetch(GAS_URL,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)
-  });
-  const json=await res.json();
-  if(json.error)throw new Error(json.error);
-  return json;
+  console.log('apiPayload sending:', body.action, 'to', GAS_URL);
+  try{
+    const res=await fetch(GAS_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    console.log('Response status:', res.status, res.type);
+    const text=await res.text();
+    console.log('Raw response:', text.slice(0,300));
+    let json;
+    try{json=JSON.parse(text);}catch(pe){throw new Error('Non-JSON response: '+text.slice(0,100));}
+    if(json.error)throw new Error(json.error);
+    return json;
+  }catch(e){
+    console.error('apiPayload error:', e);
+    throw e;
+  }
 }
 
 // ── Setup ──────────────────────────────────────────────────
@@ -566,6 +576,8 @@ async function loadAll(){
     cats=data.cats&&data.cats.length?data.cats:defaultCats();
     opts=data.options||[];
     colours=data.colours||[];
+    console.log('Loaded colours:', colours.length, colours);
+    console.log('Raw data keys:', Object.keys(data));
     populateCatFilter();
     renderTable();
     setStatus('ok','Connected · '+uniqueOrderCount()+' orders');
@@ -1024,13 +1036,18 @@ function removeColour(i){colours.splice(i,1);renderColourList();}
 
 async function saveColours(){
   setStatus('spin','Saving colours…');
+  console.log('Saving colours:', colours);
   try{
-    await apiPayload({action:'saveColours',colours});
+    const result=await apiPayload({action:'saveColours',colours});
+    console.log('Save result:', result);
     setStatus('ok','Colours saved · '+colours.length+' colours');
     closeColourModal();
   }catch(e){
+    console.error('Save error:', e);
     setStatus('err','Save failed: '+e.message);
-    alert('Save failed: '+e.message);
+    alert('Save failed: '+e.message+'
+
+Check browser console (F12) for details.');
   }
 }
 
