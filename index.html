@@ -532,24 +532,14 @@ async function api(action, data){
   return json;
 }
 async function apiPayload(body){
-  console.log('apiPayload sending:', body.action, 'to', GAS_URL);
-  try{
-    const res=await fetch(GAS_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
-    });
-    console.log('Response status:', res.status, res.type);
-    const text=await res.text();
-    console.log('Raw response:', text.slice(0,300));
-    let json;
-    try{json=JSON.parse(text);}catch(pe){throw new Error('Non-JSON response: '+text.slice(0,100));}
-    if(json.error)throw new Error(json.error);
-    return json;
-  }catch(e){
-    console.error('apiPayload error:', e);
-    throw e;
-  }
+  // Use GET with payload in query string — Apps Script supports CORS on GET but not POST
+  const payload=encodeURIComponent(JSON.stringify(body));
+  const res=await fetch(GAS_URL+'?payload='+payload+'&t='+Date.now());
+  const text=await res.text();
+  let json;
+  try{json=JSON.parse(text);}catch(pe){throw new Error('Non-JSON response: '+text.slice(0,200));}
+  if(json.error)throw new Error(json.error);
+  return json;
 }
 
 // ── Setup ──────────────────────────────────────────────────
@@ -576,8 +566,6 @@ async function loadAll(){
     cats=data.cats&&data.cats.length?data.cats:defaultCats();
     opts=data.options||[];
     colours=data.colours||[];
-    console.log('Loaded colours:', colours.length, colours);
-    console.log('Raw data keys:', Object.keys(data));
     populateCatFilter();
     renderTable();
     setStatus('ok','Connected · '+uniqueOrderCount()+' orders');
