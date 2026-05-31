@@ -133,13 +133,13 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .pac-item-query{color:var(--accent)!important;font-size:13px!important;}
 .pac-icon{display:none!important;}
 
-/* Model rows */
+/* Model / Item rows */
 .models-section{margin-top:1.25rem;}
 .models-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
 .models-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
 .model-rows{display:flex;flex-direction:column;gap:10px;}
 .model-row{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;}
-.model-row-top{display:grid;grid-template-columns:1fr 1fr 70px 90px 32px;gap:8px;align-items:end;}
+.model-row-top{display:grid;grid-template-columns:1fr 80px 110px 32px;gap:8px;align-items:end;}
 .mf label{display:block;font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;}
 .mf input,.mf select{width:100%;height:32px;padding:0 8px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
 .mf input:focus,.mf select:focus{border-color:var(--accent2);}
@@ -148,7 +148,7 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .model-notes input{width:100%;height:32px;padding:0 8px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
 .model-notes input:focus{border-color:var(--accent2);}
 
-/* Category options inside model row */
+/* Category options inside item row */
 .model-options{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
 .opt-row{display:grid;grid-template-columns:100px 1fr;gap:8px;align-items:center;}
 .opt-row label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;}
@@ -160,9 +160,14 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 
 .rm-btn{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:15px;transition:all 0.12s;flex-shrink:0;}
 .rm-btn:hover{color:var(--red);border-color:rgba(224,92,92,0.3);background:rgba(224,92,92,0.08);}
-.order-total-bar{display:flex;align-items:center;justify-content:space-between;background:rgba(232,213,163,0.06);border:1px solid rgba(232,213,163,0.15);border-radius:var(--radius);padding:10px 14px;margin-top:10px;}
+
+/* Inline total in modal action bar */
+.order-total-inline{display:flex;align-items:center;gap:8px;}
 .order-total-lbl{font-size:12px;color:var(--muted);}
 .order-total-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--accent);}
+/* keep old class in case referenced elsewhere */
+.order-total-bar{display:flex;align-items:center;justify-content:space-between;background:rgba(232,213,163,0.06);border:1px solid rgba(232,213,163,0.15);border-radius:var(--radius);padding:10px 14px;margin-top:10px;}
+
 .note-view{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap;min-height:60px;}
 
 /* Categories modal — flat list */
@@ -227,8 +232,9 @@ body.mobile .card-actions::before{display:none!important;}
 body.mobile .modal-bg{padding:0;align-items:flex-end;}
 body.mobile .modal,body.mobile .modal.sm,body.mobile .modal.md{max-width:100%;width:100%;border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:1.25rem 1rem 1.5rem;max-height:92vh;overflow-y:auto;margin:0;}
 body.mobile .field-row{grid-template-columns:1fr;}
-body.mobile .model-row-top{grid-template-columns:1fr 1fr;}
+body.mobile .model-row-top{grid-template-columns:1fr 70px;}
 body.mobile .model-row-top .mf:first-child{grid-column:1 / -1;}
+body.mobile .model-row-top .mf:nth-child(4){grid-column:1 / -1;}
 body.mobile .opt-block-top{grid-template-columns:1fr 1fr;}
 body.mobile .opt-block-top span{display:none;}
 body.mobile .statusbar{padding:8px 1rem;font-size:11px;}
@@ -330,16 +336,17 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
     </div>
     <div class="models-section">
       <div class="models-hdr">
-        <span class="models-label">Models</span>
-        <button class="btn sm" onclick="addModelRow()"><i class="ti ti-plus"></i> Add model</button>
+        <span class="models-label">Items</span>
+        <button class="btn sm" onclick="addModelRow()"><i class="ti ti-plus"></i> Add item</button>
       </div>
       <div class="model-rows" id="modelRows"></div>
-      <div class="order-total-bar">
-        <span class="order-total-lbl">Order total</span>
-        <span class="order-total-val" id="orderTotal">$0.00</span>
-      </div>
     </div>
     <div class="modal-actions">
+      <div class="order-total-inline">
+        <span class="order-total-lbl">Total</span>
+        <span class="order-total-val" id="orderTotal">$0.00</span>
+      </div>
+      <div style="flex:1"></div>
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn primary" id="saveBtn" onclick="saveOrder()"><i class="ti ti-check"></i> Save Order</button>
     </div>
@@ -706,17 +713,16 @@ function addModelRow(d){
   el.className='model-row';el.dataset.idx=idx;
   el.innerHTML=`
     <div class="model-row-top">
-      <div class="mf"><label>Model name</label><input type="text" id="mm-${idx}" value="${esc(d.model||'')}" placeholder="Benchy, bracket…"></div>
       <div class="mf"><label>Category</label><select id="mc-${idx}" onchange="catChanged(${idx})">${catOptions(d.catId)}</select></div>
       <div class="mf"><label>Qty</label><input type="number" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"></div>
       <div class="mf"><label>Price ($)</label><input type="number" id="mp-${idx}" value="${d.price||''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"></div>
-      <button class="rm-btn" onclick="removeModel(this)"><i class="ti ti-x"></i></button>
+      <button class="rm-btn" onclick="removeModel(this)" title="Remove item"><i class="ti ti-x"></i></button>
     </div>
     <div class="model-options" id="mo-${idx}"></div>
-    <div class="model-notes"><input type="text" id="mn-${idx}" value="${esc(d.notes||'')}" placeholder="Notes for this model…"></div>
+    <div class="model-notes"><input type="text" id="mn-${idx}" value="${esc(d.notes||'')}" placeholder="Item notes (colour, material, special requests…)"></div>
+    <input type="hidden" id="mm-${idx}" value="${esc(d.model||'')}">
     <input type="hidden" id="opts-${idx}" value="${esc(d.options||'')}">`;
   document.getElementById('modelRows').appendChild(el);
-  // Render options if catId already set (editing)
   if(d.catId)renderModelOpts(idx,d.catId,d.options||'');
   calcTotal();
 }
@@ -724,8 +730,13 @@ function addModelRow(d){
 function catChanged(idx){
   const catId=document.getElementById('mc-'+idx).value;
   const cat=cats.find(c=>String(c.id)===catId);
-  if(cat&&cat.price){document.getElementById('mp-'+idx).value=cat.price;calcTotal();}
-  // Clear and re-render options
+  if(cat){
+    if(cat.price)document.getElementById('mp-'+idx).value=cat.price;
+    // Store category name as model name
+    const mm=document.getElementById('mm-'+idx);
+    if(mm)mm.value=cat.name;
+    calcTotal();
+  }
   document.getElementById('opts-'+idx).value='';
   renderModelOpts(idx,catId,'');
 }
@@ -739,7 +750,7 @@ function calcTotal(){
   document.getElementById('orderTotal').textContent='$'+t.toFixed(2);
 }
 function removeModel(btn){
-  if(document.querySelectorAll('.model-row').length<=1){alert('Need at least one model.');return;}
+  if(document.querySelectorAll('.model-row').length<=1){alert('Need at least one item.');return;}
   btn.closest('.model-row').remove();calcTotal();
 }
 function getModelData(){
