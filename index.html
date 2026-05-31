@@ -1008,7 +1008,7 @@ function renderColourList(){
       <div class="colour-swatch" style="background:${esc(c.code||'#cccccc')};border-color:${esc(c.code||'#cccccc')}"></div>
       <input type="text" value="${esc(c.name)}" placeholder="Colour name" oninput="colours[${i}].name=this.value">
       <input type="color" value="${esc(c.code||'#cccccc')}" oninput="colours[${i}].code=this.value;renderColourList()">
-      <div class="avail-check"><input type="checkbox" ${c.available===true||String(c.available).toLowerCase()==='true'?'checked':''} onchange="colours[${i}].available=this.checked" title="Available"></div>
+      <div class="avail-check"><input type="checkbox" ${(c.available===true||String(c.available).toLowerCase()==='true'||c.available==='TRUE'||c.available===1)?'checked':''} onchange="colours[${i}].available=this.checked" title="Available"></div>
       <button class="icon-btn del" onclick="removeColour(${i})"><i class="ti ti-trash"></i></button>
     </div>`).join('');
 }
@@ -1020,11 +1020,15 @@ function addColour(){
 function removeColour(i){colours.splice(i,1);renderColourList();}
 
 async function saveColours(){
-  setStatus('spin','Saving colours…');closeColourModal();
+  setStatus('spin','Saving colours…');
   try{
     await apiPayload({action:'saveColours',colours});
-    setStatus('ok','Colours saved');
-  }catch(e){setStatus('err','Failed: '+e.message);}
+    setStatus('ok','Colours saved · '+colours.length+' colours');
+    closeColourModal();
+  }catch(e){
+    setStatus('err','Save failed: '+e.message);
+    alert('Save failed: '+e.message);
+  }
 }
 
 // ── Settings ───────────────────────────────────────────────
