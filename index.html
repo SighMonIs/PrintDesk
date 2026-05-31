@@ -58,7 +58,7 @@ thead th.sort-active{color:var(--accent);}
 tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;}
 tbody tr:last-child{border-bottom:none;}
 tbody tr:hover{background:var(--surface2);}
-tbody td{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
+tbody td{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:top;}
 td.mono{font-family:'DM Mono',monospace;font-size:12px;}
 tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 
@@ -296,7 +296,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
           <th class="sortable" style="width:130px" data-key="customer" onclick="sortBy('customer')">Customer</th>
           <th style="width:170px">Address</th>
           <th style="width:150px">Category</th>
-          <th style="width:120px">Options</th>
+          <th style="width:160px">Options</th>
           <th class="sortable" style="width:44px" data-key="qty" onclick="sortBy('qty')">Qty</th>
           <th class="sortable" style="width:80px" data-key="total" onclick="sortBy('total')">Total</th>
           <th style="width:110px">Status</th>
@@ -602,14 +602,25 @@ function renderTable(){
     const hasNote=!!o.notes.trim();
     const catHtml=cat?`<span class="cat-path">${esc(cat.name)}</span>`:'—';
     const noteHtml=`<button class="note-btn ${hasNote?'has-note':'no-note'}" onclick="showNote(${JSON.stringify(esc(o.model))},${JSON.stringify(esc(o.notes))})" title="${hasNote?'View note':'No note'}"><i class="ti ti-notes"></i></button>`;
-    const deliveryIcon=isFirst?(o.delivery==='Pick Up'?'<i class="ti ti-hand-stop" title="Pick Up" style="font-size:13px;color:var(--muted);margin-left:5px;flex-shrink:0"></i>':'<i class="ti ti-mail" title="Post" style="font-size:13px;color:var(--muted);margin-left:5px;flex-shrink:0"></i>'):'';
+    const deliveryIcon=isFirst?(o.delivery==='Pick Up'
+      ?'<i class="ti ti-hand-stop" title="Pick Up" style="font-size:13px;color:var(--muted);margin-right:5px;flex-shrink:0"></i>'
+      :'<i class="ti ti-mail" title="Post" style="font-size:13px;color:var(--muted);margin-right:5px;flex-shrink:0"></i>'):'';
+    // Parse pipe-separated options into stacked lines: "Colour:Red|Material:PLA" → ["Colour: Red","Material: PLA"]
+    const optLines=o.options?o.options.split('|').filter(Boolean).map(p=>{
+      const idx=p.indexOf(':');
+      if(idx<0)return esc(p.trim());
+      return`<span style="color:var(--muted)">${esc(p.slice(0,idx).trim())}:</span> ${esc(p.slice(idx+1).trim())}`;
+    }):[];
+    const optHtml=optLines.length
+      ?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</div>`).join('')
+      :'';
     return`<tr class="${isFirst?'group-first':''}">
       <td class="card-order-num" style="padding:7px 8px">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
       <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
-      <td data-label="Address" style="padding:7px 8px">${isFirst?`<span style="display:flex;align-items:center;overflow:hidden"><span class="addr-cell" style="overflow:hidden;text-overflow:ellipsis" title="${esc(o.address)}">${esc(addrShort)||'—'}</span>${deliveryIcon}</span>`:''}
+      <td data-label="Address" style="padding:7px 8px">${isFirst?`<span style="display:flex;align-items:center;overflow:hidden">${deliveryIcon}<span class="addr-cell" style="overflow:hidden;text-overflow:ellipsis" title="${esc(o.address)}">${esc(addrShort)||'—'}</span></span>`:''}
       </td>
       <td data-label="Category" style="padding:7px 8px">${catHtml}</td>
-      <td data-label="Options" style="padding:7px 8px;font-size:11px;color:var(--muted)"></td>
+      <td data-label="Options" style="padding:7px 8px;font-size:11px;overflow:visible;white-space:normal;line-height:1.6">${optHtml}</td>
       <td data-label="Qty" class="mono" style="padding:7px 8px">${o.qty}</td>
       <td data-label="Total" class="mono" style="padding:7px 8px">$${o.total.toFixed(2)}</td>
       <td data-label="Status" style="padding:7px 8px"><select class="status-select b-${(o.status||'pending').toLowerCase()}" onchange="updateStatus('${esc(o.orderId)}','${esc(o.id)}',this.value,this)" onclick="event.stopPropagation()">
