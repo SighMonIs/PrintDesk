@@ -1040,11 +1040,8 @@ async function saveColours(){
     setStatus('ok','Colours saved · '+colours.length+' colours');
     closeColourModal();
   }catch(e){
-    console.error('Save error:', e);
     setStatus('err','Save failed: '+e.message);
-    alert('Save failed: '+e.message+'
-
-Check browser console (F12) for details.');
+    alert('Save failed: '+e.message);
   }
 }
 
