@@ -46,8 +46,8 @@ body{font-family:'Sora',sans-serif;color:var(--text);font-size:13px;line-height:
 .toolbar input,.toolbar select{height:34px;padding:0 10px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;}
 .toolbar input{min-width:200px;flex:1;}
 .toolbar select option{background:var(--surface2);}
-.toolbar-check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap;cursor:pointer;user-select:none;}
-.toolbar-check input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;}
+.toolbar-check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap;cursor:pointer;user-select:none;height:34px;padding:0 10px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);transition:border-color 0.12s;}
+.toolbar-check input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;}.toolbar-check:hover{border-color:rgba(255,255,255,0.25);background:#2a2a2f;}
 
 .tbl-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
 table{width:100%;border-collapse:collapse;table-layout:fixed;}
@@ -295,7 +295,6 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
           <th style="width:60px">#</th>
           <th class="sortable" style="width:140px" data-key="customer" onclick="sortBy('customer')">Customer</th>
           <th style="width:160px">Address</th>
-          <th class="sortable" style="width:140px" data-key="model" onclick="sortBy('model')">Model</th>
           <th style="width:180px">Category</th>
           <th style="width:85px">Delivery</th>
           <th class="sortable" style="width:55px" data-key="qty" onclick="sortBy('qty')">Qty</th>
@@ -589,7 +588,7 @@ function renderTable(){
   document.getElementById('s-revenue').textContent  ='$'+rev.toFixed(2);
 
   const tbody=document.getElementById('tbody');
-  if(!list.length){tbody.innerHTML=`<tr><td colspan="12" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;return;}
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;return;}
 
   const numMap=buildOrderNumberMap(list);
   const seen=new Set();
@@ -607,7 +606,6 @@ function renderTable(){
       <td class="card-order-num">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
       <td data-label="Customer" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
       <td data-label="Address" class="addr-cell" title="${esc(o.address)}">${isFirst?esc(addrShort)||'—':''}</td>
-      <td data-label="Model" title="${esc(o.model)}">${esc(o.model)||'—'}</td>
       <td data-label="Category">${catHtml}</td>
       <td data-label="Delivery" style="font-size:12px;color:var(--muted)">${esc(o.delivery)||'Post'}</td>
       <td data-label="Qty" class="mono">${o.qty}</td>
