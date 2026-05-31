@@ -51,14 +51,14 @@ body{font-family:'Sora',sans-serif;color:var(--text);font-size:13px;line-height:
 
 .tbl-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
 table{width:100%;border-collapse:collapse;table-layout:fixed;}
-thead th{background:var(--surface);padding:10px 12px;text-align:left;font-size:11px;font-weight:500;color:var(--muted);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default;}
+thead th{background:var(--surface);padding:8px 8px;text-align:left;font-size:11px;font-weight:500;color:var(--muted);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default;}
 thead th.sortable{cursor:pointer;}
 thead th.sortable:hover{color:var(--text);}
 thead th.sort-active{color:var(--accent);}
 tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;}
 tbody tr:last-child{border-bottom:none;}
 tbody tr:hover{background:var(--surface2);}
-tbody td{padding:9px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
+tbody td{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
 td.mono{font-family:'DM Mono',monospace;font-size:12px;}
 tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 
@@ -83,7 +83,7 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .note-btn.has-note{color:var(--accent);}
 .note-btn.no-note{color:var(--muted);opacity:0.4;}
 .note-btn:hover{background:var(--surface2);opacity:1;}
-.icon-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:15px;transition:all 0.12s;}
+.icon-btn{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:15px;transition:all 0.12s;}
 .icon-btn:hover{background:var(--surface2);color:var(--text);}
 .icon-btn.del:hover{color:var(--red);border-color:rgba(224,92,92,0.3);background:rgba(224,92,92,0.08);}
 .empty{padding:3rem;text-align:center;color:var(--muted);}
@@ -292,17 +292,17 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
     <table>
       <thead>
         <tr>
-          <th style="width:60px">#</th>
-          <th class="sortable" style="width:140px" data-key="customer" onclick="sortBy('customer')">Customer</th>
-          <th style="width:160px">Address</th>
-          <th style="width:180px">Category</th>
-          <th style="width:85px">Delivery</th>
-          <th class="sortable" style="width:55px" data-key="qty" onclick="sortBy('qty')">Qty</th>
-          <th class="sortable" style="width:85px" data-key="total" onclick="sortBy('total')">Total</th>
-          <th style="width:120px">Status</th>
-          <th class="sortable" style="width:110px" data-key="date" onclick="sortBy('date')">Date</th>
-          <th style="width:50px">Note</th>
-          <th style="width:74px"></th>
+          <th style="width:44px">#</th>
+          <th class="sortable" style="width:130px" data-key="customer" onclick="sortBy('customer')">Customer</th>
+          <th style="width:170px">Address</th>
+          <th style="width:150px">Category</th>
+          <th style="width:120px">Options</th>
+          <th class="sortable" style="width:44px" data-key="qty" onclick="sortBy('qty')">Qty</th>
+          <th class="sortable" style="width:80px" data-key="total" onclick="sortBy('total')">Total</th>
+          <th style="width:110px">Status</th>
+          <th class="sortable" style="width:95px" data-key="date" onclick="sortBy('date')">Date</th>
+          <th style="width:40px">Note</th>
+          <th style="width:66px"></th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -602,23 +602,25 @@ function renderTable(){
     const hasNote=!!o.notes.trim();
     const catHtml=cat?`<span class="cat-path">${esc(cat.name)}</span>`:'—';
     const noteHtml=`<button class="note-btn ${hasNote?'has-note':'no-note'}" onclick="showNote(${JSON.stringify(esc(o.model))},${JSON.stringify(esc(o.notes))})" title="${hasNote?'View note':'No note'}"><i class="ti ti-notes"></i></button>`;
+    const deliveryIcon=isFirst?(o.delivery==='Pick Up'?'<i class="ti ti-hand-stop" title="Pick Up" style="font-size:13px;color:var(--muted);margin-left:5px;flex-shrink:0"></i>':'<i class="ti ti-mail" title="Post" style="font-size:13px;color:var(--muted);margin-left:5px;flex-shrink:0"></i>'):'';
     return`<tr class="${isFirst?'group-first':''}">
-      <td class="card-order-num">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
-      <td data-label="Customer" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
-      <td data-label="Address" class="addr-cell" title="${esc(o.address)}">${isFirst?esc(addrShort)||'—':''}</td>
-      <td data-label="Category">${catHtml}</td>
-      <td data-label="Delivery" style="font-size:12px;color:var(--muted)">${esc(o.delivery)||'Post'}</td>
-      <td data-label="Qty" class="mono">${o.qty}</td>
-      <td data-label="Total" class="mono">$${o.total.toFixed(2)}</td>
-      <td data-label="Status"><select class="status-select b-${(o.status||'pending').toLowerCase()}" onchange="updateStatus('${esc(o.orderId)}','${esc(o.id)}',this.value,this)" onclick="event.stopPropagation()">
+      <td class="card-order-num" style="padding:7px 8px">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
+      <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
+      <td data-label="Address" style="padding:7px 8px">${isFirst?`<span style="display:flex;align-items:center;overflow:hidden"><span class="addr-cell" style="overflow:hidden;text-overflow:ellipsis" title="${esc(o.address)}">${esc(addrShort)||'—'}</span>${deliveryIcon}</span>`:''}
+      </td>
+      <td data-label="Category" style="padding:7px 8px">${catHtml}</td>
+      <td data-label="Options" style="padding:7px 8px;font-size:11px;color:var(--muted)"></td>
+      <td data-label="Qty" class="mono" style="padding:7px 8px">${o.qty}</td>
+      <td data-label="Total" class="mono" style="padding:7px 8px">$${o.total.toFixed(2)}</td>
+      <td data-label="Status" style="padding:7px 8px"><select class="status-select b-${(o.status||'pending').toLowerCase()}" onchange="updateStatus('${esc(o.orderId)}','${esc(o.id)}',this.value,this)" onclick="event.stopPropagation()">
         <option${o.status==='Pending'?' selected':''}>Pending</option>
         <option${o.status==='Printing'?' selected':''}>Printing</option>
         <option${o.status==='Complete'?' selected':''}>Complete</option>
         <option${o.status==='Cancelled'?' selected':''}>Cancelled</option>
       </select></td>
-      <td data-label="Date" class="mono" style="font-size:12px">${toDisplay(o.date)||'—'}</td>
-      <td data-label="Note">${noteHtml}</td>
-      <td class="card-actions" style="display:flex;gap:4px;padding:6px 8px">
+      <td data-label="Date" class="mono" style="padding:7px 8px;font-size:11px">${toDisplay(o.date)||'—'}</td>
+      <td data-label="Note" style="padding:7px 6px">${noteHtml}</td>
+      <td class="card-actions" style="display:flex;gap:3px;padding:5px 6px">
         ${isFirst?`<button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
         <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>`:''}
       </td>
