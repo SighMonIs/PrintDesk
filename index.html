@@ -738,7 +738,7 @@ function renderTable(){
     // Primary: always sort by orderId descending (newest first)
     const aNum = parseInt(String(a.orderId).replace(/^O0*/,''))||0;
     const bNum = parseInt(String(b.orderId).replace(/^O0*/,''))||0;
-    if(aNum !== bNum) return bNum - aNum;
+    if(aNum !== bNum) return aNum - bNum;
     // Secondary: within same order, sort by row id (item number)
     const aItem = parseInt(String(a.id).split('-').pop())||0;
     const bItem = parseInt(String(b.id).split('-').pop())||0;
