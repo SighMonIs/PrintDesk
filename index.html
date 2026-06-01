@@ -427,7 +427,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.2.1</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.2.2</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -784,7 +784,8 @@ function updateStats(){
   const seenOrders={};
   completed.forEach(o=>{
     if(!seenOrders[o.orderId]){
-      seenOrders[o.orderId]={payment:o.payment||'No',total:0};
+      const pay=(o.payment&&o.payment.trim())?o.payment.trim():'No';
+      seenOrders[o.orderId]={payment:pay,total:0};
     }
     seenOrders[o.orderId].total+=o.total;
   });
@@ -889,7 +890,7 @@ function renderTable(){
         <option${o.status==='Complete'?' selected':''}>Complete</option>
         <option${o.status==='Cancelled'?' selected':''}>Cancelled</option>
       </select></td>
-      <td data-label="Date" class="mono" style="padding:7px 8px;font-size:11px">${toDisplay(o.date)||'—'}</td>
+      <td data-label="$" style="padding:7px 6px;text-align:center">${isFirst?`<span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span>`:''}</td>
       <td data-label="Note" style="padding:7px 6px">${noteHtml}</td>
       <td class="card-actions" style="display:flex;gap:3px;padding:5px 6px">
         ${isFirst?`<button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
