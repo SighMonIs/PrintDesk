@@ -389,7 +389,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.0.0</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.1.0</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -566,8 +566,14 @@ function nextOrderId(){
   return 'O'+padN((nums.length?Math.max(...nums):0)+1,10);
 }
 function nextRowId(){
+  // Legacy numeric IDs — kept for reference only, not used for new rows
   const nums=orders.map(o=>o.id).filter(id=>/^\d+$/.test(String(id))).map(id=>parseInt(id));
   return padN((nums.length?Math.max(...nums):0)+1,10);
+}
+function makeRowId(orderId, itemIndex){
+  // Format: O0001-1, O0001-2 etc — ties each row to its order
+  const shortOrder = String(orderId).replace(/^O0*/, 'O');
+  return shortOrder + '-' + (itemIndex + 1);
 }
 function nextCatId(){
   const nums=cats.map(c=>c.id).filter(id=>/^C\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(1)));
@@ -1218,8 +1224,8 @@ async function saveOrder(){
   const delivery=document.getElementById('f-delivery').value;
   // Save whatever is in the address box — validated or not
   const address=document.getElementById('f-address').value.trim();
-  const newRows=models.map(m=>({
-    id:nextRowId(),orderId,customer,address,delivery,
+  const newRows=models.map((m,i)=>({
+    id:makeRowId(orderId, i),orderId,customer,address,delivery,
     model:m.model,catId:m.catId,qty:m.qty,price:m.price,
     total:parseFloat((m.qty*m.price).toFixed(2)),
     status:'Pending',date,notes:m.notes,options:m.options
