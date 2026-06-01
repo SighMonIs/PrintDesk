@@ -280,6 +280,11 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .opt-row.opt-error input,.opt-row.opt-error select{border-color:var(--red)!important;}
 .colour-picker-wrap.cp-error .colour-picker-btn{border-color:var(--red)!important;}
 
+
+/* Previously made tick */
+.made-tick{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--green);margin-left:6px;vertical-align:middle;}
+.made-tick i{font-size:13px;}
+
 /* Mobile */
 body.mobile .app{padding:1rem 0.75rem 5rem;}
 body.mobile .hdr{margin-bottom:1.25rem;gap:10px;}
@@ -657,6 +662,41 @@ function defaultCats(){
   ];
 }
 
+
+// ── Previously made check ─────────────────────────────────
+// A signature is catId + normalised options string
+// An order row counts as "made" if ANY order row with the same
+// catId + options has status === 'Complete'
+function buildMadeSet(){
+  const made = new Set();
+  orders.forEach(o=>{
+    if(o.status==='Complete' && o.catId){
+      made.add(o.catId + '|' + normaliseOpts(o.options));
+    }
+  });
+  return made;
+}
+
+function normaliseOpts(opts){
+  // Sort pipe-separated key:value pairs so order doesn't matter
+  if(!opts)return'';
+  return opts.split('|').map(s=>s.trim()).filter(Boolean).sort().join('|');
+}
+
+function wasPreviouslyMade(o, madeSet){
+  // Don't give tick to the row itself if it IS the completed one —
+  // only if a *different* row with same signature is Complete
+  const sig = o.catId + '|' + normaliseOpts(o.options);
+  if(!madeSet.has(sig)) return false;
+  // Check that the matching complete row is a different row
+  return orders.some(r =>
+    r.id !== o.id &&
+    r.status === 'Complete' &&
+    r.catId === o.catId &&
+    normaliseOpts(r.options) === normaliseOpts(o.options)
+  );
+}
+
 // ── Render table ───────────────────────────────────────────
 function uniqueOrderCount(){return new Set(orders.map(o=>o.orderId)).size;}
 
@@ -672,6 +712,7 @@ function renderTable(){
   const fs=document.getElementById('filterStatus').value;
   const fc=document.getElementById('filterCat').value;
   const hc=document.getElementById('hideCompleted').checked;
+  const madeSet=buildMadeSet();
 
   let list=orders.filter(o=>{
     if(hc&&(o.status==='Complete'||o.status==='Cancelled'))return false;
@@ -706,7 +747,10 @@ function renderTable(){
     const addrShort=o.address?o.address.split(',').slice(0,2).join(','):'—';
     const orderNum=orderNumFromId(o.orderId);
     const hasNote=!!o.notes.trim();
-    const catHtml=cat?`<span class="cat-path">${esc(cat.name)}</span>`:'—';
+    const prevMade=wasPreviouslyMade(o, madeSet);
+    const catHtml=cat
+      ?`<span class="cat-path">${esc(cat.name)}</span>${prevMade?'<span class="made-tick" title="Model previously made"><i class="ti ti-circle-check-filled"></i></span>':''}`
+      :'—';
     const noteHtml=`<button class="note-btn ${hasNote?'has-note':'no-note'}" onclick="showNote(${JSON.stringify(esc(o.model))},${JSON.stringify(esc(o.notes))})" title="${hasNote?'View note':'No note'}"><i class="ti ti-notes"></i></button>`;
     const deliveryIcon=isFirst?(o.delivery==='Pick Up'
       ?'<i class="ti ti-hand-stop" title="Pick Up" style="font-size:13px;color:var(--muted);margin-right:5px;flex-shrink:0"></i>'
