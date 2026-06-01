@@ -295,6 +295,13 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .stat-half{flex:1;padding:14px 12px;}
 .stat-divider{width:1px;background:var(--border);flex-shrink:0;margin:10px 0;}
 
+
+/* Payment indicator */
+.pay-N{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:var(--red);}
+.pay-F{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:var(--blue);}
+.pay-W{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:#2e7d32;}
+.pay-S{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:var(--green);}
+
 /* Mobile */
 body.mobile .app{padding:1rem 0.75rem 5rem;}
 body.mobile .hdr{margin-bottom:1.25rem;gap:10px;}
@@ -410,7 +417,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
           <th class="sortable" style="width:44px" data-key="qty" onclick="sortBy('qty')">Qty</th>
           <th class="sortable" style="width:80px" data-key="total" onclick="sortBy('total')">Total</th>
           <th style="width:130px">Status</th>
-          <th class="sortable" style="width:95px" data-key="date" onclick="sortBy('date')">Date</th>
+          <th style="width:40px">$</th>
           <th style="width:40px">Note</th>
           <th style="width:66px"></th>
         </tr>
@@ -420,7 +427,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.2.0</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.2.1</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
