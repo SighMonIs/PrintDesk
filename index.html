@@ -1235,11 +1235,17 @@ async function saveOrder(){
 
 async function updateStatus(orderId,rowId,newStatus,sel){
   sel.className='status-select b-'+newStatus.toLowerCase();
-  orders.forEach(o=>{if(o.orderId===orderId)o.status=newStatus;});
+  // Only update the specific row, not all rows in the order
+  const row=orders.find(o=>o.id===rowId);
+  if(!row)return;
+  row.status=newStatus;
   renderTable();
-  const row=orders.find(o=>o.id===rowId);if(!row)return;
-  try{await apiPayload({action:'saveOrder',row:{...row,status:newStatus}});setStatus('ok','Status updated');}
-  catch(e){setStatus('err','Update failed: '+e.message);}
+  try{
+    await apiPayload({action:'saveOrder',row:{...row,status:newStatus}});
+    setStatus('ok','Status updated');
+  }catch(e){
+    setStatus('err','Update failed: '+e.message);
+  }
 }
 
 async function deleteOrder(orderId){
