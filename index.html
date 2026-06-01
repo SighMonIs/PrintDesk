@@ -236,6 +236,25 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .colour-row .avail-check{display:flex;align-items:center;justify-content:center;}
 .colour-row .avail-check input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
 
+
+/* Joined button group */
+.btn-group{display:flex;align-items:center;}
+.btn-group .btn{border-radius:0;}
+.btn-group .btn:first-child{border-radius:var(--radius) 0 0 var(--radius);}
+.btn-group .btn:last-child{border-radius:0 var(--radius) var(--radius) 0;border-left:none;}
+.btn-group .btn:not(:first-child):not(:last-child){border-left:none;}
+
+
+/* Custom colour layer selectors */
+.layer-selectors{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;padding-left:108px;}
+.layer-sel-row{display:flex;flex-direction:column;gap:3px;}
+.layer-sel-row label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;}
+.layer-sel-wrap{display:flex;align-items:center;gap:4px;}
+.layer-swatch{width:18px;height:18px;border-radius:3px;border:1px solid var(--border2);flex-shrink:0;}
+.layer-sel-wrap select{flex:1;height:28px;padding:0 6px;font-size:11px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
+.layer-sel-wrap select:focus{border-color:var(--accent2);}
+.layer-sel-wrap select option{background:var(--surface2);}
+
 /* Mobile */
 body.mobile .app{padding:1rem 0.75rem 5rem;}
 body.mobile .hdr{margin-bottom:1.25rem;gap:10px;}
@@ -291,8 +310,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
     <div><span class="logo">PrintDesk</span></div>
     <div class="hdr-actions">
       <button class="btn" onclick="openColourModal()"><i class="ti ti-brush"></i><span class="btn-label"> Colours</span></button>
-      <button class="btn" onclick="openCatModal()"><i class="ti ti-category"></i><span class="btn-label"> Categories</span></button>
-      <button class="btn" onclick="openOptModal()"><i class="ti ti-list-details"></i><span class="btn-label"> Options</span></button>
+      <div class="btn-group"><button class="btn" onclick="openCatModal()"><i class="ti ti-category"></i><span class="btn-label"> Categories</span></button><button class="btn" onclick="openOptModal()"><i class="ti ti-list-details"></i><span class="btn-label"> Options</span></button></div>
       <button class="btn" onclick="loadAll()"><i class="ti ti-refresh"></i><span class="btn-label"> Refresh</span></button>
       <button class="btn primary" onclick="openAddModal()"><i class="ti ti-plus"></i><span class="btn-label"> New Order</span></button>
       <button class="btn icon-only" onclick="openSettings()" title="Settings"><i class="ti ti-settings"></i></button>
@@ -752,8 +770,17 @@ function renderModelOpts(idx, catId, savedOpts){
       const ddVal=isCustom?'Custom':(val||'');
       const customVal=isCustom?val:'';
       const opts_html=items.map(it=>`<option${ddVal===it?' selected':''}>${esc(it)}</option>`).join('');
-      return`<div class="opt-row"><label>${esc(opt.name)}</label><select id="ov-${idx}-${opt.id}" onchange="ddChanged(${idx},'${opt.id}')"><option value="">— select —</option>${opts_html}</select></div>`+
-        `<div class="opt-custom" id="ovc-${idx}-${opt.id}" style="${ddVal==='Custom'?'':'display:none'}"><input type="text" id="ovt-${idx}-${opt.id}" value="${esc(customVal)}" placeholder="Describe your custom option…" oninput="collectOpts(${idx})"></div>`;
+      const isColourOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
+      const customContent=isColourOpt
+        ?'' // will be populated by renderLayerSelectors
+        :`<input type="text" id="ovt-${idx}-${opt.id}" value="${esc(customVal)}" placeholder="Describe your custom option…" oninput="collectOpts(${idx})">`;
+      const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label><select id="ov-${idx}-${opt.id}" onchange="ddChanged(${idx},'${opt.id}')"><option value="">— select —</option>${opts_html}</select></div>`+
+        `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="${isColourOpt?1:0}" style="${ddVal==='Custom'?'':'display:none'}">${customContent}</div>`;
+      if(ddVal==='Custom'&&isColourOpt){
+        // Schedule layer render after DOM insertion
+        setTimeout(()=>renderLayerSelectors(idx,opt.id,customVal),0);
+      }
+      return rowHtml;
     }
   }).join('');
 }
@@ -762,9 +789,52 @@ function ddChanged(idx,optId){
   const sel=document.getElementById('ov-'+idx+'-'+optId);
   const custom=document.getElementById('ovc-'+idx+'-'+optId);
   if(sel&&custom){
-    custom.style.display=sel.value==='Custom'?'':'none';
-    if(sel.value!=='Custom'){const t=document.getElementById('ovt-'+idx+'-'+optId);if(t)t.value='';}
+    const isCustom=sel.value==='Custom';
+    custom.style.display=isCustom?'':'none';
+    if(!isCustom){const t=document.getElementById('ovt-'+idx+'-'+optId);if(t)t.value='';}
+    // If this is a colour scheme field, render layer selectors
+    if(isCustom && document.getElementById('ovc-'+idx+'-'+optId).dataset.iscolour==='1'){
+      renderLayerSelectors(idx, optId, '');
+    }
   }
+  collectOpts(idx);
+}
+
+function colourOptions(selVal){
+  return colours.map(c=>`<option value="${esc(c.name)}" ${c.name===selVal?'selected':''}>${esc(c.name)}</option>`).join('');
+}
+
+function renderLayerSelectors(idx, optId, savedVal){
+  const container=document.getElementById('ovc-'+idx+'-'+optId);
+  if(!container)return;
+  // Parse saved: "Layer 1:Red|Layer 2:Blue|Layer 3:|Layer 4:"
+  const saved={};
+  if(savedVal){savedVal.split('|').forEach(p=>{const[k,...v]=p.split(':');if(k)saved[k.trim()]=v.join(':').trim();});}
+  container.innerHTML=`<div class="layer-selectors">
+    ${[1,2,3,4].map(n=>`
+      <div class="layer-sel-row">
+        <label>Layer ${n}</label>
+        <div class="layer-sel-wrap">
+          <div class="layer-swatch" id="ls-${idx}-${optId}-${n}" style="background:${getColourCode(saved['Layer '+n]||'')}"></div>
+          <select id="lv-${idx}-${optId}-${n}" onchange="layerChanged(${idx},'${optId}',${n},this.value)">
+            <option value="">— none —</option>
+            ${colourOptions(saved['Layer '+n]||'')}
+          </select>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function getColourCode(name){
+  if(!name)return'transparent';
+  const c=colours.find(c=>c.name===name);
+  return c?c.code:'transparent';
+}
+
+function layerChanged(idx,optId,layerNum,val){
+  // Update swatch
+  const sw=document.getElementById('ls-'+idx+'-'+optId+'-'+layerNum);
+  if(sw)sw.style.background=getColourCode(val);
   collectOpts(idx);
 }
 
@@ -776,11 +846,24 @@ function collectOpts(idx){
     const el=document.getElementById('ov-'+idx+'-'+opt.id);
     if(!el)return'';
     let val=el.value;
-    if(val==='Custom'){const t=document.getElementById('ovt-'+idx+'-'+opt.id);val=t?t.value:'';}
+    if(val==='Custom'){
+      const container=document.getElementById('ovc-'+idx+'-'+opt.id);
+      if(container&&container.dataset.iscolour==='1'){
+        // Collect layer values
+        const layers=[1,2,3,4].map(n=>{
+          const lv=document.getElementById('lv-'+idx+'-'+opt.id+'-'+n);
+          return lv&&lv.value?'Layer '+n+':'+lv.value:'';
+        }).filter(Boolean);
+        val='Custom:'+(layers.join('|'));
+      } else {
+        const t=document.getElementById('ovt-'+idx+'-'+opt.id);
+        val=t?t.value:'';
+      }
+    }
     return val?`${opt.name}:${val}`:'';
   }).filter(Boolean);
   const hidden=document.getElementById('opts-'+idx);
-  if(hidden)hidden.value=parts.join('|');
+  if(hidden)hidden.value=parts.join('||');
 }
 
 function addModelRow(d){
