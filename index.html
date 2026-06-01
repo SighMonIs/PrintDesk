@@ -271,6 +271,15 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .colour-picker-list .cp-none{padding:6px 10px;font-size:12px;color:var(--muted);cursor:pointer;}
 .colour-picker-list .cp-none:hover{background:var(--surface);}
 
+
+/* Validation errors */
+.field-error input,.field-error select,.field-error .addr-wrap input{border-color:var(--red)!important;}
+.field-error-msg{font-size:11px;color:var(--red);margin-top:4px;display:flex;align-items:center;gap:4px;}
+.model-row.row-error{border-color:var(--red)!important;}
+.opt-row.opt-error label{color:var(--red);}
+.opt-row.opt-error input,.opt-row.opt-error select{border-color:var(--red)!important;}
+.colour-picker-wrap.cp-error .colour-picker-btn{border-color:var(--red)!important;}
+
 /* Mobile */
 body.mobile .app{padding:1rem 0.75rem 5rem;}
 body.mobile .hdr{margin-bottom:1.25rem;gap:10px;}
@@ -386,7 +395,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
       <input type="hidden" id="f-date">
     </div>
     <div class="field-row">
-      <div class="field"><label>Customer name</label><input id="f-customer" type="text" placeholder="Jane Smith"></div>
+      <div class="field"><label>Customer name</label><input id="f-customer" type="text" placeholder="Jane Smith" oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()"></div>
       <div class="field"><label>Delivery type</label>
         <select id="f-delivery"><option value="Post">Post</option><option value="Pick Up">Pick Up</option></select>
       </div>
@@ -394,7 +403,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
     <div class="field">
       <label>Address / Location</label>
       <div class="addr-wrap">
-        <input id="f-address" type="text" placeholder="Address or location note…" autocomplete="off">
+        <input id="f-address" type="text" placeholder="Address or location note…" autocomplete="off" oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
         <i class="ti ti-map-pin-check addr-tick" id="addrTick"></i>
       </div>
       <div class="field-hint">Select a suggestion for a validated address, or type any location note freely.</div>
@@ -1031,12 +1040,122 @@ function openEdit(orderId){
   setTimeout(()=>initAutocomplete(),80);
 }
 
-function closeModal(){document.getElementById('orderModal').classList.remove('open');}
+function closeModal(){
+  document.getElementById('orderModal').classList.remove('open');
+  // Clear validation state
+  document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
+  document.querySelectorAll('.field-error-msg').forEach(el=>el.remove());
+  document.querySelectorAll('.model-row.row-error').forEach(el=>el.classList.remove('row-error'));
+  document.querySelectorAll('.opt-row.opt-error').forEach(el=>el.classList.remove('opt-error'));
+  document.querySelectorAll('.colour-picker-wrap.cp-error').forEach(el=>el.classList.remove('cp-error'));
+}
+
+function validateOrder(){
+  const errors=[];
+  // Clear previous error states
+  document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
+  document.querySelectorAll('.field-error-msg').forEach(el=>el.remove());
+  document.querySelectorAll('.model-row.row-error').forEach(el=>el.classList.remove('row-error'));
+  document.querySelectorAll('.opt-row.opt-error').forEach(el=>el.classList.remove('opt-error'));
+  document.querySelectorAll('.colour-picker-wrap.cp-error').forEach(el=>el.classList.remove('cp-error'));
+
+  // Customer name
+  const customer=document.getElementById('f-customer').value.trim();
+  if(!customer){
+    const f=document.getElementById('f-customer').closest('.field');
+    f.classList.add('field-error');
+    const msg=document.createElement('div');msg.className='field-error-msg';
+    msg.innerHTML='<i class="ti ti-alert-circle"></i> Required';
+    f.appendChild(msg);errors.push('customer');
+  }
+
+  // Address
+  const address=document.getElementById('f-address').value.trim();
+  if(!address){
+    const f=document.getElementById('f-address').closest('.field');
+    f.classList.add('field-error');
+    const msg=document.createElement('div');msg.className='field-error-msg';
+    msg.innerHTML='<i class="ti ti-alert-circle"></i> Required';
+    f.appendChild(msg);errors.push('address');
+  }
+
+  // Items
+  const itemRows=document.querySelectorAll('.model-row');
+  if(!itemRows.length){errors.push('no-items');return errors;}
+
+  itemRows.forEach(row=>{
+    const idx=row.dataset.idx;
+    let rowHasError=false;
+
+    // Category required
+    const catSel=document.getElementById('mc-'+idx);
+    if(!catSel||!catSel.value){
+      catSel&&catSel.closest('.mf')&&catSel.closest('.mf').classList.add('field-error');
+      rowHasError=true;errors.push('cat-'+idx);
+    }
+
+    // Qty > 0
+    const qtyEl=document.getElementById('mq-'+idx);
+    const qty=parseInt(qtyEl?.value)||0;
+    if(qty<=0){
+      qtyEl&&qtyEl.closest('.mf')&&qtyEl.closest('.mf').classList.add('field-error');
+      rowHasError=true;errors.push('qty-'+idx);
+    }
+
+    // Options — validate each option for this category
+    const catId=catSel?catSel.value:'';
+    const catOpts=getCatOpts(catId);
+    catOpts.forEach(opt=>{
+      const el=document.getElementById('ov-'+idx+'-'+opt.id);
+      if(!el)return;
+      const val=el.value;
+      if(!val){
+        // Required: option not selected
+        const optRow=el.closest('.opt-row');
+        if(optRow)optRow.classList.add('opt-error');
+        rowHasError=true;errors.push('opt-'+idx+'-'+opt.id);
+        return;
+      }
+      if(val==='Custom'){
+        const container=document.getElementById('ovc-'+idx+'-'+opt.id);
+        if(container&&container.dataset.iscolour==='1'){
+          // Custom colour — all 4 layers must be selected
+          [1,2,3,4].forEach(n=>{
+            const pickerId='lp-'+idx+'-'+opt.id+'-'+n;
+            const layerVal=getColourPickerValue(pickerId);
+            if(!layerVal){
+              const wrap=document.getElementById('cpw-'+pickerId);
+              if(wrap)wrap.classList.add('cp-error');
+              rowHasError=true;errors.push('layer-'+idx+'-'+opt.id+'-'+n);
+            }
+          });
+        } else {
+          // Custom text — must have content
+          const t=document.getElementById('ovt-'+idx+'-'+opt.id);
+          if(!t||!t.value.trim()){
+            if(t)t.style.borderColor='var(--red)';
+            rowHasError=true;errors.push('opt-custom-'+idx+'-'+opt.id);
+          }
+        }
+      }
+    });
+
+    if(rowHasError)row.classList.add('row-error');
+  });
+
+  return errors;
+}
 
 async function saveOrder(){
-  const customer=document.getElementById('f-customer').value.trim();
-  if(!customer){alert('Please enter a customer name.');return;}
+  const errors=validateOrder();
+  if(errors.length){
+    // Scroll to first error
+    const firstErr=document.querySelector('.field-error,.row-error');
+    if(firstErr)firstErr.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
   if(busy)return;
+  const customer=document.getElementById('f-customer').value.trim();
   const models=getModelData();
   const orderId=editOId||nextOrderId();
   const date=document.getElementById('f-date').value;
