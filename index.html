@@ -389,7 +389,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.1.1</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.1.2</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -738,7 +738,7 @@ function renderTable(){
     // Primary: always sort by orderId descending (newest first)
     const aNum = parseInt(String(a.orderId).replace(/^O0*/,''))||0;
     const bNum = parseInt(String(b.orderId).replace(/^O0*/,''))||0;
-    if(aNum !== bNum) return aNum - bNum;
+    if(aNum !== bNum) return bNum - aNum;
     // Secondary: within same order, sort by row id (item number)
     const aItem = parseInt(String(a.id).split('-').pop())||0;
     const bItem = parseInt(String(b.id).split('-').pop())||0;
@@ -1285,6 +1285,8 @@ async function updateStatus(orderId,rowId,newStatus,sel){
     }};
     const result=await apiPayload(payload);
     setStatus('ok','Status updated');
+    // Re-render to update green ticks — done after save so selects don't flash
+    renderTable();
   }catch(e){
     // Revert on failure
     row.status=prevStatus;
