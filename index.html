@@ -389,7 +389,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.1.0</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.1.1</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -687,22 +687,16 @@ function buildMadeSet(){
 
 function normaliseOpts(opts){
   // Sort pipe-separated key:value pairs so order doesn't matter
+  // Lowercase everything for case-insensitive matching
   if(!opts)return'';
-  return opts.split('|').map(s=>s.trim()).filter(Boolean).sort().join('|');
+  return opts.split('|').map(s=>s.trim().toLowerCase()).filter(Boolean).sort().join('|');
 }
 
 function wasPreviouslyMade(o, madeSet){
-  // Don't give tick to the row itself if it IS the completed one —
-  // only if a *different* row with same signature is Complete
+  // Show tick on ANY row whose catId + options matches a Complete row
+  // including the completed row itself
   const sig = o.catId + '|' + normaliseOpts(o.options);
-  if(!madeSet.has(sig)) return false;
-  // Check that the matching complete row is a different row
-  return orders.some(r =>
-    r.id !== o.id &&
-    r.status === 'Complete' &&
-    r.catId === o.catId &&
-    normaliseOpts(r.options) === normaliseOpts(o.options)
-  );
+  return madeSet.has(sig);
 }
 
 // ── Render table ───────────────────────────────────────────
@@ -741,6 +735,15 @@ function renderTable(){
   });
 
   list.sort((a,b)=>{
+    // Primary: always sort by orderId descending (newest first)
+    const aNum = parseInt(String(a.orderId).replace(/^O0*/,''))||0;
+    const bNum = parseInt(String(b.orderId).replace(/^O0*/,''))||0;
+    if(aNum !== bNum) return bNum - aNum;
+    // Secondary: within same order, sort by row id (item number)
+    const aItem = parseInt(String(a.id).split('-').pop())||0;
+    const bItem = parseInt(String(b.id).split('-').pop())||0;
+    if(aItem !== bItem) return aItem - bItem;
+    // Tertiary: user-chosen sort key
     let av=a[sortKey]||'',bv=b[sortKey]||'';
     if(['qty','total','price'].includes(sortKey)){av=+av;bv=+bv;}
     return av<bv?-sortDir:av>bv?sortDir:0;
