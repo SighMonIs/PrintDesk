@@ -389,7 +389,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.0.0</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -698,6 +698,16 @@ function wasPreviouslyMade(o, madeSet){
 }
 
 // ── Render table ───────────────────────────────────────────
+
+function updateStats(){
+  const uO=new Set(orders.map(o=>o.orderId)).size;
+  const rev=orders.filter(o=>o.status==='Complete').reduce((s,o)=>s+o.total,0);
+  document.getElementById('s-total').textContent    =uO;
+  document.getElementById('s-pending').textContent  =new Set(orders.filter(o=>o.status==='Pending').map(o=>o.orderId)).size;
+  document.getElementById('s-printing').textContent =new Set(orders.filter(o=>o.status==='Printing').map(o=>o.orderId)).size;
+  document.getElementById('s-revenue').textContent  ='$'+rev.toFixed(2);
+}
+
 function uniqueOrderCount(){return new Set(orders.map(o=>o.orderId)).size;}
 
 function orderNumFromId(orderId) {
@@ -773,7 +783,7 @@ function renderTable(){
       <td data-label="Options" style="padding:7px 8px;font-size:11px;overflow:visible;white-space:normal;line-height:1.6">${optHtml}</td>
       <td data-label="Qty" class="mono" style="padding:7px 8px">${o.qty}</td>
       <td data-label="Total" class="mono" style="padding:7px 8px">$${o.total.toFixed(2)}</td>
-      <td data-label="Status" style="padding:7px 8px"><select class="status-select b-${(o.status||'pending').toLowerCase()}" onchange="updateStatus('${esc(o.orderId)}','${esc(o.id)}',this.value,this)" onclick="event.stopPropagation()">
+      <td data-label="Status" style="padding:7px 8px"><select class="status-select b-${(o.status||'pending').toLowerCase()}" data-prev="${o.status||'Pending'}" onchange="updateStatus('${o.orderId}','${o.id}',this.value,this)" onclick="event.stopPropagation()">
         <option${o.status==='Pending'?' selected':''}>Pending</option>
         <option${o.status==='Printing'?' selected':''}>Printing</option>
         <option${o.status==='Complete'?' selected':''}>Complete</option>
@@ -1234,17 +1244,27 @@ async function saveOrder(){
 }
 
 async function updateStatus(orderId,rowId,newStatus,sel){
+  // Update the select appearance immediately
   sel.className='status-select b-'+newStatus.toLowerCase();
-  // Only update the specific row, not all rows in the order
-  const row=orders.find(o=>o.id===rowId);
-  if(!row)return;
+  sel.disabled=true;
+  // Find row by id — use raw string comparison, no encoding
+  const row=orders.find(o=>String(o.id)===String(rowId));
+  if(!row){sel.disabled=false;return;}
+  // Update local state without re-rendering (which would reset the select)
   row.status=newStatus;
-  renderTable();
+  // Update stats counters only
+  updateStats();
   try{
     await apiPayload({action:'saveOrder',row:{...row,status:newStatus}});
     setStatus('ok','Status updated');
   }catch(e){
+    // Revert on failure
+    row.status=sel.dataset.prev||'Pending';
+    sel.className='status-select b-'+(row.status).toLowerCase();
     setStatus('err','Update failed: '+e.message);
+  }finally{
+    sel.disabled=false;
+    sel.dataset.prev=newStatus;
   }
 }
 
