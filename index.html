@@ -285,6 +285,16 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 .made-tick{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--green);margin-left:6px;vertical-align:middle;}
 .made-tick i{font-size:13px;}
 
+
+/* Enhanced stats */
+.stat-breakdown{margin-top:6px;display:flex;flex-direction:column;gap:2px;}
+.stat-break-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;}
+.stat-break-label{color:var(--muted);}
+.stat-break-val{font-family:'DM Mono',monospace;color:var(--text);font-size:11px;}
+.stat-split{display:flex;align-items:stretch;padding:0!important;}
+.stat-half{flex:1;padding:14px 12px;}
+.stat-divider{width:1px;background:var(--border);flex-shrink:0;margin:10px 0;}
+
 /* Mobile */
 body.mobile .app{padding:1rem 0.75rem 5rem;}
 body.mobile .hdr{margin-bottom:1.25rem;gap:10px;}
@@ -349,10 +359,31 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 
   <!-- Stats -->
   <div class="stats">
-    <div class="stat"><div class="stat-label">Total orders</div><div class="stat-val" id="s-total">—</div></div>
-    <div class="stat"><div class="stat-label">Pending</div><div class="stat-val" id="s-pending">—</div></div>
-    <div class="stat"><div class="stat-label">Printing</div><div class="stat-val" id="s-printing">—</div></div>
-    <div class="stat"><div class="stat-label">Revenue</div><div class="stat-val accent" id="s-revenue">—</div></div>
+    <div class="stat">
+      <div class="stat-label">Total Items</div>
+      <div class="stat-val" id="s-total">—</div>
+      <div class="stat-breakdown" id="s-cat-breakdown"></div>
+    </div>
+    <div class="stat stat-split">
+      <div class="stat-half">
+        <div class="stat-label">Pending</div>
+        <div class="stat-val" id="s-pending">—</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-half">
+        <div class="stat-label">Printing</div>
+        <div class="stat-val" id="s-printing">—</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Completed</div>
+      <div class="stat-val" id="s-completed">—</div>
+      <div class="stat-breakdown" id="s-badge-breakdown"></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Payment</div>
+      <div class="stat-breakdown" id="s-payment-breakdown">—</div>
+    </div>
   </div>
 
   <!-- Toolbar -->
@@ -389,7 +420,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.1.2</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.2.0</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -405,14 +436,20 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
         <select id="f-delivery"><option value="Post">Post</option><option value="Pick Up">Pick Up</option></select>
       </div>
     </div>
-    <div class="field">
-      <label>Address / Location</label>
-      <div class="addr-wrap">
-        <input id="f-address" type="text" placeholder="Address or location note…" autocomplete="off" oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
-        <i class="ti ti-map-pin-check addr-tick" id="addrTick"></i>
+    <div class="field-row">
+      <div class="field">
+        <label>Address / Location</label>
+        <div class="addr-wrap">
+          <input id="f-address" type="text" placeholder="Address or location note…" autocomplete="off" oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
+          <i class="ti ti-map-pin-check addr-tick" id="addrTick"></i>
+        </div>
+        <div class="field-hint">Select a suggestion for a validated address, or type any location note freely.</div>
       </div>
-      <div class="field-hint">Select a suggestion for a validated address, or type any location note freely.</div>
+      <div class="field"><label>Payment</label>
+        <select id="f-payment"><option value="No">No</option><option value="Free">Free</option><option value="Simon">Simon</option><option value="Wade">Wade</option></select>
+      </div>
     </div>
+
     <div class="models-section">
       <div class="models-hdr">
         <span class="models-label">Items</span>
@@ -702,12 +739,62 @@ function wasPreviouslyMade(o, madeSet){
 // ── Render table ───────────────────────────────────────────
 
 function updateStats(){
-  const uO=new Set(orders.map(o=>o.orderId)).size;
-  const rev=orders.filter(o=>o.status==='Complete').reduce((s,o)=>s+o.total,0);
-  document.getElementById('s-total').textContent    =uO;
-  document.getElementById('s-pending').textContent  =new Set(orders.filter(o=>o.status==='Pending').map(o=>o.orderId)).size;
-  document.getElementById('s-printing').textContent =new Set(orders.filter(o=>o.status==='Printing').map(o=>o.orderId)).size;
-  document.getElementById('s-revenue').textContent  ='$'+rev.toFixed(2);
+  // ── Box 1: Total items by category ──────────────────────
+  document.getElementById('s-total').textContent = orders.length;
+  const catCounts={};
+  orders.forEach(o=>{
+    const cat=cats.find(c=>String(c.id)===String(o.catId));
+    const name=cat?cat.name:'Unknown';
+    catCounts[name]=(catCounts[name]||0)+1;
+  });
+  document.getElementById('s-cat-breakdown').innerHTML =
+    Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>
+      `<div class="stat-break-row"><span class="stat-break-label">${esc(name)}</span><span class="stat-break-val">${count}</span></div>`
+    ).join('');
+
+  // ── Box 2: Pending / Printing ────────────────────────────
+  document.getElementById('s-pending').textContent  = orders.filter(o=>o.status==='Pending').length;
+  document.getElementById('s-printing').textContent = orders.filter(o=>o.status==='Printing').length;
+
+  // ── Box 3: Completed + Name Badge breakdown ──────────────
+  const completed=orders.filter(o=>o.status==='Complete');
+  document.getElementById('s-completed').textContent = completed.length;
+  // Find Name Badge category
+  const badgeCat=cats.find(c=>c.name.toLowerCase().includes('name badge'));
+  if(badgeCat){
+    const badgeOrders=completed.filter(o=>String(o.catId)===String(badgeCat.id));
+    const pinCount=badgeOrders.filter(o=>o.options&&o.options.toLowerCase().includes('pin')).length;
+    const magCount=badgeOrders.filter(o=>o.options&&o.options.toLowerCase().includes('magnet')).length;
+    document.getElementById('s-badge-breakdown').innerHTML =
+      `<div class="stat-break-row"><span class="stat-break-label">Pin</span><span class="stat-break-val">${pinCount}</span></div>`+
+      `<div class="stat-break-row"><span class="stat-break-label">Magnet</span><span class="stat-break-val">${magCount}</span></div>`;
+  } else {
+    document.getElementById('s-badge-breakdown').innerHTML='';
+  }
+
+  // ── Box 4: Payment breakdown ─────────────────────────────
+  // Use unique orderIds for per-order payment (payment is per order not per item)
+  const seenOrders={};
+  completed.forEach(o=>{
+    if(!seenOrders[o.orderId]){
+      seenOrders[o.orderId]={payment:o.payment||'No',total:0};
+    }
+    seenOrders[o.orderId].total+=o.total;
+  });
+  const payBreakdown={No:0,Free:0,Simon:0,Wade:0};
+  const payRevenue={Simon:0,Wade:0};
+  Object.values(seenOrders).forEach(({payment,total})=>{
+    const p=payment||'No';
+    if(p==='No') payBreakdown.No++;
+    else if(p==='Free') payBreakdown.Free++;
+    else if(p==='Simon'){payBreakdown.Simon++;payRevenue.Simon+=total;}
+    else if(p==='Wade'){payBreakdown.Wade++;payRevenue.Wade+=total;}
+  });
+  document.getElementById('s-payment-breakdown').innerHTML =
+    `<div class="stat-break-row"><span class="stat-break-label">No</span><span class="stat-break-val">${payBreakdown.No}</span></div>`+
+    `<div class="stat-break-row"><span class="stat-break-label">Free</span><span class="stat-break-val">${payBreakdown.Free}</span></div>`+
+    `<div class="stat-break-row"><span class="stat-break-label">Simon</span><span class="stat-break-val">$${payRevenue.Simon.toFixed(2)}</span></div>`+
+    `<div class="stat-break-row"><span class="stat-break-label">Wade</span><span class="stat-break-val">$${payRevenue.Wade.toFixed(2)}</span></div>`;
 }
 
 function uniqueOrderCount(){return new Set(orders.map(o=>o.orderId)).size;}
@@ -749,12 +836,7 @@ function renderTable(){
     return av<bv?-sortDir:av>bv?sortDir:0;
   });
 
-  const uO=new Set(orders.map(o=>o.orderId)).size;
-  const rev=orders.filter(o=>o.status==='Complete').reduce((s,o)=>s+o.total,0);
-  document.getElementById('s-total').textContent    =uO;
-  document.getElementById('s-pending').textContent  =new Set(orders.filter(o=>o.status==='Pending').map(o=>o.orderId)).size;
-  document.getElementById('s-printing').textContent =new Set(orders.filter(o=>o.status==='Printing').map(o=>o.orderId)).size;
-  document.getElementById('s-revenue').textContent  ='$'+rev.toFixed(2);
+  updateStats();
 
   const tbody=document.getElementById('tbody');
   if(!list.length){tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;return;}
@@ -1079,6 +1161,7 @@ function openAddModal(){
   document.getElementById('f-address').classList.remove('validated');
   document.getElementById('addrTick').style.display='none';
   document.getElementById('f-delivery').value='Post';
+  document.getElementById('f-payment').value='No';
   const today=todayDMY();
   document.getElementById('f-date').value=today;
   document.getElementById('f-date-display').textContent=today;
@@ -1096,6 +1179,7 @@ function openEdit(orderId){
   if(first.address){document.getElementById('f-address').classList.add('validated');document.getElementById('addrTick').style.display='';}
   else{document.getElementById('f-address').classList.remove('validated');document.getElementById('addrTick').style.display='none';}
   document.getElementById('f-delivery').value=first.delivery||'Post';
+  document.getElementById('f-payment').value=first.payment||'No';
   const d=toDisplay(first.date);
   document.getElementById('f-date').value=d;
   document.getElementById('f-date-display').textContent=d;
@@ -1225,10 +1309,11 @@ async function saveOrder(){
   const orderId=editOId||nextOrderId();
   const date=document.getElementById('f-date').value;
   const delivery=document.getElementById('f-delivery').value;
+  const payment=document.getElementById('f-payment').value;
   // Save whatever is in the address box — validated or not
   const address=document.getElementById('f-address').value.trim();
   const newRows=models.map((m,i)=>({
-    id:makeRowId(orderId, i),orderId,customer,address,delivery,
+    id:makeRowId(orderId, i),orderId,customer,address,delivery,payment,
     model:m.model,catId:m.catId,qty:m.qty,price:m.price,
     total:parseFloat((m.qty*m.price).toFixed(2)),
     status:'Pending',date,notes:m.notes,options:m.options
@@ -1281,7 +1366,8 @@ async function updateStatus(orderId,rowId,newStatus,sel){
       status:   newStatus,
       date:     row.date,
       notes:    row.notes,
-      options:  row.options
+      options:  row.options,
+      payment:  row.payment
     }};
     const result=await apiPayload(payload);
     setStatus('ok','Status updated');
