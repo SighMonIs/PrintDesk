@@ -223,12 +223,16 @@ tr.group-first td{border-top:2px solid rgba(255,255,255,0.07);}
 
 
 /* Colours modal */
-.colour-mgr-hdr{display:grid;grid-template-columns:40px 1fr 110px 80px 32px;gap:8px;margin-bottom:6px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;padding:0 2px;}
-.colour-row{display:grid;grid-template-columns:40px 1fr 110px 80px 32px;gap:8px;align-items:center;margin-bottom:6px;}
-.colour-swatch{width:36px;height:28px;border-radius:var(--radius);border:1px solid var(--border2);flex-shrink:0;cursor:pointer;}
+.colour-mgr-hdr{display:grid;grid-template-columns:44px 1fr 130px 70px 32px;gap:10px;margin-bottom:6px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;padding:0 2px;}
+.colour-row{display:grid;grid-template-columns:44px 1fr 130px 70px 32px;gap:10px;align-items:center;margin-bottom:6px;}
+.colour-swatch{width:40px;height:28px;border-radius:var(--radius);border:1px solid var(--border2);flex-shrink:0;}
 .colour-row input[type=text]{height:30px;padding:0 8px;font-size:12px;font-family:'Sora',sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;width:100%;}
 .colour-row input[type=text]:focus{border-color:var(--accent2);}
-.colour-row input[type=color]{width:100%;height:30px;padding:2px 4px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);cursor:pointer;}
+.colour-hex-wrap{display:flex;align-items:center;gap:4px;}
+.colour-hex-wrap input{flex:1;height:30px;padding:0 8px;font-size:12px;font-family:'DM Mono',monospace;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;min-width:0;}
+.colour-hex-wrap input:focus{border-color:var(--accent2);}
+.copy-hex-btn{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:14px;flex-shrink:0;transition:all 0.12s;}
+.copy-hex-btn:hover{color:var(--accent);border-color:var(--accent2);background:rgba(232,213,163,0.08);}
 .colour-row .avail-check{display:flex;align-items:center;justify-content:center;}
 .colour-row .avail-check input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
 
@@ -1017,12 +1021,44 @@ function closeColourModal(){document.getElementById('colourModal').classList.rem
 function renderColourList(){
   document.getElementById('colourList').innerHTML=colours.map((c,i)=>`
     <div class="colour-row">
-      <div class="colour-swatch" style="background:${esc(c.code||'#cccccc')};border-color:${esc(c.code||'#cccccc')}"></div>
+      <div class="colour-swatch" style="background:${esc(c.code||'#cccccc')}"></div>
       <input type="text" value="${esc(c.name)}" placeholder="Colour name" oninput="colours[${i}].name=this.value">
-      <input type="color" value="${esc(c.code||'#cccccc')}" oninput="colours[${i}].code=this.value;renderColourList()">
+      <div class="colour-hex-wrap">
+        <input type="text" value="${esc(c.code||'#cccccc')}" placeholder="#000000" maxlength="7"
+          oninput="colours[${i}].code=this.value;updateSwatch(${i},this.value)">
+        <button class="copy-hex-btn" onclick="copyHex('${esc(c.code||'')}',this)" title="Copy hex code"><i class="ti ti-copy"></i></button>
+      </div>
       <div class="avail-check"><input type="checkbox" ${(c.available===true||String(c.available).toLowerCase()==='true'||c.available==='TRUE'||c.available===1)?'checked':''} onchange="colours[${i}].available=this.checked" title="Available"></div>
       <button class="icon-btn del" onclick="removeColour(${i})"><i class="ti ti-trash"></i></button>
     </div>`).join('');
+}
+
+function updateSwatch(i, code){
+  // Update the swatch colour live as hex is typed, without full re-render
+  const rows = document.querySelectorAll('.colour-row');
+  if(rows[i]){
+    const swatch = rows[i].querySelector('.colour-swatch');
+    if(swatch && /^#[0-9A-Fa-f]{6}$/.test(code)) swatch.style.background = code;
+  }
+}
+
+function copyHex(code, btn){
+  if(!code) return;
+  navigator.clipboard.writeText(code).then(()=>{
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="ti ti-check"></i>';
+    btn.style.color = 'var(--green)';
+    setTimeout(()=>{ btn.innerHTML = orig; btn.style.color = ''; }, 1500);
+  }).catch(()=>{
+    // Fallback for browsers without clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = code; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="ti ti-check"></i>';
+    setTimeout(()=>{ btn.innerHTML = orig; }, 1500);
+  });
 }
 
 function addColour(){
