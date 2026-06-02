@@ -430,7 +430,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.0</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.1</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -697,7 +697,7 @@ function saveSupabaseConfig(){
 
 // ── Load ───────────────────────────────────────────────────
 async function loadAll(){
-  GAS_URL = getConfigUrl('GAS_URL');
+  // Supabase config loaded from getCfg()
   if(!GAS_URL||!GAS_URL.startsWith('https://')){
     document.getElementById('setupBanner').style.display='';
     setStatus('err','Not connected — open Settings or update config.js');
