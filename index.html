@@ -9,11 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
+<script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
 <script>
-// Inline config — edit these values. config.js (if present) will override these.
-window.CONFIG = window.CONFIG || { GAS_URL: "", SHEET_URL: "" };
+// Fallback if config.js missing
+window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </script>
-<script src="config.js" onerror="console.warn('config.js not found')"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -344,11 +344,14 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 
   <!-- Setup banner -->
   <div class="setup-banner" id="setupBanner" style="display:none">
-    <h3><i class="ti ti-plug" style="vertical-align:-2px;margin-right:6px"></i>Connect to Google Sheet</h3>
-    <p>Paste your Google Apps Script Web App URL below.</p>
+    <h3><i class="ti ti-plug" style="vertical-align:-2px;margin-right:6px"></i>Connect to Supabase</h3>
+    <p>Enter your Supabase project URL and anon key to connect PrintDesk to your database.</p>
+    <div class="url-input-row" style="margin-bottom:6px">
+      <input type="url" id="gasUrlInput" placeholder="https://xxxxxxxxxxxx.supabase.co">
+    </div>
     <div class="url-input-row">
-      <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/…/exec">
-      <button class="btn primary" onclick="saveGasUrl()"><i class="ti ti-check"></i> Connect</button>
+      <input type="text" id="sbKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…">
+      <button class="btn primary" onclick="saveSupabaseConfig()"><i class="ti ti-check"></i> Connect</button>
     </div>
   </div>
 
@@ -427,7 +430,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v1.2.2</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.0</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -538,11 +541,11 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   <div class="modal md" onclick="event.stopPropagation()">
     <div class="modal-title"><i class="ti ti-settings" style="margin-right:8px;vertical-align:-2px"></i>Settings</div>
     <div class="settings-section">
-      <div class="settings-section-title">API Connection</div>
+      <div class="settings-section-title">Supabase Connection</div>
       <div class="field">
-        <label>Google Apps Script URL</label>
-        <input type="url" id="settingsGasUrl" placeholder="https://script.google.com/macros/s/…/exec">
-        <div class="field-hint">Your deployed Web App URL.</div>
+        <label>Supabase Project URL</label>
+        <input type="url" id="settingsGasUrl" placeholder="https://xxxxxxxxxxxx.supabase.co">
+        <div class="field-hint">Your Supabase project URL.</div>
       </div>
     </div>
     <div class="settings-section">
@@ -569,16 +572,25 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 
 <script>
 // ── Config ────────────────────────────────────────────────
-function getConfigUrl(key) {
-  // Try localStorage first (set via Settings modal), then config.js, then empty
-  const stored = localStorage.getItem('pd_' + key.toLowerCase());
-  if (stored) return stored;
-  if (typeof window.CONFIG !== 'undefined' && window.CONFIG[key]) return window.CONFIG[key];
-  return '';
+// ── Supabase config ───────────────────────────────────────
+function getCfg(key){
+  return localStorage.getItem('pd_'+key) ||
+         (typeof window.CONFIG!=='undefined'&&window.CONFIG[key]) || '';
+}
+
+const SB_HEADERS = () => ({
+  'apikey':        getCfg('SUPABASE_KEY'),
+  'Authorization': 'Bearer ' + getCfg('SUPABASE_KEY'),
+  'Content-Type':  'application/json',
+  'Prefer':        'return=representation'
+});
+
+function sbUrl(table, query){
+  return getCfg('SUPABASE_URL') + '/rest/v1/' + table + (query||'');
 }
 
 // ── State ──────────────────────────────────────────────────
-let GAS_URL = getConfigUrl('GAS_URL');
+let GAS_URL = ''; // kept for legacy refs, not used
 let orders    = [];
 let cats      = [];   // [{id,name,price}]
 let opts      = [];   // [{id,catId,name,display,options}]
@@ -632,33 +644,53 @@ function nextOptId(){
   return 'O'+padN((nums.length?Math.max(...nums):0)+1,4);
 }
 
-// ── API ────────────────────────────────────────────────────
-async function api(action, data){
-  let url=GAS_URL+'?action='+action+'&t='+Date.now();
-  if(data)url+='&data='+encodeURIComponent(JSON.stringify(data));
-  const res=await fetch(url);
-  const json=await res.json();
-  if(json.error)throw new Error(json.error);
-  return json;
+// ── Supabase API ──────────────────────────────────────────
+async function sbGet(table, query){
+  const res = await fetch(sbUrl(table, query), { headers: SB_HEADERS() });
+  if(!res.ok) throw new Error('GET '+table+' failed: '+res.status);
+  return res.json();
 }
-async function apiPayload(body){
-  // Use form-encoded POST — works cross-origin with Apps Script
-  // and handles special characters in options strings correctly
-  const form = new FormData();
-  form.append('payload', JSON.stringify(body));
-  const res = await fetch(GAS_URL, { method:'POST', body:form });
-  const text = await res.text();
-  let json;
-  try{ json=JSON.parse(text); }catch(pe){ throw new Error('Non-JSON response: '+text.slice(0,200)); }
-  if(json.error) throw new Error(json.error);
-  return json;
+
+async function sbUpsert(table, row){
+  const res = await fetch(sbUrl(table), {
+    method: 'POST',
+    headers: { ...SB_HEADERS(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(row)
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error('Upsert failed: '+t.slice(0,200)); }
+  return res.json();
+}
+
+async function sbDelete(table, filter){
+  const res = await fetch(sbUrl(table, '?'+filter), {
+    method: 'DELETE',
+    headers: SB_HEADERS()
+  });
+  if(!res.ok) throw new Error('DELETE '+table+' failed: '+res.status);
+  return true;
+}
+
+async function sbReplace(table, rows){
+  // Delete all then insert fresh — used for cats/options/colours
+  await fetch(sbUrl(table, '?id=neq.NONE'), {
+    method: 'DELETE', headers: SB_HEADERS()
+  });
+  if(!rows.length) return;
+  const res = await fetch(sbUrl(table), {
+    method: 'POST',
+    headers: { ...SB_HEADERS(), 'Prefer': 'return=representation' },
+    body: JSON.stringify(rows)
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error('Insert failed: '+t.slice(0,200)); }
+  return res.json();
 }
 
 // ── Setup ──────────────────────────────────────────────────
-function saveGasUrl(){
+function saveSupabaseConfig(){
   const url=document.getElementById('gasUrlInput').value.trim();
-  if(!url.startsWith('https://')){alert('Please paste a valid URL.');return;}
-  GAS_URL=url;localStorage.setItem('pd_gas_url',url);
+  const key=document.getElementById('sbKeyInput').value.trim();
+  if(url) localStorage.setItem('pd_SUPABASE_URL', url);
+  if(key) localStorage.setItem('pd_SUPABASE_KEY', key);
   document.getElementById('setupBanner').style.display='none';
   loadAll();
 }
@@ -1340,8 +1372,16 @@ async function saveOrder(){
   orders=orders.filter(o=>o.orderId!==orderId);
   orders.unshift(...newRows);renderTable();
   try{
-    if(editOId)await apiPayload({action:'deleteOrder',orderId:editOId});
-    for(const row of newRows)await apiPayload({action:'saveOrder',row});
+    if(editOId) await sbDelete('orders', 'order_id=eq.'+encodeURIComponent(editOId));
+    for(const row of newRows){
+      await sbUpsert('orders', {
+        id: row.id, order_id: row.orderId, customer: row.customer,
+        address: row.address, delivery: row.delivery, payment: row.payment,
+        model: row.model, cat_id: row.catId, qty: row.qty,
+        price: row.price, total: row.total, status: row.status,
+        date: row.date, notes: row.notes, options: row.options
+      });
+    }
     setStatus('ok','Saved · '+uniqueOrderCount()+' orders');
   }catch(e){setStatus('err','Save failed: '+e.message);}
   finally{busy=false;btn.disabled=false;btn.innerHTML='<i class="ti ti-check"></i> Save Order';}
@@ -1359,27 +1399,15 @@ async function updateStatus(orderId,rowId,newStatus,sel){
   row.status=newStatus;
   updateStats();
   try{
-    // Send the full row with updated status
-    const payload={action:'saveOrder',row:{
-      id:       row.id,
-      orderId:  row.orderId,
-      customer: row.customer,
-      address:  row.address,
-      delivery: row.delivery,
-      model:    row.model,
-      catId:    row.catId,
-      qty:      row.qty,
-      price:    row.price,
-      total:    row.total,
-      status:   newStatus,
-      date:     row.date,
-      notes:    row.notes,
-      options:  row.options,
-      payment:  row.payment
-    }};
-    const result=await apiPayload(payload);
+    // Update status via Supabase upsert
+    await sbUpsert('orders', {
+      id: row.id, order_id: row.orderId, customer: row.customer,
+      address: row.address, delivery: row.delivery, payment: row.payment,
+      model: row.model, cat_id: row.catId, qty: row.qty,
+      price: row.price, total: row.total, status: newStatus,
+      date: row.date, notes: row.notes, options: row.options
+    });
     setStatus('ok','Status updated');
-    // Re-render to update green ticks — done after save so selects don't flash
     renderTable();
   }catch(e){
     // Revert on failure
@@ -1399,7 +1427,7 @@ async function deleteOrder(orderId){
   setStatus('spin','Deleting…');
   orders=orders.filter(o=>o.orderId!==orderId);renderTable();
   try{
-    await apiPayload({action:'deleteOrder',orderId});
+    await sbDelete('orders', 'order_id=eq.'+encodeURIComponent(orderId));
     setStatus('ok','Deleted · '+uniqueOrderCount()+' orders');
   }catch(e){setStatus('err','Delete failed: '+e.message);}
 }
@@ -1424,7 +1452,7 @@ function removeCat(i){cats.splice(i,1);renderCatList();}
 async function saveCats(){
   setStatus('spin','Saving categories…');closeCatModal();populateCatFilter();
   try{
-    await apiPayload({action:'saveCats',cats});
+    await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price})));
     setStatus('ok','Categories saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
@@ -1473,7 +1501,7 @@ function removeOpt(i){opts.splice(i,1);renderOptList();}
 async function saveOpts(){
   setStatus('spin','Saving options…');closeOptModal();
   try{
-    await apiPayload({action:'saveOptions',options:opts});
+    await sbReplace('options', opts.map(o=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options})));
     setStatus('ok','Options saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
@@ -1559,8 +1587,8 @@ function darken(hex,amt){let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(
 function buildSwatches(){const row=document.getElementById('swatchRow');row.innerHTML='';ACCENT_PRESETS.forEach(p=>{const d=document.createElement('div');d.className='swatch';d.style.background=p.a;d.title=p.label;d.onclick=()=>{applyAccent(p.a,p.a2);document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));d.classList.add('active');document.getElementById('customColour').value=p.a;};row.appendChild(d);});}
 function openSettings(){
   buildSwatches();
-  document.getElementById('settingsGasUrl').value=GAS_URL||getConfigUrl('GAS_URL');
-  const su=getConfigUrl('SHEET_URL');
+  document.getElementById('settingsGasUrl').value=getCfg('SUPABASE_URL');
+  const su=getCfg('SHEET_URL');
   document.getElementById('settingsSheetUrl').value=su;updateSheetLink(su);
   const s=localStorage.getItem('pd_accent');if(s){try{document.getElementById('customColour').value=JSON.parse(s).a;}catch(e){}}
   document.getElementById('settingsModal').classList.add('open');
@@ -1569,9 +1597,10 @@ function closeSettings(){document.getElementById('settingsModal').classList.remo
 function applySettings(){
   const g=document.getElementById('settingsGasUrl').value.trim();
   const s=document.getElementById('settingsSheetUrl').value.trim();
-  if(g){GAS_URL=g;localStorage.setItem('pd_gas_url',g);}
-  if(s){localStorage.setItem('pd_sheet_url',s);updateSheetLink(s);}
-  closeSettings();if(g)loadAll();
+  if(g) localStorage.setItem('pd_SUPABASE_URL', g);
+  if(s){ localStorage.setItem('pd_sheet_url',s); updateSheetLink(s); }
+  closeSettings();
+  if(g) loadAll();
 }
 function updateSheetLink(url){const l=document.getElementById('sheetLink');if(url){l.href=url;l.style.opacity='1';}else{l.href='#';l.style.opacity='0.4';}}
 
@@ -1594,7 +1623,7 @@ document.addEventListener('click', e=>{
 
 // ── Boot ───────────────────────────────────────────────────
 loadAccent();
-updateSheetLink(getConfigUrl('SHEET_URL'));
+updateSheetLink(getCfg('SHEET_URL'));
 document.getElementById('setupBanner').style.display='none';
 loadAll();
 </script>
