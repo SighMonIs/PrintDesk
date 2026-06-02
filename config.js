@@ -1,8 +1,7 @@
 // PrintDesk configuration
-// Edit GAS_URL and SHEET_URL below, then upload this file to GitHub.
-// This file overrides any defaults in index.html.
+// Edit these values then upload to GitHub alongside index.html
 
 window.CONFIG = {
-  GAS_URL:   'https://script.google.com/macros/s/AKfycbyGgfG2MJg7_WzXZLcyKnnwalLdNkGP1Fr8fO396fuTe6sRwOfEufTYRIYR0Bd3wGPG/exec',
-  SHEET_URL: 'https://docs.google.com/spreadsheets/d/1MqYD3vQxsptOXetUdOyW3uAH2aleEZP7PgLg88IOTrI/edit?gid=1046151655#gid=1046151655'
+  SUPABASE_URL: 'https://brcwodrprpkxerxlpfgkd.supabase.co',
+  SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyY3dvZHJycGt4ZXJ4bHBmZ2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDA3MzgsImV4cCI6MjA5NTkxNjczOH0.T9m0gtP1Xp9PB8u8FnS0-9_a2Z2EHYrW4-NQbU6Z9tI'
 };
