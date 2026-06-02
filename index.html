@@ -430,7 +430,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.3</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.4</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -724,21 +724,23 @@ async function loadAll(){
 }
 
 function normalise(o){
+  // Supabase returns snake_case — map to camelCase with fallbacks
   return{
-    id:       String(o.id       ||''),
-    orderId:  String(o.orderId  ||''),
-    customer: String(o.customer ||''),
-    address:  String(o.address  ||''),
-    delivery: String(o.delivery ||'Post'),
-    model:    String(o.model    ||''),
-    catId:    String(o.catId    ||''),
-    qty:      Number(o.qty      ||0),
-    price:    Number(o.price    ||0),
-    total:    Number(o.total    ||0),
-    status:   String(o.status   ||'Pending'),
-    date:     toDisplay(String(o.date||'')),
-    notes:    String(o.notes    ||''),
-    options:  String(o.options  ||'')
+    id:       String(o.id                          ||''),
+    orderId:  String(o.order_id  ||o.orderId       ||''),
+    customer: String(o.customer                    ||''),
+    address:  String(o.address                     ||''),
+    delivery: String(o.delivery                    ||'Post'),
+    payment:  String(o.payment&&o.payment.trim()?o.payment.trim():'No'),
+    model:    String(o.model                       ||''),
+    catId:    String(o.cat_id    ||o.catId         ||''),
+    qty:      Number(o.qty                         ||0),
+    price:    Number(o.price                       ||0),
+    total:    Number(o.total                       ||0),
+    status:   String(o.status                      ||'Pending'),
+    date:     toDisplay(String(o.date              ||'')),
+    notes:    String(o.notes                       ||''),
+    options:  String(o.options                     ||'')
   };
 }
 
