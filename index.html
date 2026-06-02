@@ -435,7 +435,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.1</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.2</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -1133,9 +1133,10 @@ function buildColourPicker(id, selectedName, onChangeFn){
 function toggleColourPicker(id){
   // Close all other open pickers first
   document.querySelectorAll('.colour-picker-list').forEach(el=>{
-    if(el.id!=='cpl-'+id) el.style.display='none';
+    if(el.id!=='cpl-'+id && el.id!=='cpl2-'+id) el.style.display='none';
   });
-  const list=document.getElementById('cpl-'+id);
+  // Try both ID patterns
+  const list=document.getElementById('cpl-'+id)||document.getElementById('cpl2-'+id);
   if(list) list.style.display=list.style.display==='none'?'':'none';
 }
 
@@ -1864,7 +1865,7 @@ checkMobile();window.addEventListener('resize',checkMobile);
 
 // Close colour picker dropdowns when clicking outside
 document.addEventListener('click', e=>{
-  if(!e.target.closest('.colour-picker-wrap')){
+  if(!e.target.closest('.colour-picker-wrap')&&!e.target.closest('.colour-combo-option')){
     document.querySelectorAll('.colour-picker-list').forEach(el=>el.style.display='none');
   }
 });
