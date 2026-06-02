@@ -10,10 +10,6 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
-<script>
-// Fallback if config.js missing
-window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
-</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -302,6 +298,29 @@ tr.group-first td{box-shadow:0 -2px 0 rgba(255,255,255,0.07);}
 .pay-W{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:#2e7d32;}
 .pay-S{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:var(--green);}
 
+
+/* Sort arrows */
+.sort-arrow{font-size:10px;color:var(--accent);margin-left:2px;}
+thead th.sortable{user-select:none;}
+
+
+/* Stats modal */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.stats-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;}
+.stats-card-title{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
+.stats-card-val{font-size:28px;font-weight:600;font-family:'DM Mono',monospace;color:var(--accent);margin-bottom:8px;}
+.stats-card.full{grid-column:1/-1;}
+
+
+/* Colour combo pills in dropdown */
+.colour-combo-option{display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;transition:background 0.1s;}
+.colour-combo-option:hover{background:var(--surface);}
+.combo-pill{display:flex;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,0.15);height:20px;}
+.combo-pill-seg{width:20px;height:20px;flex-shrink:0;}
+.combo-label{font-size:11px;color:var(--muted);}
+.colour-combo-list{border-top:1px solid var(--border);margin-top:4px;padding-top:4px;}
+.colour-combo-separator{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;padding:4px 10px 2px;}
+
 /* Mobile */
 body.mobile .app{padding:1rem 0.75rem 5rem;}
 body.mobile .hdr{margin-bottom:1.25rem;gap:10px;}
@@ -338,6 +357,10 @@ body.mobile .statusbar{padding:8px 1rem;font-size:11px;}
 body.mobile input,body.mobile select,body.mobile textarea{font-size:16px!important;}
 body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body.mobile .opt-row input,body.mobile .opt-row select{font-size:14px!important;}
 </style>
+<script>
+// Fallback if config.js missing
+window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
+</script>
 </head>
 <body>
 <div class="app">
@@ -363,38 +386,20 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
       <div class="btn-group"><button class="btn" onclick="openCatModal()"><i class="ti ti-category"></i><span class="btn-label"> Categories</span></button><button class="btn" onclick="openOptModal()"><i class="ti ti-list-details"></i><span class="btn-label"> Options</span></button></div>
       <button class="btn" onclick="loadAll()"><i class="ti ti-refresh"></i><span class="btn-label"> Refresh</span></button>
       <button class="btn primary" onclick="openAddModal()"><i class="ti ti-plus"></i><span class="btn-label"> New Order</span></button>
+      <button class="btn icon-only" onclick="openStatsModal()" title="Stats"><i class="ti ti-chart-bar"></i></button>
       <button class="btn icon-only" onclick="openSettings()" title="Settings"><i class="ti ti-settings"></i></button>
     </div>
   </div>
 
-  <!-- Stats -->
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-label">Total Items</div>
-      <div class="stat-val" id="s-total">—</div>
-      <div class="stat-breakdown" id="s-cat-breakdown"></div>
-    </div>
-    <div class="stat stat-split">
-      <div class="stat-half">
-        <div class="stat-label">Pending</div>
-        <div class="stat-val" id="s-pending">—</div>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-half">
-        <div class="stat-label">Printing</div>
-        <div class="stat-val" id="s-printing">—</div>
-      </div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Completed</div>
-      <div class="stat-val" id="s-completed">—</div>
-      <div class="stat-breakdown" id="s-badge-breakdown"></div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Payment</div>
-      <div class="stat-breakdown" id="s-payment-breakdown">—</div>
-    </div>
-  </div>
+  <!-- Hidden stat elements still needed for updateStats() -->
+  <span id="s-total" style="display:none"></span>
+  <span id="s-pending" style="display:none"></span>
+  <span id="s-printing" style="display:none"></span>
+  <span id="s-completed" style="display:none"></span>
+  <span id="s-revenue" style="display:none"></span>
+  <span id="s-cat-breakdown" style="display:none"></span>
+  <span id="s-badge-breakdown" style="display:none"></span>
+  <span id="s-payment-breakdown" style="display:none"></span>
 
   <!-- Toolbar -->
   <div class="toolbar">
@@ -413,13 +418,13 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
       <thead>
         <tr>
           <th style="width:44px">#</th>
-          <th class="sortable" style="width:130px" data-key="customer" onclick="sortBy('customer')">Customer</th>
-          <th style="width:170px">Address</th>
-          <th style="width:150px">Category</th>
+          <th class="sortable" style="width:130px" data-key="customer" onclick="sortBy('customer')">Customer <span class="sort-arrow" data-key="customer"></span></th>
+          <th class="sortable" style="width:170px" data-key="address" onclick="sortBy('address')">Address <span class="sort-arrow" data-key="address"></span></th>
+          <th class="sortable" style="width:150px" data-key="catId" onclick="sortBy('catId')">Category <span class="sort-arrow" data-key="catId"></span></th>
           <th style="width:160px">Options</th>
-          <th class="sortable" style="width:44px" data-key="qty" onclick="sortBy('qty')">Qty</th>
-          <th class="sortable" style="width:80px" data-key="total" onclick="sortBy('total')">Total</th>
-          <th style="width:130px">Status</th>
+          <th class="sortable" style="width:44px" data-key="qty" onclick="sortBy('qty')">Qty <span class="sort-arrow" data-key="qty"></span></th>
+          <th class="sortable" style="width:80px" data-key="total" onclick="sortBy('total')">Total <span class="sort-arrow" data-key="total"></span></th>
+          <th class="sortable" style="width:130px" data-key="status" onclick="sortBy('status')">Status <span class="sort-arrow" data-key="status"></span></th>
           <th style="width:40px">$</th>
           <th style="width:40px">Note</th>
           <th style="width:66px"></th>
@@ -430,7 +435,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.4</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.0</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -532,6 +537,18 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
     <div class="modal-actions">
       <button class="btn" onclick="closeColourModal()">Cancel</button>
       <button class="btn primary" onclick="saveColours()"><i class="ti ti-cloud-upload"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ Stats Modal ══ -->
+<div class="modal-bg" id="statsModal" onclick="if(event.target===this)closeStatsModal()">
+  <div class="modal md" onclick="event.stopPropagation()">
+    <div class="modal-title"><i class="ti ti-chart-bar" style="margin-right:8px;vertical-align:-2px"></i>Stats</div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="modal-actions">
+      <button class="btn primary" onclick="closeStatsModal()">Close</button>
     </div>
   </div>
 </div>
@@ -962,7 +979,19 @@ function renderTable(){
 }
 
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function sortBy(k){document.querySelectorAll('thead th').forEach(t=>t.classList.remove('sort-active'));const th=document.querySelector(`[data-key="${k}"]`);if(th)th.classList.add('sort-active');if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}renderTable();}
+function sortBy(k){
+  if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}
+  // Update header classes and arrows
+  document.querySelectorAll('thead th').forEach(t=>t.classList.remove('sort-active'));
+  document.querySelectorAll('.sort-arrow').forEach(a=>{a.textContent='';});
+  const th=document.querySelector(`th[data-key="${k}"]`);
+  if(th){
+    th.classList.add('sort-active');
+    const arrow=th.querySelector('.sort-arrow');
+    if(arrow)arrow.textContent=sortDir===1?' ↑':' ↓';
+  }
+  renderTable();
+}
 function showNote(m,n){document.getElementById('noteModalTitle').textContent=m?'Note — '+m:'Note';document.getElementById('noteModalBody').textContent=n||'(No note recorded)';document.getElementById('noteModal').classList.add('open');}
 function closeNoteModal(){document.getElementById('noteModal').classList.remove('open');}
 
@@ -1012,15 +1041,42 @@ function renderModelOpts(idx, catId, savedOpts){
       const customVal=isCustom?val:'';
       const opts_html=items.map(it=>`<option${ddVal===it?' selected':''}>${esc(it)}</option>`).join('');
       const isColourOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
-      const customContent=isColourOpt
-        ?'' // will be populated by renderLayerSelectors
-        :`<input type="text" id="ovt-${idx}-${opt.id}" value="${esc(customVal)}" placeholder="Describe your custom option…" oninput="collectOpts(${idx})">`;
-      const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label><select id="ov-${idx}-${opt.id}" onchange="ddChanged(${idx},'${opt.id}')"><option value="">— select —</option>${opts_html}</select></div>`+
-        `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="${isColourOpt?1:0}" style="${ddVal==='Custom'?'':'display:none'}">${customContent}</div>`;
-      if(ddVal==='Custom'&&isColourOpt){
-        // Schedule layer render after DOM insertion
-        setTimeout(()=>renderLayerSelectors(idx,opt.id,customVal),0);
+      // For colour opts: build custom dropdown with Custom first + saved combos
+      if(isColourOpt){
+        const savedCombos=getSavedColourCombos();
+        const customContent=''; // populated by renderLayerSelectors
+        const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label>
+          <div class="colour-picker-wrap" id="cpw-col-${idx}-${opt.id}">
+            <div class="colour-picker-btn" onclick="toggleColourPicker('col-${idx}-${opt.id}')" id="cpb-col-${idx}-${opt.id}">
+              <div class="cp-swatch" id="cps-col-${idx}-${opt.id}" style="background:transparent"></div>
+              <span class="cp-label" id="cpl-col-${idx}-${opt.id}">${ddVal||'— select —'}</span>
+              <i class="ti ti-chevron-down cp-arrow"></i>
+            </div>
+            <div class="colour-picker-list" id="cpl2-col-${idx}-${opt.id}" style="display:none">
+              <div class="cp-none" onclick="selectColourOpt('col-${idx}-${opt.id}','',${idx},'${opt.id}')">— select —</div>
+              <div class="cp-option${ddVal==='Custom'?' selected':''}" onclick="selectColourOpt('col-${idx}-${opt.id}','Custom',${idx},'${opt.id}')">
+                <i class="ti ti-palette" style="font-size:13px;color:var(--accent)"></i> <span>Custom</span>
+              </div>
+              ${savedCombos.length?`<div class="colour-combo-separator">Saved combinations</div>`:''}
+              ${savedCombos.map(combo=>`
+                <div class="colour-combo-option" onclick="selectColourOpt('col-${idx}-${opt.id}','${esc(combo.key)}',${idx},'${opt.id}')"
+                  title="${combo.layers.map(l=>l.name).join(' / ')}">
+                  <div class="combo-pill">
+                    ${combo.layers.map(l=>`<div class="combo-pill-seg" style="background:${esc(l.code)}"></div>`).join('')}
+                  </div>
+                  <span class="combo-label">${combo.layers.map(l=>esc(l.name)).join(' / ')}</span>
+                </div>`).join('')}
+            </div>
+          </div>
+        </div>`+
+        `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="1" style="${ddVal==='Custom'?'':'display:none'}">${customContent}</div>`;
+        if(ddVal==='Custom') setTimeout(()=>renderLayerSelectors(idx,opt.id,customVal),0);
+        else if(ddVal&&ddVal!=='Custom') setTimeout(()=>applyComboToLayers(idx,opt.id,ddVal),0);
+        return rowHtml;
       }
+      const customContent=`<input type="text" id="ovt-${idx}-${opt.id}" value="${esc(customVal)}" placeholder="Describe your custom option…" oninput="collectOpts(${idx})">`;
+      const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label><select id="ov-${idx}-${opt.id}" onchange="ddChanged(${idx},'${opt.id}')"><option value="">— select —</option>${opts_html}</select></div>`+
+        `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="0" style="${ddVal==='Custom'?'':'display:none'}">${customContent}</div>`;
       return rowHtml;
     }
   }).join('');
@@ -1139,10 +1195,12 @@ function collectOpts(idx){
     const el=document.getElementById('ov-'+idx+'-'+opt.id);
     if(!el)return'';
     let val=el.value;
+    // For colour opts, read from the custom wrapper dataset
+    const colWrap=document.getElementById('cpw-col-'+idx+'-'+opt.id);
+    if(colWrap) val=colWrap.dataset.colourval||'';
     if(val==='Custom'){
       const container=document.getElementById('ovc-'+idx+'-'+opt.id);
       if(container&&container.dataset.iscolour==='1'){
-        // Collect layer values from custom colour pickers
         const layers=[1,2,3,4].map(n=>{
           const v=getColourPickerValue('lp-'+idx+'-'+opt.id+'-'+n);
           return v?'Layer '+n+':'+v:'';
@@ -1535,6 +1593,161 @@ async function saveOpts(){
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
 
+
+
+
+// ── Saved colour combinations ──────────────────────────────
+function getSavedColourCombos(){
+  // Extract unique colour combos from all orders
+  const seen=new Set();
+  const combos=[];
+  orders.forEach(o=>{
+    if(!o.options) return;
+    // Find Custom colour entries: "Colour Scheme:Custom:Layer 1:Red|Layer 2:Blue..."
+    const parts=o.options.split('||');
+    parts.forEach(part=>{
+      const m=part.match(/^Colours?.*:Custom:(.*)/i);
+      if(!m) return;
+      const layerStr=m[1];
+      const layers=layerStr.split('|').map(l=>{
+        const idx=l.indexOf(':');
+        return idx>=0?{name:l.slice(idx+1).trim()}:{name:l.trim()};
+      }).filter(l=>l.name);
+      if(!layers.length) return;
+      // Build key and resolve colour codes
+      const resolved=layers.map(l=>{
+        const c=colours.find(c=>c.name.toLowerCase()===l.name.toLowerCase());
+        return{name:l.name,code:c?c.code:'#cccccc'};
+      });
+      const key=resolved.map(l=>l.name).join('|');
+      if(!seen.has(key)){
+        seen.add(key);
+        combos.push({key,layers:resolved});
+      }
+    });
+  });
+  return combos;
+}
+
+function selectColourOpt(pickerId, value, idx, optId){
+  const list=document.getElementById('cpl2-'+pickerId);
+  if(list) list.style.display='none';
+  const lbl=document.getElementById('cpl-'+pickerId);
+  const sw=document.getElementById('cps-'+pickerId);
+  if(value==='Custom'){
+    if(lbl) lbl.textContent='Custom';
+    if(sw){sw.style.background='transparent';}
+    const container=document.getElementById('ovc-'+idx+'-'+optId);
+    if(container) container.style.display='';
+    renderLayerSelectors(idx,optId,'');
+  } else if(!value){
+    if(lbl) lbl.textContent='— select —';
+    if(sw) sw.style.background='transparent';
+    const container=document.getElementById('ovc-'+idx+'-'+optId);
+    if(container) container.style.display='none';
+  } else {
+    // Saved combo selected
+    if(lbl) lbl.textContent=value.replace(/\|/g,' / ');
+    if(sw){
+      // Show first colour as swatch
+      const firstColour=value.split('|')[0];
+      const c=colours.find(c=>c.name.toLowerCase()===firstColour.toLowerCase());
+      sw.style.background=c?c.code:'transparent';
+    }
+    const container=document.getElementById('ovc-'+idx+'-'+optId);
+    if(container) container.style.display='none';
+    // Store the combo value
+    const hidden=document.getElementById('opts-'+idx);
+    // Will be collected by collectOpts
+  }
+  // Store selected value on wrapper
+  const wrap=document.getElementById('cpw-col-'+idx+'-'+optId);
+  if(wrap) wrap.dataset.colourval=value;
+  collectOpts(idx);
+}
+
+function applyComboToLayers(idx, optId, comboKey){
+  // Pre-fill layer selectors with saved combo
+  const layers=comboKey.split('|');
+  const container=document.getElementById('ovc-'+idx+'-'+optId);
+  if(container){
+    container.style.display='';
+    renderLayerSelectors(idx,optId,layers.map((n,i)=>'Layer '+(i+1)+':'+n).join('|'));
+  }
+}
+
+// ── Stats modal ────────────────────────────────────────────
+function openStatsModal(){
+  updateStats();
+  const grid = document.getElementById('statsGrid');
+
+  // Collect data
+  const completed = orders.filter(o=>o.status==='Complete');
+  const pending   = orders.filter(o=>o.status==='Pending');
+  const printing  = orders.filter(o=>o.status==='Printing');
+  const cancelled = orders.filter(o=>o.status==='Cancelled');
+
+  // Category breakdown
+  const catCounts={};
+  orders.forEach(o=>{
+    const cat=cats.find(c=>String(c.id)===String(o.catId));
+    const name=cat?cat.name:'Unknown';
+    catCounts[name]=(catCounts[name]||0)+1;
+  });
+
+  // Payment breakdown (completed orders only, per order)
+  const seenPay={};
+  completed.forEach(o=>{
+    if(!seenPay[o.orderId]) seenPay[o.orderId]={payment:o.payment||'No',total:0};
+    seenPay[o.orderId].total+=o.total;
+  });
+  const payBreak={No:0,Free:0,Simon:0,Wade:0};
+  const payRev={Simon:0,Wade:0};
+  Object.values(seenPay).forEach(({payment,total})=>{
+    if(payBreak[payment]!==undefined) payBreak[payment]++;
+    if(payRev[payment]!==undefined) payRev[payment]+=total;
+  });
+
+  // Name badge breakdown
+  const badgeCat=cats.find(c=>c.name.toLowerCase().includes('name badge'));
+  let badgeHtml='';
+  if(badgeCat){
+    const badges=completed.filter(o=>String(o.catId)===String(badgeCat.id));
+    const pins=badges.filter(o=>o.options&&o.options.toLowerCase().includes('pin')).length;
+    const mags=badges.filter(o=>o.options&&o.options.toLowerCase().includes('magnet')).length;
+    badgeHtml=`<div class="stats-card">
+      <div class="stats-card-title">Name Badge Types (Completed)</div>
+      ${[['Pin',pins],['Magnet',mags]].map(([l,v])=>`
+        <div class="stat-break-row"><span class="stat-break-label">${l}</span><span class="stat-break-val">${v}</span></div>`).join('')}
+    </div>`;
+  }
+
+  grid.innerHTML=`
+    <div class="stats-card">
+      <div class="stats-card-title">Order Status</div>
+      ${[['Pending',pending.length,'var(--amber)'],['Printing',printing.length,'var(--blue)'],['Completed',completed.length,'var(--green)'],['Cancelled',cancelled.length,'var(--red)']].map(([l,v,c])=>`
+        <div class="stat-break-row"><span class="stat-break-label">${l}</span><span class="stat-break-val" style="color:${c}">${v}</span></div>`).join('')}
+    </div>
+    <div class="stats-card">
+      <div class="stats-card-title">Revenue (Completed)</div>
+      <div class="stats-card-val">$${completed.reduce((s,o)=>s+o.total,0).toFixed(2)}</div>
+      ${[['Simon','var(--green)'],['Wade','#2e7d32']].map(([n,c])=>`
+        <div class="stat-break-row"><span class="stat-break-label">${n}</span><span class="stat-break-val" style="color:${c}">$${payRev[n].toFixed(2)}</span></div>`).join('')}
+      ${[['No','var(--red)'],['Free','var(--blue)']].map(([n,c])=>`
+        <div class="stat-break-row"><span class="stat-break-label">${n}</span><span class="stat-break-val" style="color:${c}">${payBreak[n]}</span></div>`).join('')}
+    </div>
+    <div class="stats-card full">
+      <div class="stats-card-title">Items by Category (All Orders)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px">
+        ${Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`
+          <div class="stat-break-row"><span class="stat-break-label">${esc(name)}</span><span class="stat-break-val">${count}</span></div>`).join('')}
+      </div>
+    </div>
+    ${badgeHtml}
+  `;
+  document.getElementById('statsModal').classList.add('open');
+}
+function closeStatsModal(){ document.getElementById('statsModal').classList.remove('open'); }
 
 // ── Colours modal ─────────────────────────────────────────
 function openColourModal(){renderColourList();document.getElementById('colourModal').classList.add('open');}
