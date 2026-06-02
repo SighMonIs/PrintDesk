@@ -417,7 +417,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <table>
       <thead>
         <tr>
-          <th style="width:44px">#</th>
+          <th class="sortable" style="width:44px" data-key="orderId" onclick="sortBy('orderId')"># <span class="sort-arrow" data-key="orderId"></span></th>
           <th class="sortable" style="width:130px" data-key="customer" onclick="sortBy('customer')">Customer <span class="sort-arrow" data-key="customer"></span></th>
           <th class="sortable" style="width:170px" data-key="address" onclick="sortBy('address')">Address <span class="sort-arrow" data-key="address"></span></th>
           <th class="sortable" style="width:150px" data-key="catId" onclick="sortBy('catId')">Category <span class="sort-arrow" data-key="catId"></span></th>
@@ -435,7 +435,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.0</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.1</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -613,7 +613,7 @@ let cats      = [];   // [{id,name,price}]
 let opts      = [];   // [{id,catId,name,display,options}]
 let colours   = [];   // [{id,name,code,available}]
 let editOId   = null;
-let sortKey   = 'date';
+let sortKey   = 'orderId';
 let sortDir   = -1;
 let mCounter  = 0;
 let acInst    = null;
@@ -908,18 +908,24 @@ function renderTable(){
   });
 
   list.sort((a,b)=>{
-    // Primary: always sort by orderId descending (newest first)
-    const aNum = parseInt(String(a.orderId).replace(/^O0*/,''))||0;
-    const bNum = parseInt(String(b.orderId).replace(/^O0*/,''))||0;
-    if(aNum !== bNum) return bNum - aNum;
-    // Secondary: within same order, sort by row id (item number)
-    const aItem = parseInt(String(a.id).split('-').pop())||0;
-    const bItem = parseInt(String(b.id).split('-').pop())||0;
-    if(aItem !== bItem) return aItem - bItem;
-    // Tertiary: user-chosen sort key
-    let av=a[sortKey]||'',bv=b[sortKey]||'';
+    if(sortKey==='orderId'||!sortKey){
+      // Sort by order number numerically then item index within order
+      const aNum=parseInt(String(a.orderId).replace(/^O0*/,''))||0;
+      const bNum=parseInt(String(b.orderId).replace(/^O0*/,''))||0;
+      if(aNum!==bNum) return (aNum-bNum)*sortDir;
+      const aItem=parseInt(String(a.id).split('-').pop())||0;
+      const bItem=parseInt(String(b.id).split('-').pop())||0;
+      return aItem-bItem;
+    }
+    // Sort by chosen column
+    let av=a[sortKey]||'', bv=b[sortKey]||'';
     if(['qty','total','price'].includes(sortKey)){av=+av;bv=+bv;}
-    return av<bv?-sortDir:av>bv?sortDir:0;
+    if(av<bv) return -sortDir;
+    if(av>bv) return sortDir;
+    // Tiebreak: keep order groups together
+    const aNum=parseInt(String(a.orderId).replace(/^O0*/,''))||0;
+    const bNum=parseInt(String(b.orderId).replace(/^O0*/,''))||0;
+    return aNum-bNum;
   });
 
   updateStats();
