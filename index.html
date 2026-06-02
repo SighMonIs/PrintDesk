@@ -430,7 +430,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.1</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.2</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -697,20 +697,26 @@ function saveSupabaseConfig(){
 
 // ── Load ───────────────────────────────────────────────────
 async function loadAll(){
-  // Supabase config loaded from getCfg()
-  if(!GAS_URL||!GAS_URL.startsWith('https://')){
+  const sbUrl2 = getCfg('SUPABASE_URL');
+  const sbKey  = getCfg('SUPABASE_KEY');
+  if(!sbUrl2||!sbKey){
     document.getElementById('setupBanner').style.display='';
-    setStatus('err','Not connected — open Settings or update config.js');
+    setStatus('err','Not connected — enter Supabase credentials');
     renderTable();return;
   }
   setStatus('spin','Loading…');
   try{
-    const data=await api('getAll');
-    if(data.error){setStatus('err','Error: '+data.error);return;}
-    orders=(data.orders||[]).map(normalise);
-    cats=data.cats&&data.cats.length?data.cats:defaultCats();
-    opts=data.options||[];
-    colours=data.colours||[];
+    const [ordersRaw, catsRaw, optsRaw, coloursRaw] = await Promise.all([
+      sbGet('orders', '?order=order_id.asc'),
+      sbGet('categories', '?order=id.asc'),
+      sbGet('options', '?order=id.asc'),
+      sbGet('colours', '?order=id.asc')
+    ]);
+    orders  = ordersRaw.map(normalise);
+    cats    = catsRaw.map(normaliseCat);
+    opts    = optsRaw.map(normaliseOpt);
+    colours = coloursRaw.map(normaliseColour);
+    if(!cats.length) cats = defaultCats();
     populateCatFilter();
     renderTable();
     setStatus('ok','Connected · '+uniqueOrderCount()+' orders');
