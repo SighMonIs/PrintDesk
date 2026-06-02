@@ -430,7 +430,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.2</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.0.3</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -752,6 +752,27 @@ function defaultCats(){
   ];
 }
 
+
+function normaliseCat(c){
+  return{id:String(c.id||''),name:String(c.name||''),price:Number(c.price||0)};
+}
+function normaliseOpt(o){
+  return{
+    id:      String(o.id||''),
+    catId:   String(o.cat_id||o.catId||''),
+    name:    String(o.name||''),
+    display: String(o.display||'text'),
+    options: String(o.options||'')
+  };
+}
+function normaliseColour(c){
+  return{
+    id:        String(c.id||''),
+    name:      String(c.name||''),
+    code:      String(c.code||'#cccccc'),
+    available: c.available===true||String(c.available).toLowerCase()==='true'
+  };
+}
 
 // ── Previously made check ─────────────────────────────────
 // A signature is catId + normalised options string
