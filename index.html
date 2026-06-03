@@ -435,7 +435,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.4</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.5</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -1083,7 +1083,6 @@ function colourOptChanged(idx, optId, value){
     renderLayerSelectors(idx, optId, '');
   } else if(value){
     container.style.display='none';
-    // Pre-fill layer selectors with saved combo but hide them
     applyComboToLayers(idx, optId, value);
   } else {
     container.style.display='none';
@@ -1091,14 +1090,13 @@ function colourOptChanged(idx, optId, value){
   collectOpts(idx);
 }
 
-
+function ddChanged(idx,optId){
   const sel=document.getElementById('ov-'+idx+'-'+optId);
   const custom=document.getElementById('ovc-'+idx+'-'+optId);
   if(sel&&custom){
     const isCustom=sel.value==='Custom';
     custom.style.display=isCustom?'':'none';
     if(!isCustom){const t=document.getElementById('ovt-'+idx+'-'+optId);if(t)t.value='';}
-    // If this is a colour scheme field, render layer selectors
     if(isCustom && document.getElementById('ovc-'+idx+'-'+optId).dataset.iscolour==='1'){
       renderLayerSelectors(idx, optId, '');
     }
