@@ -435,7 +435,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.5</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.6</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -1169,9 +1169,19 @@ function getColourPickerValue(id){
 function renderLayerSelectors(idx, optId, savedVal){
   const container=document.getElementById('ovc-'+idx+'-'+optId);
   if(!container)return;
-  // Parse saved layer values
+  // savedVal can be:
+  // "Layer 1:Red|Layer 2:Blue|..." (legacy layer format)
+  // "Red|Yellow|Black|Jade White" (simple pipe format)
   const saved={};
-  if(savedVal){savedVal.split('|').forEach(p=>{const[k,...v]=p.split(':');if(k)saved[k.trim()]=v.join(':').trim();});}
+  if(savedVal){
+    if(savedVal.includes('Layer ')){
+      // Legacy format
+      savedVal.split('|').forEach(p=>{const[k,...v]=p.split(':');if(k)saved[k.trim()]=v.join(':').trim();});
+    } else {
+      // Simple format — assign to layers in order
+      savedVal.split('|').forEach((name,i)=>{if(name.trim())saved['Layer '+(i+1)]=name.trim();});
+    }
+  }
   container.innerHTML=`<div class="layer-selectors">
     ${[1,2,3,4].map(n=>{
       const pickerId=`lp-${idx}-${optId}-${n}`;
@@ -1203,10 +1213,20 @@ function collectOpts(idx){
     const el=document.getElementById('ov-'+idx+'-'+opt.id);
     if(!el)return'';
     let val=el.value;
-    // For colour opts, read from the native select
-    const isColOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
-    const colSelect=document.getElementById('ov-'+idx+'-'+opt.id);
-    if(isColOpt && colSelect) val=colSelect.value;
+    if(isColOpt && colSelect){
+      val=colSelect.value;
+      if(val==='Custom'){
+        // Collect layer values as simple pipe-separated names
+        const container=document.getElementById('ovc-'+idx+'-'+opt.id);
+        if(container&&container.dataset.iscolour==='1'){
+          const layers=[1,2,3,4].map(n=>{
+            const v=getColourPickerValue('lp-'+idx+'-'+opt.id+'-'+n);
+            return v||'';
+          });
+          val=layers.filter(Boolean).join('|');
+        }
+      }
+    }
     if(val==='Custom'){
       const container=document.getElementById('ovc-'+idx+'-'+opt.id);
       if(container&&container.dataset.iscolour==='1'){
@@ -1608,31 +1628,33 @@ async function saveOpts(){
 // ── Saved colour combinations ──────────────────────────────
 function getSavedColourCombos(){
   // Extract unique colour combos from all orders
+  // Format in options: "Colours:Red|Yellow|Black|Jade White" (pipe-separated names)
   const seen=new Set();
   const combos=[];
   orders.forEach(o=>{
     if(!o.options) return;
-    // Find Custom colour entries: "Colour Scheme:Custom:Layer 1:Red|Layer 2:Blue..."
+    // Split by || to get each option field
     const parts=o.options.split('||');
     parts.forEach(part=>{
-      const m=part.match(/^Colours?.*:Custom:(.*)/i);
+      // Match "Colours:name1|name2|name3|name4" or similar colour field
+      const m=part.match(/^Colou?rs?:(.*)/i);
       if(!m) return;
-      const layerStr=m[1];
-      const layers=layerStr.split('|').map(l=>{
-        const idx=l.indexOf(':');
-        return idx>=0?{name:l.slice(idx+1).trim()}:{name:l.trim()};
-      }).filter(l=>l.name);
-      if(!layers.length) return;
-      // Build key and resolve colour codes
-      const resolved=layers.map(l=>{
-        const c=colours.find(c=>c.name.toLowerCase()===l.name.toLowerCase());
-        return{name:l.name,code:c?c.code:'#cccccc'};
+      const colourStr=m[1].trim();
+      if(!colourStr) return;
+      // Skip if it looks like old "Custom:Layer..." format
+      if(colourStr.startsWith('Custom:')) return;
+      // Split by pipe to get individual colour names
+      const names=colourStr.split('|').map(s=>s.trim()).filter(Boolean);
+      if(!names.length) return;
+      const key=names.join('|');
+      if(seen.has(key)) return;
+      seen.add(key);
+      // Resolve each name to a colour object
+      const resolved=names.map(name=>{
+        const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
+        return{name, code:c?c.code:'#cccccc'};
       });
-      const key=resolved.map(l=>l.name).join('|');
-      if(!seen.has(key)){
-        seen.add(key);
-        combos.push({key,layers:resolved});
-      }
+      combos.push({key, layers:resolved});
     });
   });
   return combos;
@@ -1676,13 +1698,15 @@ function selectColourOpt(pickerId, value, idx, optId){
 }
 
 function applyComboToLayers(idx, optId, comboKey){
-  // Pre-fill layer selectors with saved combo
-  const layers=comboKey.split('|');
+  // comboKey is "Red|Yellow|Black|Jade White" — show layer pickers pre-filled
+  const names=comboKey.split('|');
   const container=document.getElementById('ovc-'+idx+'-'+optId);
-  if(container){
-    container.style.display='';
-    renderLayerSelectors(idx,optId,layers.map((n,i)=>'Layer '+(i+1)+':'+n).join('|'));
-  }
+  if(!container) return;
+  container.style.display='';
+  container.dataset.iscolour='1';
+  // Build layer string format expected by renderLayerSelectors
+  const layerStr=names.map((n,i)=>'Layer '+(i+1)+':'+n).join('|');
+  renderLayerSelectors(idx, optId, layerStr);
 }
 
 // ── Stats modal ────────────────────────────────────────────
