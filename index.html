@@ -435,7 +435,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.3</span></div>
+<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.1.4</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
@@ -1047,35 +1047,22 @@ function renderModelOpts(idx, catId, savedOpts){
       const customVal=isCustom?val:'';
       const opts_html=items.map(it=>`<option${ddVal===it?' selected':''}>${esc(it)}</option>`).join('');
       const isColourOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
-      // For colour opts: build custom dropdown with Custom first + saved combos
       if(isColourOpt){
         const savedCombos=getSavedColourCombos();
-        const customContent=''; // populated by renderLayerSelectors
-        const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label>
-          <div class="colour-picker-wrap" id="cpw-col-${idx}-${opt.id}">
-            <div class="colour-picker-btn" onclick="toggleColourPicker('col-${idx}-${opt.id}')" id="cpb-col-${idx}-${opt.id}">
-              <div class="cp-swatch" id="cps-col-${idx}-${opt.id}" style="background:transparent"></div>
-              <span class="cp-label" id="cpl-col-${idx}-${opt.id}">${ddVal||'— select —'}</span>
-              <i class="ti ti-chevron-down cp-arrow"></i>
-            </div>
-            <div class="colour-picker-list" id="cpl2-col-${idx}-${opt.id}" style="display:none">
-              <div class="cp-none" onclick="selectColourOpt('col-${idx}-${opt.id}','',${idx},'${opt.id}')">— select —</div>
-              <div class="cp-option${ddVal==='Custom'?' selected':''}" onclick="selectColourOpt('col-${idx}-${opt.id}','Custom',${idx},'${opt.id}')">
-                <i class="ti ti-palette" style="font-size:13px;color:var(--accent)"></i> <span>Custom</span>
-              </div>
-              ${savedCombos.length?`<div class="colour-combo-separator">Saved combinations</div>`:''}
-              ${savedCombos.map(combo=>`
-                <div class="colour-combo-option" onclick="selectColourOpt('col-${idx}-${opt.id}','${esc(combo.key)}',${idx},'${opt.id}')"
-                  title="${combo.layers.map(l=>l.name).join(' / ')}">
-                  <div class="combo-pill">
-                    ${combo.layers.map(l=>`<div class="combo-pill-seg" style="background:${esc(l.code)}"></div>`).join('')}
-                  </div>
-                  <span class="combo-label">${combo.layers.map(l=>esc(l.name)).join(' / ')}</span>
-                </div>`).join('')}
-            </div>
-          </div>
-        </div>`+
-        `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="1" style="${ddVal==='Custom'?'':'display:none'}">${customContent}</div>`;
+        // Use a native <select> — reliable, no overflow issues
+        // Custom first, then saved combos as optgroup
+        const comboOptions=savedCombos.map(combo=>{
+          const label=combo.layers.map(l=>l.name).join(' / ');
+          const key=combo.key;
+          return `<option value="${esc(key)}" ${ddVal===key?'selected':''}>${esc(label)}</option>`;
+        }).join('');
+        const selectHtml=`<select id="ov-${idx}-${opt.id}" onchange="colourOptChanged(${idx},'${opt.id}',this.value)">
+          <option value="">— select —</option>
+          <option value="Custom" ${ddVal==='Custom'?'selected':''}>✦ Custom (choose 4 colours)</option>
+          ${savedCombos.length?`<optgroup label="── Saved combinations ──">${comboOptions}</optgroup>`:''}
+        </select>`;
+        const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label>${selectHtml}</div>`+
+          `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="1" style="${ddVal==='Custom'?'':'display:none'}"></div>`;
         if(ddVal==='Custom') setTimeout(()=>renderLayerSelectors(idx,opt.id,customVal),0);
         else if(ddVal&&ddVal!=='Custom') setTimeout(()=>applyComboToLayers(idx,opt.id,ddVal),0);
         return rowHtml;
@@ -1088,7 +1075,23 @@ function renderModelOpts(idx, catId, savedOpts){
   }).join('');
 }
 
-function ddChanged(idx,optId){
+function colourOptChanged(idx, optId, value){
+  const container=document.getElementById('ovc-'+idx+'-'+optId);
+  if(!container) return;
+  if(value==='Custom'){
+    container.style.display='';
+    renderLayerSelectors(idx, optId, '');
+  } else if(value){
+    container.style.display='none';
+    // Pre-fill layer selectors with saved combo but hide them
+    applyComboToLayers(idx, optId, value);
+  } else {
+    container.style.display='none';
+  }
+  collectOpts(idx);
+}
+
+
   const sel=document.getElementById('ov-'+idx+'-'+optId);
   const custom=document.getElementById('ovc-'+idx+'-'+optId);
   if(sel&&custom){
@@ -1202,9 +1205,10 @@ function collectOpts(idx){
     const el=document.getElementById('ov-'+idx+'-'+opt.id);
     if(!el)return'';
     let val=el.value;
-    // For colour opts, read from the custom wrapper dataset
-    const colWrap=document.getElementById('cpw-col-'+idx+'-'+opt.id);
-    if(colWrap) val=colWrap.dataset.colourval||'';
+    // For colour opts, read from the native select
+    const isColOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
+    const colSelect=document.getElementById('ov-'+idx+'-'+opt.id);
+    if(isColOpt && colSelect) val=colSelect.value;
     if(val==='Custom'){
       const container=document.getElementById('ovc-'+idx+'-'+opt.id);
       if(container&&container.dataset.iscolour==='1'){
