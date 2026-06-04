@@ -953,27 +953,87 @@ async function deleteOrder(orderId){
 }
 
 // ── Categories modal ───────────────────────────────────────
-function openCatModal(){renderCatList();document.getElementById('catModal').classList.add('open');}
+// ── Combined Categories + Options modal ──────────────────
+function openCatModal(){renderCatBlocks();document.getElementById('catModal').classList.add('open');}
 function closeCatModal(){document.getElementById('catModal').classList.remove('open');}
 
-function renderCatList(){
-  document.getElementById('catFlatList').innerHTML=cats.map((c,i)=>`
-    <div class="cat-flat-row">
-      <span>${esc(c.id)}</span>
-      <input type="text" value="${esc(c.name)}" placeholder="Category name" oninput="cats[${i}].name=this.value">
-      <input type="number" value="${c.price}" step="0.01" min="0" oninput="cats[${i}].price=parseFloat(this.value)||0">
-      <button class="icon-btn del" onclick="removeCat(${i})"><i class="ti ti-trash"></i></button>
-    </div>`).join('');
+function getCatOpts_byCatId(catId){
+  return opts.filter(o=>String(o.catId)===String(catId));
 }
 
-function addCat(){cats.push({id:nextCatId(),name:'',price:0});renderCatList();}
-function removeCat(i){cats.splice(i,1);renderCatList();}
+function renderCatBlocks(){
+  const list=document.getElementById('catFlatList');
+  list.innerHTML=cats.map((c,ci)=>{
+    const catOpts=getCatOpts_byCatId(c.id);
+    return `<div class="cat-block" data-ci="${ci}">
+      <div class="cat-block-hdr">
+        <span class="id-label">${esc(c.id)}</span>
+        <input type="text" value="${esc(c.name)}" placeholder="Category name" oninput="cats[${ci}].name=this.value">
+        <div class="cat-price-wrap"><span>$ default</span>
+          <input type="number" value="${c.price}" step="0.01" min="0" oninput="cats[${ci}].price=parseFloat(this.value)||0">
+        </div>
+        <button class="icon-btn del" onclick="removeCat(${ci})"><i class="ti ti-trash"></i></button>
+      </div>
+      <div class="cat-opts-area" id="cat-opts-${ci}">
+        ${catOpts.length===0?'<div class="cat-opts-area-empty">No options — add one below</div>':''}
+        ${catOpts.map((o,oi)=>{
+          const globalIdx=opts.indexOf(o);
+          return `<div class="opt-item" draggable="true"
+            ondragstart="optDragStart(event,${globalIdx})"
+            ondragover="optDragOver(event,${globalIdx})"
+            ondrop="optDrop(event,${globalIdx})"
+            ondragleave="optDragLeave(event)"
+            ondragend="optDragEnd(event)">
+            <span class="opt-drag"><i class="ti ti-grip-vertical"></i></span>
+            <input type="text" value="${esc(o.name)}" placeholder="Field name" oninput="opts[${globalIdx}].name=this.value">
+            <select onchange="opts[${globalIdx}].display=this.value;renderCatBlocks()">
+              <option${o.display==='text'?' selected':''}>text</option>
+              <option${o.display==='dropdown'?' selected':''}>dropdown</option>
+            </select>
+            <button class="icon-btn del" onclick="removeOpt(${globalIdx})"><i class="ti ti-trash"></i></button>
+            ${o.display==='dropdown'?`<div class="opt-dropdown-vals">
+              <input type="text" value="${esc(o.options)}" placeholder="Comma-separated values, add Custom for free text"
+                oninput="opts[${globalIdx}].options=this.value">
+            </div>`:''}
+          </div>`;
+        }).join('')}
+        <button class="add-opt-btn" onclick="addOptToCat('${esc(c.id)}')">
+          <i class="ti ti-plus" style="font-size:11px"></i> Add option
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-async function saveCats(){
-  setStatus('spin','Saving categories…');closeCatModal();populateCatFilter();
+// Drag and drop reordering for options
+let dragIdx=null;
+function optDragStart(e,idx){dragIdx=idx;e.currentTarget.classList.add('dragging');}
+function optDragOver(e,idx){e.preventDefault();if(idx!==dragIdx)e.currentTarget.classList.add('drag-over');}
+function optDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function optDragEnd(e){e.currentTarget.classList.remove('dragging');dragIdx=null;}
+function optDrop(e,idx){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(dragIdx===null||dragIdx===idx) return;
+  const moved=opts.splice(dragIdx,1)[0];
+  opts.splice(idx,0,moved);
+  renderCatBlocks();
+}
+
+function addCat(){cats.push({id:nextCatId(),name:'',price:0});renderCatBlocks();}
+function removeCat(i){cats.splice(i,1);renderCatBlocks();}
+function removeOpt(i){opts.splice(i,1);renderCatBlocks();}
+function addOptToCat(catId){
+  opts.push({id:nextOptId(),catId,name:'',display:'text',options:''});
+  renderCatBlocks();
+}
+
+async function saveCatsAndOpts(){
+  setStatus('spin','Saving…');closeCatModal();populateCatFilter();
   try{
     await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price})));
-    setStatus('ok','Categories saved');setTimeout(loadAll,500);
+    await sbReplace('options', opts.map(o=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options})));
+    setStatus('ok','Saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
 
@@ -982,48 +1042,6 @@ function populateCatFilter(){
   while(el.options.length>1)el.remove(1);
   cats.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;el.appendChild(o);});
   el.value=cur;
-}
-
-// ── Options modal ──────────────────────────────────────────
-function openOptModal(){renderOptList();document.getElementById('optModal').classList.add('open');}
-function closeOptModal(){document.getElementById('optModal').classList.remove('open');}
-
-function catSelectForOpt(selCatId){
-  return'<select onchange="this.parentNode.dataset.catid=this.value"><option value="">— category —</option>'+
-    cats.map(c=>`<option value="${c.id}" ${String(c.id)===String(selCatId)?'selected':''}>${esc(c.name)}</option>`).join('')+'</select>';
-}
-
-function renderOptList(){
-  document.getElementById('optList').innerHTML=opts.map((o,i)=>`
-    <div class="opt-block">
-      <div class="opt-block-top" data-catid="${esc(o.catId)}">
-        <span>${esc(o.id)}</span>
-        ${catSelectForOpt(o.catId)}
-        <input type="text" value="${esc(o.name)}" placeholder="Field name" oninput="opts[${i}].name=this.value">
-        <select onchange="opts[${i}].display=this.value;renderOptList()">
-          <option${o.display==='text'?' selected':''}>text</option>
-          <option${o.display==='dropdown'?' selected':''}>dropdown</option>
-        </select>
-        <button class="icon-btn del" onclick="removeOpt(${i})"><i class="ti ti-trash"></i></button>
-      </div>
-      ${o.display==='dropdown'?`<div class="opt-items-field"><label>Options (comma-separated, add "Custom" to allow free text)</label>
-        <input type="text" value="${esc(o.options)}" placeholder="e.g. Red,Blue,Green,Custom" oninput="opts[${i}].options=this.value"></div>`:''}
-    </div>`).join('');
-  // Wire up catId selects
-  document.querySelectorAll('.opt-block-top select:first-of-type').forEach((sel,i)=>{
-    sel.onchange=()=>{opts[i].catId=sel.value;};
-  });
-}
-
-function addOpt(){opts.push({id:nextOptId(),catId:'',name:'',display:'text',options:''});renderOptList();}
-function removeOpt(i){opts.splice(i,1);renderOptList();}
-
-async function saveOpts(){
-  setStatus('spin','Saving options…');closeOptModal();
-  try{
-    await sbReplace('options', opts.map(o=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options})));
-    setStatus('ok','Options saved');setTimeout(loadAll,500);
-  }catch(e){setStatus('err','Failed: '+e.message);}
 }
 
 
