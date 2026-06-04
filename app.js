@@ -442,9 +442,9 @@ function renderModelOpts(idx, catId, savedOpts){
   const container=document.getElementById('mo-'+idx);
   if(!container)return;
   if(!catOpts.length){container.innerHTML='';return;}
-  // Parse saved options: "FieldName:value|FieldName:value"
+  // Parse saved options: "FieldName:value||FieldName:value" (double pipe separates fields)
   const saved={};
-  if(savedOpts){savedOpts.split('|').forEach(p=>{const[k,...v]=p.split(':');if(k)saved[k.trim()]=v.join(':').trim();});}
+  if(savedOpts){savedOpts.split('||').forEach(p=>{const[k,...v]=p.split(':');if(k)saved[k.trim()]=v.join(':').trim();});}
   container.innerHTML=catOpts.map(opt=>{
     const val=saved[opt.name]||'';
     if(opt.display==='text'){
