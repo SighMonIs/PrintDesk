@@ -361,12 +361,15 @@ function renderTable(){
     const deliveryIcon=isFirst?(o.delivery==='Pick Up'
       ?'<i class="ti ti-hand-stop" title="Pick Up" style="font-size:13px;color:var(--muted);margin-right:5px;flex-shrink:0"></i>'
       :'<i class="ti ti-mail" title="Post" style="font-size:13px;color:var(--muted);margin-right:5px;flex-shrink:0"></i>'):'';
-    // Parse pipe-separated options into stacked lines: "Colour:Red|Material:PLA" → ["Colour: Red","Material: PLA"]
-    const optLines=o.options?o.options.split('|').filter(Boolean).map(p=>{
-      const idx=p.indexOf(':');
-      if(idx<0)return esc(p.trim());
-      return`<span style="color:var(--muted)">${esc(p.slice(0,idx).trim())}:</span> ${esc(p.slice(idx+1).trim())}`;
-    }):[];
+    // Render options in sort_order — iterate through opts for this category
+    const parsedOpts={};
+    if(o.options){o.options.split('||').forEach(p=>{const idx=p.indexOf(':');if(idx>=0)parsedOpts[p.slice(0,idx).trim()]=p.slice(idx+1).trim();});}
+    const catOpts=opts.filter(opt=>String(opt.catId)===String(o.catId));
+    const optLines=catOpts.map(opt=>{
+      const val=parsedOpts[opt.name];
+      if(!val) return null;
+      return`<span style="color:var(--muted)">${esc(opt.name)}:</span> ${esc(val)}`;
+    }).filter(Boolean);
     const optHtml=optLines.length
       ?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</div>`).join('')
       :'';
