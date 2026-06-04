@@ -136,7 +136,7 @@ async function loadAll(){
     const [ordersRaw, catsRaw, optsRaw, coloursRaw] = await Promise.all([
       sbGet('orders', '?order=order_id.asc'),
       sbGet('categories', '?order=id.asc'),
-      sbGet('options', '?order=id.asc'),
+      sbGet('options', '?order=sort_order.asc,id.asc'),
       sbGet('colours', '?order=id.asc')
     ]);
     orders  = ordersRaw.map(normalise);
@@ -187,11 +187,12 @@ function normaliseCat(c){
 }
 function normaliseOpt(o){
   return{
-    id:      String(o.id||''),
-    catId:   String(o.cat_id||o.catId||''),
-    name:    String(o.name||''),
-    display: String(o.display||'text'),
-    options: String(o.options||'')
+    id:         String(o.id||''),
+    catId:      String(o.cat_id||o.catId||''),
+    name:       String(o.name||''),
+    display:    String(o.display||'text'),
+    options:    String(o.options||''),
+    sort_order: Number(o.sort_order||0)
   };
 }
 function normaliseColour(c){
@@ -1032,7 +1033,7 @@ async function saveCatsAndOpts(){
   setStatus('spin','Saving…');closeCatModal();populateCatFilter();
   try{
     await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price})));
-    await sbReplace('options', opts.map(o=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options})));
+    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i})));
     setStatus('ok','Saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
