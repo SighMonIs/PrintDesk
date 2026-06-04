@@ -39,7 +39,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <div><span class="logo">PrintDesk</span></div>
     <div class="hdr-actions">
       <button class="btn" onclick="openColourModal()"><i class="ti ti-brush"></i><span class="btn-label"> Colours</span></button>
-      <div class="btn-group"><button class="btn" onclick="openCatModal()"><i class="ti ti-category"></i><span class="btn-label"> Categories</span></button><button class="btn" onclick="openOptModal()"><i class="ti ti-list-details"></i><span class="btn-label"> Options</span></button></div>
+      <button class="btn" onclick="openCatModal()"><i class="ti ti-category"></i><span class="btn-label"> Categories</span></button>
       <button class="btn" onclick="loadAll()"><i class="ti ti-refresh"></i><span class="btn-label"> Refresh</span></button>
       <button class="btn primary" onclick="openAddModal()"><i class="ti ti-plus"></i><span class="btn-label"> New Order</span></button>
       <button class="btn icon-only" onclick="openStatsModal()" title="Stats"><i class="ti ti-chart-bar"></i></button>
@@ -151,30 +151,14 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
 <!-- ══ Categories Modal ══ -->
 <div class="modal-bg" id="catModal" onclick="if(event.target===this)closeCatModal()">
-  <div class="modal md" onclick="event.stopPropagation()">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:720px">
     <div class="modal-title">Manage categories</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Simple list of categories, each with a name and default price.</p>
-    <div class="cat-flat-hdr"><span>ID</span><span>Name</span><span>Price ($)</span><span></span></div>
-    <div class="cat-flat-list" id="catFlatList"></div>
-    <button class="btn" style="width:100%" onclick="addCat()"><i class="ti ti-plus"></i> Add category</button>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Each category can have options — extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical" style="font-size:12px"></i> to reorder options.</p>
+    <div id="catFlatList"></div>
+    <button class="btn" style="width:100%;margin-top:8px" onclick="addCat()"><i class="ti ti-plus"></i> Add category</button>
     <div class="modal-actions">
       <button class="btn" onclick="closeCatModal()">Cancel</button>
-      <button class="btn primary" onclick="saveCats()"><i class="ti ti-cloud-upload"></i> Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ Options Modal ══ -->
-<div class="modal-bg" id="optModal" onclick="if(event.target===this)closeOptModal()">
-  <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title">Manage options</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Options are extra fields shown when adding a model of a given category. Use <strong>text</strong> for a free-text field, <strong>dropdown</strong> for a pick list (comma-separated values). Adding "Custom" to a dropdown shows a free-text box when selected.</p>
-    <div class="opt-hdr"><span>ID</span><span>Category</span><span>Field name</span><span>Display</span><span></span></div>
-    <div class="opt-list" id="optList"></div>
-    <button class="btn" style="width:100%" onclick="addOpt()"><i class="ti ti-plus"></i> Add option</button>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeOptModal()">Cancel</button>
-      <button class="btn primary" onclick="saveOpts()"><i class="ti ti-cloud-upload"></i> Save</button>
+      <button class="btn primary" onclick="saveCatsAndOpts()"><i class="ti ti-cloud-upload"></i> Save</button>
     </div>
   </div>
 </div>
