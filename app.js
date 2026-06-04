@@ -620,36 +620,30 @@ function collectOpts(idx){
   const catId=document.getElementById('mc-'+idx)?.value||'';
   const catOpts=getCatOpts(catId);
   const parts=catOpts.map(opt=>{
+    const isColOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
     const el=document.getElementById('ov-'+idx+'-'+opt.id);
-    if(!el)return'';
+    if(!el) return '';
     let val=el.value;
-    if(isColOpt && colSelect){
-      val=colSelect.value;
+
+    if(isColOpt){
+      // For colour opts: read from the native select
       if(val==='Custom'){
-        // Collect layer values as simple pipe-separated names
+        // Collect layer values as simple pipe-separated colour names
         const container=document.getElementById('ovc-'+idx+'-'+opt.id);
         if(container&&container.dataset.iscolour==='1'){
           const layers=[1,2,3,4].map(n=>{
-            const v=getColourPickerValue('lp-'+idx+'-'+opt.id+'-'+n);
-            return v||'';
+            return getColourPickerValue('lp-'+idx+'-'+opt.id+'-'+n)||'';
           });
           val=layers.filter(Boolean).join('|');
         }
       }
+      // If val is a saved combo key (pipe-separated names) store as-is
+    } else if(val==='Custom'){
+      // Non-colour custom text field
+      const t=document.getElementById('ovt-'+idx+'-'+opt.id);
+      val=t?t.value:'';
     }
-    if(val==='Custom'){
-      const container=document.getElementById('ovc-'+idx+'-'+opt.id);
-      if(container&&container.dataset.iscolour==='1'){
-        const layers=[1,2,3,4].map(n=>{
-          const v=getColourPickerValue('lp-'+idx+'-'+opt.id+'-'+n);
-          return v?'Layer '+n+':'+v:'';
-        }).filter(Boolean);
-        val='Custom:'+(layers.join('|'));
-      } else {
-        const t=document.getElementById('ovt-'+idx+'-'+opt.id);
-        val=t?t.value:'';
-      }
-    }
+
     return val?`${opt.name}:${val}`:'';
   }).filter(Boolean);
   const hidden=document.getElementById('opts-'+idx);
