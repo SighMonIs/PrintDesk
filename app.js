@@ -368,10 +368,21 @@ function renderTable(){
     const optLines=catOpts.map(opt=>{
       const val=parsedOpts[opt.name];
       if(!val) return null;
+      const isColOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
+      if(isColOpt){
+        // Show swatches for each colour name
+        const names=val.split('|').map(s=>s.trim()).filter(Boolean);
+        const swatches=names.map(name=>{
+          const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
+          const code=c?c.code:'#cccccc';
+          return`<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${esc(code)};border:1px solid rgba(255,255,255,0.15);margin-right:2px;cursor:default;flex-shrink:0" title="${esc(name)}"></span>`;
+        }).join('');
+        return`<span style="color:var(--muted)">${esc(opt.name)}:</span> <span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:1px">${swatches}</span>`;
+      }
       return`<span style="color:var(--muted)">${esc(opt.name)}:</span> ${esc(val)}`;
     }).filter(Boolean);
     const optHtml=optLines.length
-      ?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</div>`).join('')
+      ?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px">${l}</div>`).join('')
       :'';
     return`<tr class="${isFirst?'group-first':''}">
       <td class="card-order-num" style="padding:7px 8px">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
