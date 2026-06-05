@@ -1591,23 +1591,49 @@ function darken(hex,amt){
 }
 
 function buildAccentSwatches(){
-  const grid=document.getElementById('accentSwatchGrid');
-  if(!grid) return;
-  const currentAccent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-  grid.innerHTML=colours.filter(c=>c.available).map(c=>`
-    <div class="accent-swatch-item" onclick="selectAccentColour('${esc(c.code)}','${esc(c.name)}',this)">
-      <div class="accent-swatch-circle ${c.code.toLowerCase()===currentAccent.toLowerCase()?'active':''}"
-        style="background:${esc(c.code)}" title="${esc(c.name)}"></div>
-      <span class="accent-swatch-name">${esc(c.name)}</span>
-    </div>`).join('');
+  const list = document.getElementById('cpl-accent-sel');
+  if(!list) return;
+  const currentAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  // Clear existing options (keep the "none" entry)
+  while(list.children.length > 1) list.removeChild(list.lastChild);
+  const avail = colours.filter(c=>c.available);
+  avail.forEach(c=>{
+    const div = document.createElement('div');
+    div.className = 'cp-option' + (c.code.toLowerCase()===currentAccent.toLowerCase()?' selected':'');
+    div.onclick = ()=>selectAccentColour(c.code, c.name, div);
+    div.innerHTML = `<div class="cp-swatch" style="background:${esc(c.code)}"></div><span>${esc(c.name)}</span>`;
+    list.appendChild(div);
+  });
+  // Update button label to show current selection
+  const match = avail.find(c=>c.code.toLowerCase()===currentAccent.toLowerCase());
+  const btn = document.getElementById('cpb-accent-sel');
+  const swatch = document.getElementById('accent-sel-swatch');
+  const label = document.getElementById('accent-sel-label');
+  if(match){
+    if(swatch) swatch.style.background = match.code;
+    if(label) label.textContent = match.name;
+  } else {
+    if(swatch) swatch.style.background = currentAccent;
+    if(label) label.textContent = 'Custom';
+  }
 }
 
 function selectAccentColour(hex, name, el){
+  if(!hex){ return; } // none selected — let custom picker handle it
   const a2=darken(hex,0.18);
   applyAccent(hex,a2);
-  document.querySelectorAll('.accent-swatch-circle').forEach(s=>s.classList.remove('active'));
-  if(el) el.querySelector('.accent-swatch-circle')?.classList.add('active');
-  document.getElementById('customColour').value=hex;
+  // Update picker button
+  const swatch = document.getElementById('accent-sel-swatch');
+  const label  = document.getElementById('accent-sel-label');
+  if(swatch) swatch.style.background = hex;
+  if(label)  label.textContent = name||hex;
+  // Close dropdown
+  const list = document.getElementById('cpl-accent-sel');
+  if(list){ list.classList.remove('open'); list.style.display='none'; }
+  // Update active state
+  list?.querySelectorAll('.cp-option').forEach(o=>o.classList.remove('selected'));
+  if(el) el.classList.add('selected');
+  document.getElementById('customColour').value = hex;
 }
 
 function openSettings(){
