@@ -445,7 +445,17 @@ function toggleStatusDd(rowId, btn){
     if(el.id !== 'sdd-'+rowId) el.classList.remove('open');
   });
   const list = document.getElementById('sdd-'+rowId);
-  if(list) list.classList.toggle('open');
+  if(!list) return;
+  if(list.classList.contains('open')){
+    list.classList.remove('open');
+    return;
+  }
+  // Position using fixed coords relative to the button
+  const rect = btn.getBoundingClientRect();
+  list.style.top  = (rect.bottom + 4) + 'px';
+  list.style.left = (rect.left + rect.width/2) + 'px';
+  list.style.transform = 'translateX(-50%)';
+  list.classList.add('open');
 }
 
 function selectStatus(orderId, rowId, newStatus, optEl){
