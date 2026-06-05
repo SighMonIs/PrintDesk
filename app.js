@@ -1164,11 +1164,16 @@ function openAddModal(){
   editOId=null;acInst=null;
   document.getElementById('modalTitle').textContent='New Order';
   document.getElementById('f-customer').value='';
+  document.getElementById('f-customer-id').value='';
   document.getElementById('f-address').value='';
   document.getElementById('f-address').classList.remove('validated');
   document.getElementById('addrTick').style.display='none';
   document.getElementById('f-delivery').value='Post';
   document.getElementById('f-payment').value='No';
+  // New order: show + button, update refresh state
+  const createBtn = document.getElementById('createCustomerBtn');
+  if(createBtn) createBtn.style.display='';
+  updateAddrRefreshBtn();
   const today=todayDMY();
   document.getElementById('f-date').value=today;
   document.getElementById('f-date-display').textContent=today;
@@ -1183,6 +1188,10 @@ function openEdit(orderId){
   document.getElementById('modalTitle').textContent='Edit Order';
   document.getElementById('f-customer').value=first.customer;
   document.getElementById('f-customer-id').value=first.customer_id||'';
+  // Edit order: hide + button, update refresh state
+  const createBtn = document.getElementById('createCustomerBtn');
+  if(createBtn) createBtn.style.display='none';
+  updateAddrRefreshBtn();
   document.getElementById('f-address').value=first.address||'';
   if(first.address){document.getElementById('f-address').classList.add('validated');document.getElementById('addrTick').style.display='';}
   else{document.getElementById('f-address').classList.remove('validated');document.getElementById('addrTick').style.display='none';}
@@ -1959,6 +1968,7 @@ function selectCustomer(id, name, address){
   if(address && !document.getElementById('f-address').value){
     document.getElementById('f-address').value=address;
   }
+  updateAddrRefreshBtn();
 }
 
 async function createCustomerInline(){
@@ -1978,6 +1988,26 @@ async function createCustomerInline(){
     selectCustomer(row.id, row.name, '');
     setStatus('ok','Customer created');
   }catch(e){ alert('Failed to create customer: '+e.message); }
+}
+
+
+function updateAddrRefreshBtn(){
+  const customerId = document.getElementById('f-customer-id')?.value||'';
+  const btn = document.getElementById('addrRefreshBtn');
+  if(!btn) return;
+  const c = customers.find(c=>c.id===customerId);
+  const hasAddr = c && c.address;
+  btn.disabled = !hasAddr;
+  btn.style.opacity = hasAddr ? '1' : '0.4';
+  btn.style.cursor  = hasAddr ? 'pointer' : 'not-allowed';
+  btn.title = hasAddr ? 'Revert to customer address' : 'No address saved for this customer';
+}
+
+function revertToCustomerAddress(){
+  const customerId = document.getElementById('f-customer-id')?.value||'';
+  const c = customers.find(c=>c.id===customerId);
+  if(!c||!c.address) return;
+  document.getElementById('f-address').value = c.address;
 }
 
 // ── Stats modal ────────────────────────────────────────────
