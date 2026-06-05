@@ -98,12 +98,18 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
     </div>
     <div class="sidebar-bottom">
+      <div class="sidebar-version sidebar-label">v2.3.0</div>
+      <div class="sidebar-divider"></div>
       <button class="sidebar-item" onclick="openSettings()">
         <i class="ti ti-settings"></i><span class="sidebar-label">Settings</span>
       </button>
       <button class="sidebar-item sidebar-logout" onclick="doLogout()">
         <i class="ti ti-logout"></i><span class="sidebar-label">Sign out</span>
       </button>
+      <div class="sidebar-status">
+        <div class="dot" id="dot"></div>
+        <span class="sidebar-label" id="statusMsg">Loading…</span>
+      </div>
     </div>
   </nav>
 
@@ -162,7 +168,6 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div><!-- end app/mainContent -->
 </div><!-- end mainApp -->
 
-<div class="statusbar"><div class="dot" id="dot"></div><span id="statusMsg">Loading…</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--border2)">v2.3.0</span></div>
 
 <!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
