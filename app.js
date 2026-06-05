@@ -1476,6 +1476,167 @@ function applyComboToLayers(idx, optId, comboKey){
   renderLayerSelectors(idx, optId, layerStr);
 }
 
+
+// ── Users modal ────────────────────────────────────────────
+let editingUserId = null;
+
+function openUsersModal(){
+  editingUserId = null;
+  document.getElementById('userForm').style.display = 'none';
+  document.getElementById('usersModal').classList.add('open');
+  loadUsers();
+}
+function closeUsersModal(){ document.getElementById('usersModal').classList.remove('open'); }
+
+async function loadUsers(){
+  const el = document.getElementById('usersList');
+  el.innerHTML = '<div class="empty"><i class="ti ti-loader-2"></i> Loading…</div>';
+  try{
+    // Uses Supabase admin API via service role — but we only have anon key
+    // So we use the auth admin endpoint with the user's JWT
+    const token = getAccessToken();
+    const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users', {
+      headers: { ...sbAuthHeaders(), 'Authorization': 'Bearer ' + token }
+    });
+    if(!res.ok){
+      // Fallback — just show current user if admin endpoint not available
+      el.innerHTML = renderUserCard(currentUser, true);
+      return;
+    }
+    const data = await res.json();
+    const users = data.users || [];
+    if(!users.length){ el.innerHTML = '<div class="empty">No users found.</div>'; return; }
+    el.innerHTML = users.map(u=>renderUserCard(u, u.id===currentUser?.id)).join('');
+  }catch(e){
+    // Fallback to showing current user
+    el.innerHTML = renderUserCard(currentUser, true);
+  }
+}
+
+function renderUserCard(u, isCurrentUser){
+  if(!u) return '';
+  const name  = u.user_metadata?.display_name || u.email?.split('@')[0] || 'Unknown';
+  const email = u.email || '—';
+  const since = u.created_at ? new Date(u.created_at).toLocaleDateString('en-AU') : '—';
+  return `<div style="display:flex;align-items:center;justify-content:space-between;
+    padding:10px 12px;background:var(--surface2);border:1px solid var(--border);
+    border-radius:var(--radius-lg);margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:36px;height:36px;border-radius:50%;background:rgba(232,213,163,0.15);
+        border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;
+        font-size:14px;font-weight:600;color:var(--accent);flex-shrink:0">
+        ${esc(name[0].toUpperCase())}
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:500">${esc(name)}${isCurrentUser?' <span style="font-size:10px;color:var(--muted)">(you)</span>':''}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(email)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:1px">Joined ${since}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="icon-btn" onclick="openEditUserForm('${esc(u.id)}','${esc(email)}','${esc(name)}')" title="Edit"><i class="ti ti-edit"></i></button>
+      ${!isCurrentUser?`<button class="icon-btn del" onclick="deleteUser('${esc(u.id)}','${esc(name)}')" title="Delete"><i class="ti ti-trash"></i></button>`:''}
+    </div>
+  </div>`;
+}
+
+function openAddUserForm(){
+  editingUserId = null;
+  document.getElementById('uf-email').value = '';
+  document.getElementById('uf-password').value = '';
+  document.getElementById('uf-name').value = '';
+  document.getElementById('uf-email').disabled = false;
+  document.getElementById('uf-password').placeholder = 'Min. 6 characters';
+  document.getElementById('uf-error').style.display = 'none';
+  document.getElementById('uf-save').innerHTML = '<i class="ti ti-check"></i> Create user';
+  document.getElementById('userForm').style.display = '';
+  document.getElementById('uf-email').focus();
+}
+
+function openEditUserForm(id, email, name){
+  editingUserId = id;
+  document.getElementById('uf-email').value = email;
+  document.getElementById('uf-password').value = '';
+  document.getElementById('uf-name').value = name;
+  document.getElementById('uf-email').disabled = true;
+  document.getElementById('uf-password').placeholder = 'Leave blank to keep current';
+  document.getElementById('uf-error').style.display = 'none';
+  document.getElementById('uf-save').innerHTML = '<i class="ti ti-check"></i> Save changes';
+  document.getElementById('userForm').style.display = '';
+  document.getElementById('uf-name').focus();
+}
+
+function closeUserForm(){
+  document.getElementById('userForm').style.display = 'none';
+  editingUserId = null;
+}
+
+async function saveUser(){
+  const email    = document.getElementById('uf-email').value.trim();
+  const password = document.getElementById('uf-password').value;
+  const name     = document.getElementById('uf-name').value.trim();
+  const errEl    = document.getElementById('uf-error');
+  const btn      = document.getElementById('uf-save');
+  errEl.style.display = 'none';
+
+  if(!editingUserId && !email){ errEl.textContent='Email is required.'; errEl.style.display=''; return; }
+  if(!editingUserId && !password){ errEl.textContent='Password is required for new users.'; errEl.style.display=''; return; }
+  if(password && password.length < 6){ errEl.textContent='Password must be at least 6 characters.'; errEl.style.display=''; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> Saving…';
+
+  try{
+    const token = getAccessToken();
+    let res, data;
+
+    if(editingUserId){
+      // Update existing user
+      const body = { data: { display_name: name } };
+      if(password) body.password = password;
+      res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users/' + editingUserId, {
+        method: 'PUT',
+        headers: { ...sbAuthHeaders(), 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify(body)
+      });
+    } else {
+      // Create new user
+      res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users', {
+        method: 'POST',
+        headers: { ...sbAuthHeaders(), 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { display_name: name } })
+      });
+    }
+
+    data = await res.json();
+    if(!res.ok) throw new Error(data.msg || data.error_description || data.message || 'Failed');
+
+    closeUserForm();
+    loadUsers();
+  }catch(e){
+    errEl.textContent = e.message;
+    errEl.style.display = '';
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = editingUserId ? '<i class="ti ti-check"></i> Save changes' : '<i class="ti ti-check"></i> Create user';
+  }
+}
+
+async function deleteUser(id, name){
+  if(!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  try{
+    const token = getAccessToken();
+    const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users/' + id, {
+      method: 'DELETE',
+      headers: { ...sbAuthHeaders(), 'Authorization': 'Bearer ' + token }
+    });
+    if(!res.ok){ const d=await res.json(); throw new Error(d.msg||'Delete failed'); }
+    loadUsers();
+  }catch(e){
+    alert('Could not delete user: ' + e.message);
+  }
+}
+
 // ── Stats modal ────────────────────────────────────────────
 function openStatsModal(){
   updateStats();
