@@ -822,38 +822,46 @@ let nominatimTimer = null;
 let nominatimList  = null;
 
 function initAutocomplete(){
+  // Order modal address
   const input = document.getElementById('f-address');
   if(acInst) return;
-  acInst = true; // mark as initialised
+  acInst = true;
+  attachNominatim(input, document.getElementById('addrTick'));
+}
 
-  // Create suggestion list
-  nominatimList = document.createElement('div');
-  nominatimList.className = 'colour-picker-list';
-  nominatimList.style.cssText = 'display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:9999;max-height:200px;overflow-y:auto';
+function attachNominatim(input, tickEl){
+  if(!input || input.dataset.nominatim) return;
+  input.dataset.nominatim = '1';
   input.parentElement.style.position = 'relative';
-  input.parentElement.appendChild(nominatimList);
+
+  const list = document.createElement('div');
+  list.className = 'colour-picker-list';
+  list.style.cssText = 'display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:9999;max-height:200px;overflow-y:auto';
+  input.parentElement.appendChild(list);
+
+  let timer = null;
 
   input.addEventListener('input', ()=>{
-    clearTimeout(nominatimTimer);
-    input.classList.remove('validated');
-    document.getElementById('addrTick').style.display = 'none';
+    clearTimeout(timer);
+    if(tickEl){ input.classList.remove('validated'); tickEl.style.display='none'; }
     const q = input.value.trim();
-    if(q.length < 3){ nominatimList.style.display='none'; return; }
-    nominatimTimer = setTimeout(()=>fetchNominatim(q, input), 350);
+    if(q.length < 3){ list.style.display='none'; return; }
+    timer = setTimeout(()=>fetchNominatim(q, input, list, tickEl), 350);
   });
 
   input.addEventListener('blur', ()=>{
-    setTimeout(()=>{ nominatimList.style.display='none'; }, 200);
+    setTimeout(()=>{ list.style.display='none'; }, 200);
   });
 }
 
-async function fetchNominatim(q, input){
+async function fetchNominatim(q, input, list, tickEl){
+  if(!list) list = nominatimList; // fallback for legacy calls
   try{
     const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&q=' + encodeURIComponent(q);
-    const res  = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'PrintDesk/2.5' } });
+    const res  = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'PrintDesk/3.0' } });
     const data = await res.json();
-    nominatimList.innerHTML = '';
-    if(!data.length){ nominatimList.style.display='none'; return; }
+    list.innerHTML = '';
+    if(!data.length){ list.style.display='none'; return; }
     data.forEach(place=>{
       const div = document.createElement('div');
       div.className = 'cp-option';
@@ -861,15 +869,14 @@ async function fetchNominatim(q, input){
       div.innerHTML = `<i class="ti ti-map-pin" style="font-size:13px;color:var(--muted);flex-shrink:0;margin-top:2px"></i><span style="font-size:12px;line-height:1.4">${esc(place.display_name)}</span>`;
       div.onmousedown = ()=>{
         input.value = place.display_name;
-        input.classList.add('validated');
-        document.getElementById('addrTick').style.display = '';
-        nominatimList.style.display = 'none';
+        if(tickEl){ input.classList.add('validated'); tickEl.style.display=''; }
+        list.style.display = 'none';
       };
-      nominatimList.appendChild(div);
+      list.appendChild(div);
     });
-    nominatimList.style.display = '';
+    list.style.display = '';
   } catch(e){
-    nominatimList.style.display = 'none';
+    if(list) list.style.display = 'none';
   }
 }
 
@@ -1877,6 +1884,7 @@ function openAddCustomer(){
   document.getElementById('cf-title').textContent='Add customer';
   document.getElementById('customerForm').style.display='';
   document.getElementById('cf-name').focus();
+  setTimeout(()=>attachNominatim(document.getElementById('cf-address'), null), 50);
 }
 
 function openEditCustomer(id){
@@ -1892,6 +1900,7 @@ function openEditCustomer(id){
   document.getElementById('cf-title').textContent='Edit customer';
   document.getElementById('customerForm').style.display='';
   document.getElementById('cf-name').focus();
+  setTimeout(()=>attachNominatim(document.getElementById('cf-address'), null), 50);
 }
 
 function closeCustomerForm(){
