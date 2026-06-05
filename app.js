@@ -1,3 +1,48 @@
+// ── Sidebar ────────────────────────────────────────────────
+let sidebarPinned = false;
+
+function initSidebar(){
+  // Restore pin state from preferences (set by loadPreferences)
+  setSidebarPin(sidebarPinned);
+}
+
+function setSidebarPin(pinned){
+  sidebarPinned = pinned;
+  const sidebar = document.getElementById('sidebar');
+  const icon    = document.getElementById('sidebarPinIcon');
+  const app     = document.getElementById('mainApp');
+  if(pinned){
+    sidebar.classList.add('pinned');
+    icon.className = 'ti ti-pin-filled';
+    app.classList.add('sidebar-pinned');
+  } else {
+    sidebar.classList.remove('pinned');
+    icon.className = 'ti ti-pin';
+    app.classList.remove('sidebar-pinned');
+  }
+}
+
+function toggleSidebarPin(){
+  setSidebarPin(!sidebarPinned);
+  savePreferences();
+}
+
+// Mobile sidebar
+function openMobileSidebar(){
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('sidebarOverlay').classList.add('mobile-open');
+}
+function closeMobileSidebar(){
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebarOverlay').classList.remove('mobile-open');
+}
+// Close mobile sidebar when a nav item is clicked
+document.addEventListener('click', e=>{
+  if(document.body.classList.contains('mobile') && e.target.closest('.sidebar-item')){
+    closeMobileSidebar();
+  }
+});
+
 // ── Auth ──────────────────────────────────────────────────
 let currentUser = null;
 
@@ -108,6 +153,7 @@ async function doLogout(){
 function showApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = '';
+  initSidebar();
   loadAll();
 }
 
@@ -125,6 +171,7 @@ async function loadPreferences(){
       const p = rows[0];
       if(p.accent_colour)  applyAccent(p.accent_colour, p.accent_colour2||darken(p.accent_colour,0.18), false);
       if(p.sort_key)       { sortKey=p.sort_key; sortDir=p.sort_dir||1; }
+      if(p.sidebar_pinned !== undefined) setSidebarPin(!!p.sidebar_pinned);
     }
   } catch(e) { console.warn('Could not load preferences:', e); }
 }
@@ -139,6 +186,7 @@ async function savePreferences(){
     accent_colour2: accent2,
     sort_key:       sortKey,
     sort_dir:       sortDir,
+    sidebar_pinned: sidebarPinned,
     updated_at:     new Date().toISOString()
   };
   try {
