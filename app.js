@@ -387,7 +387,7 @@ function renderTable(){
     return`<tr class="${isFirst?'group-first':''}">
       <td class="card-order-num" style="padding:7px 8px">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
       <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
-      <td data-label="Address" style="padding:7px 8px">${isFirst?`<span style="display:flex;align-items:center;overflow:hidden">${deliveryIcon}<span class="addr-cell" style="overflow:hidden;text-overflow:ellipsis" title="${esc(o.address)}">${esc(addrShort)||'—'}</span></span>`:''}
+      <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)">${isFirst?`<span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span>`:''}
       </td>
       <td data-label="Category" style="padding:7px 8px">${catHtml}</td>
       <td data-label="Options" style="padding:7px 8px;font-size:11px;overflow:visible;white-space:normal;line-height:1.6">${optHtml}</td>
