@@ -267,7 +267,7 @@ async function loadPreferences(){
     if(rows.length){
       const p = rows[0];
       if(p.accent_colour)  applyAccent(p.accent_colour, p.accent_colour2||darken(p.accent_colour,0.18), false);
-      if(p.sort_key)       { sortKey=p.sort_key; sortDir=p.sort_dir||1; }
+      if(p.sort_key){ sortKey=p.sort_key; sortDir=p.sort_dir||1; updateSortArrow(); }
       if(p.sidebar_pinned !== undefined){ sidebarMode = p.sidebar_pinned === true ? 'expanded' : (p.sidebar_mode||'hover'); applySidebarMode(sidebarMode); }
     }
   } catch(e) { console.warn('Could not load preferences:', e); }
@@ -455,9 +455,9 @@ async function loadAll(){
     colours = coloursRaw.map(normaliseColour);
     if(!cats.length) cats = defaultCats();
     populateCatFilter();
+    await loadPreferences();  // load sort prefs before rendering
     renderTable();
     setStatus('ok','Connected · '+uniqueOrderCount()+' orders');
-    await loadPreferences();
   }catch(e){setStatus('err','Load failed: '+e.message);}
 }
 
@@ -779,18 +779,21 @@ function renderTable(){
 }
 
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function sortBy(k){
-  if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}
-  savePreferences();
-  // Update header classes and arrows
+function updateSortArrow(){
   document.querySelectorAll('thead th').forEach(t=>t.classList.remove('sort-active'));
   document.querySelectorAll('.sort-arrow').forEach(a=>{a.textContent='';});
-  const th=document.querySelector(`th[data-key="${k}"]`);
+  const th=document.querySelector(`th[data-key="${sortKey}"]`);
   if(th){
     th.classList.add('sort-active');
     const arrow=th.querySelector('.sort-arrow');
     if(arrow)arrow.textContent=sortDir===1?' ↑':' ↓';
   }
+}
+
+function sortBy(k){
+  if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}
+  savePreferences();
+  updateSortArrow();
   renderTable();
 }
 function showNote(m,n){document.getElementById('noteModalTitle').textContent=m?'Note — '+m:'Note';document.getElementById('noteModalBody').textContent=n||'(No note recorded)';document.getElementById('noteModal').classList.add('open');}
