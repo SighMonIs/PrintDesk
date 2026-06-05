@@ -98,7 +98,6 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
     </div>
     <div class="sidebar-bottom">
-      <div class="sidebar-version sidebar-label">v2.3.0</div>
       <div class="sidebar-divider"></div>
       <button class="sidebar-item" onclick="openSettings()">
         <i class="ti ti-settings"></i><span class="sidebar-label">Settings</span>
@@ -106,10 +105,11 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <button class="sidebar-item sidebar-logout" onclick="doLogout()">
         <i class="ti ti-logout"></i><span class="sidebar-label">Sign out</span>
       </button>
-      <div class="sidebar-status">
+      <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label" id="statusMsg">Loading…</span>
+        <span class="sidebar-label sidebar-ver-text">v2.3.0</span>
       </div>
+      <span id="statusMsg" style="display:none"></span>
     </div>
   </nav>
 
