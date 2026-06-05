@@ -398,3 +398,118 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   border-radius:var(--radius);padding:8px 12px;
   font-size:12px;color:var(--red);margin-bottom:1rem;
 }
+
+/* ── Sidebar layout ── */
+:root{
+  --sidebar-collapsed: 52px;
+  --sidebar-expanded:  200px;
+}
+
+#mainApp{display:flex;min-height:100vh;position:relative;}
+
+/* Sidebar */
+.sidebar{
+  position:fixed;left:0;top:0;bottom:0;
+  width:var(--sidebar-collapsed);
+  background:var(--surface);
+  border-right:1px solid var(--border2);
+  display:flex;flex-direction:column;
+  z-index:100;
+  transition:width 0.2s ease;
+  overflow:hidden;
+}
+.sidebar:hover,.sidebar.pinned{width:var(--sidebar-expanded);}
+.sidebar.pinned .sidebar-pin{opacity:1;color:var(--accent);}
+
+/* Sidebar top */
+.sidebar-top{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 12px 10px;
+  border-bottom:1px solid var(--border);
+  min-height:52px;
+  overflow:hidden;
+}
+.sidebar-logo{display:flex;align-items:center;gap:10px;overflow:hidden;}
+.sidebar-logo-icon{font-size:20px;color:var(--accent);flex-shrink:0;}
+.sidebar-logo-text{
+  font-family:'DM Mono',monospace;font-size:15px;font-weight:600;
+  color:var(--accent);white-space:nowrap;
+  opacity:0;transition:opacity 0.15s 0.05s;
+}
+.sidebar:hover .sidebar-logo-text,
+.sidebar.pinned .sidebar-logo-text{opacity:1;}
+
+/* Pin button */
+.sidebar-pin{
+  background:transparent;border:none;cursor:pointer;
+  color:var(--muted);font-size:14px;padding:4px;
+  border-radius:var(--radius);flex-shrink:0;
+  opacity:0;transition:opacity 0.15s,color 0.12s,background 0.12s;
+  display:flex;align-items:center;justify-content:center;
+}
+.sidebar:hover .sidebar-pin{opacity:1;}
+.sidebar-pin:hover{background:var(--surface2);color:var(--text);}
+
+/* Nav items */
+.sidebar-nav{flex:1;padding:8px 0;overflow-y:auto;overflow-x:hidden;}
+.sidebar-bottom{padding:8px 0;border-top:1px solid var(--border);}
+.sidebar-item{
+  display:flex;align-items:center;gap:12px;
+  width:100%;padding:10px 14px;
+  background:transparent;border:none;cursor:pointer;
+  color:var(--muted);font-size:13px;font-family:'Sora',sans-serif;
+  font-weight:500;white-space:nowrap;
+  transition:background 0.12s,color 0.12s;
+  text-align:left;
+}
+.sidebar-item i{font-size:18px;flex-shrink:0;width:24px;text-align:center;}
+.sidebar-item:hover{background:var(--surface2);color:var(--text);}
+.sidebar-item.primary-item{color:var(--accent);}
+.sidebar-item.primary-item:hover{background:rgba(232,213,163,0.08);color:var(--accent);}
+.sidebar-item.sidebar-logout:hover{color:var(--red);background:rgba(224,92,92,0.08);}
+.sidebar-label{
+  opacity:0;transition:opacity 0.15s 0.05s;
+  overflow:hidden;
+}
+.sidebar:hover .sidebar-label,
+.sidebar.pinned .sidebar-label{opacity:1;}
+.sidebar-divider{height:1px;background:var(--border);margin:6px 12px;}
+
+/* Main content shifts right */
+.app{
+  margin-left:var(--sidebar-collapsed);
+  transition:margin-left 0.2s ease;
+  flex:1;min-width:0;
+  padding:1.5rem 1.5rem 4rem;
+}
+.sidebar.pinned ~ #sidebarOverlay ~ .mobile-hamburger ~ .app,
+#mainContent{
+  /* handled by JS class on #mainApp */
+}
+#mainApp.sidebar-pinned .app{margin-left:var(--sidebar-expanded);}
+
+/* Mobile */
+.mobile-hamburger{
+  display:none;position:fixed;top:12px;left:12px;z-index:99;
+  width:38px;height:38px;border-radius:var(--radius);
+  background:var(--surface);border:1px solid var(--border2);
+  color:var(--text);font-size:20px;cursor:pointer;
+  align-items:center;justify-content:center;
+}
+.sidebar-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.6);z-index:99;
+}
+
+body.mobile .mobile-hamburger{display:flex;}
+body.mobile .sidebar{
+  width:100%;transform:translateX(-100%);
+  transition:transform 0.25s ease;
+  z-index:110;
+}
+body.mobile .sidebar.mobile-open{transform:translateX(0);}
+body.mobile .sidebar-overlay.mobile-open{display:block;}
+body.mobile .app{margin-left:0!important;}
+body.mobile .sidebar-logo-text,
+body.mobile .sidebar-label,
+body.mobile .sidebar-pin{opacity:1!important;}
