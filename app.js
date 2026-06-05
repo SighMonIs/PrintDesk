@@ -498,12 +498,13 @@ function normaliseCat(c){
 }
 function normaliseOpt(o){
   return{
-    id:         String(o.id||''),
-    catId:      String(o.cat_id||o.catId||''),
-    name:       String(o.name||''),
-    display:    String(o.display||'text'),
-    options:    String(o.options||''),
-    sort_order: Number(o.sort_order||0)
+    id:          String(o.id||''),
+    catId:       String(o.cat_id||o.catId||''),
+    name:        String(o.name||''),
+    display:     String(o.display||'text'),
+    options:     String(o.options||''),
+    sort_order:  Number(o.sort_order||0),
+    num_colours: Number(o.num_colours||4)
   };
 }
 function normaliseColour(c){
@@ -876,7 +877,10 @@ function renderModelOpts(idx, catId, savedOpts){
     } else {
       // dropdown
       const items=opt.options.split(',').map(s=>s.trim()).filter(Boolean);
-      const isColourOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
+      const isColourOpt = opt.display==='colour' ||
+        opt.name.toLowerCase().includes('colour') ||
+        opt.name.toLowerCase().includes('color');
+      const numColours = opt.num_colours || 4;
 
       // For colour opts: pipe-separated value = saved combo key (not Custom)
       let isCustom, ddVal, customVal;
@@ -1025,8 +1029,10 @@ function renderLayerSelectors(idx, optId, savedVal){
       savedVal.split('|').forEach((name,i)=>{if(name.trim())saved['Layer '+(i+1)]=name.trim();});
     }
   }
+  const opt = opts.find(o=>String(o.id)===String(optId));
+  const numLayers = opt?.num_colours || 4;
   container.innerHTML=`<div class="layer-selectors">
-    ${[1,2,3,4].map(n=>{
+    ${Array.from({length:numLayers},(_,i)=>i+1).map(n=>{
       const pickerId=`lp-${idx}-${optId}-${n}`;
       const savedName=saved['Layer '+n]||'';
       const onChangeFn=`function(v){collectOpts(${idx});}`;
@@ -1262,7 +1268,8 @@ function validateOrder(){
         const container=document.getElementById('ovc-'+idx+'-'+opt.id);
         if(container&&container.dataset.iscolour==='1'){
           // Custom colour — all 4 layers must be selected
-          [1,2,3,4].forEach(n=>{
+          const numC2=opt.num_colours||4;
+          Array.from({length:numC2},(_,i)=>i+1).forEach(n=>{
             const pickerId='lp-'+idx+'-'+opt.id+'-'+n;
             const layerVal=getColourPickerValue(pickerId);
             if(!layerVal){
@@ -1429,7 +1436,14 @@ function renderCatBlocks(){
             <select onchange="opts[${globalIdx}].display=this.value;renderCatBlocks()">
               <option${o.display==='text'?' selected':''}>text</option>
               <option${o.display==='dropdown'?' selected':''}>dropdown</option>
+              <option value="colour" ${o.display==='colour'?' selected':''}>colour selector</option>
             </select>
+            ${o.display==='colour'?`<div class="opt-colour-cfg">
+              <label>Colours:</label>
+              <input type="number" min="1" max="8" value="${o.num_colours||4}"
+                style="width:50px;height:26px;padding:0 6px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none"
+                oninput="opts[${globalIdx}].num_colours=parseInt(this.value)||4">
+            </div>`:''}
             <button class="icon-btn del" onclick="removeOpt(${globalIdx})"><i class="ti ti-trash"></i></button>
             ${o.display==='dropdown'?`<div class="opt-dropdown-vals">
               <input type="text" value="${esc(o.options)}" placeholder="Comma-separated values, add Custom for free text"
@@ -1474,7 +1488,7 @@ function addCat(){cats.push({id:nextCatId(),name:'',price:0});renderCatBlocks();
 function removeCat(i){cats.splice(i,1);renderCatBlocks();}
 function removeOpt(i){opts.splice(i,1);renderCatBlocks();}
 function addOptToCat(catId){
-  opts.push({id:nextOptId(),catId,name:'',display:'text',options:''});
+  opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4});
   renderCatBlocks();
 }
 
@@ -1482,7 +1496,7 @@ async function saveCatsAndOpts(){
   setStatus('spin','Saving…');closeCatModal();populateCatFilter();
   try{
     await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price})));
-    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i})));
+    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4})));
     setStatus('ok','Saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
@@ -1509,7 +1523,11 @@ function getSavedColourCombos(){
     const parts=o.options.split('||');
     parts.forEach(part=>{
       // Match "Colours:name1|name2|name3|name4" or similar colour field
-      const m=part.match(/^Colou?rs?:(.*)/i);
+      // Match colour opts by field name (legacy) or just take pipe-separated values
+      const fieldName=part.split(':')[0].trim();
+      const isColField=opts.some(o=>(o.display==='colour'||o.name.toLowerCase().includes('colour')||o.name.toLowerCase().includes('color'))&&o.name===fieldName);
+      if(!isColField) return;
+      const m=part.match(/^[^:]+:(.*)/);  // any field
       if(!m) return;
       const colourStr=m[1].trim();
       if(!colourStr) return;
