@@ -447,12 +447,14 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 /* Pin button */
 .sidebar-pin{
   background:transparent;border:none;cursor:pointer;
-  color:var(--muted);font-size:14px;padding:4px;
+  color:var(--muted);font-size:16px;padding:4px;
   border-radius:var(--radius);flex-shrink:0;
-  opacity:0;transition:opacity 0.15s,color 0.12s,background 0.12s;
+  opacity:0.5;transition:opacity 0.15s,color 0.12s,background 0.12s;
   display:flex;align-items:center;justify-content:center;
+  position:relative;
 }
 .sidebar:hover .sidebar-pin{opacity:1;}
+.sidebar-pin:hover{background:var(--surface2);color:var(--text);}
 .sidebar-pin:hover{background:var(--surface2);color:var(--text);}
 
 /* Nav items */
@@ -493,6 +495,11 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   margin-left:var(--sidebar-expanded);
   width:calc(100% - var(--sidebar-expanded));
 }
+/* Force collapsed mode */
+.sidebar.force-collapsed{width:var(--sidebar-collapsed)!important;}
+.sidebar.force-collapsed:hover{width:var(--sidebar-collapsed)!important;}
+#mainApp:has(.sidebar.force-collapsed) .app{margin-left:var(--sidebar-collapsed);width:calc(100% - var(--sidebar-collapsed));}
+
 /* Also expand when hovering sidebar (not pinned) */
 #mainApp:has(.sidebar:hover) .app{
   margin-left:var(--sidebar-expanded);
@@ -525,3 +532,36 @@ body.mobile .app{margin-left:0!important;}
 body.mobile .sidebar-logo-text,
 body.mobile .sidebar-label,
 body.mobile .sidebar-pin{opacity:1!important;}
+
+/* ── Sidebar controls popup menu ── */
+.sidebar-menu{
+  position:absolute;top:52px;right:0;
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius-lg);
+  padding:6px 0;min-width:170px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  z-index:200;display:none;
+}
+.sidebar-menu.open{display:block;}
+.sidebar-menu-title{
+  font-size:10px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.6px;
+  padding:6px 14px 8px;border-bottom:1px solid var(--border);
+  margin-bottom:4px;
+}
+.sidebar-menu-item{
+  display:flex;align-items:center;gap:10px;
+  width:100%;padding:8px 14px;
+  background:transparent;border:none;cursor:pointer;
+  color:var(--text);font-size:12px;font-family:'Sora',sans-serif;
+  text-align:left;transition:background 0.1s;
+}
+.sidebar-menu-item:hover{background:var(--surface2);}
+.sidebar-menu-dot{
+  width:8px;height:8px;border-radius:50%;
+  border:1.5px solid var(--muted);flex-shrink:0;
+  transition:all 0.12s;
+}
+.sidebar-menu-dot.active{
+  background:var(--accent);border-color:var(--accent);
+}
