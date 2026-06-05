@@ -1559,6 +1559,19 @@ function closeUsersModal(){ document.getElementById('usersModal').classList.remo
 
 async function loadUsers(){
   const el = document.getElementById('usersList');
+  // Warn if service key not set
+  if(!getCfg('SUPABASE_SERVICE_KEY')){
+    el.innerHTML = `<div class="empty" style="color:var(--amber)">
+      <i class="ti ti-alert-triangle"></i>
+      <div style="margin-top:8px;font-size:12px;line-height:1.6">
+        Service key not set. Run this in your browser console once:<br>
+        <code style="font-size:11px;background:var(--surface2);padding:4px 8px;border-radius:4px;display:inline-block;margin-top:6px">
+          localStorage.setItem('pd_SUPABASE_SERVICE_KEY', 'your-key')
+        </code>
+      </div>
+    </div>`;
+    return;
+  }
   el.innerHTML = '<div class="empty"><i class="ti ti-loader-2"></i> Loading…</div>';
   try{
     // Uses Supabase admin API via service role — but we only have anon key
