@@ -504,7 +504,8 @@ function normaliseOpt(o){
     display:     String(o.display||'text'),
     options:     String(o.options||''),
     sort_order:  Number(o.sort_order||0),
-    num_colours: Number(o.num_colours||4)
+    num_colours: Number(o.num_colours||4),
+    force_caps:  Boolean(o.force_caps||false)
   };
 }
 function normaliseColour(c){
@@ -873,7 +874,9 @@ function renderModelOpts(idx, catId, savedOpts){
   container.innerHTML=catOpts.map(opt=>{
     const val=saved[opt.name]||'';
     if(opt.display==='text'){
-      return`<div class="opt-row"><label>${esc(opt.name)}</label><input type="text" id="ov-${idx}-${opt.id}" value="${esc(val)}" placeholder="Enter ${esc(opt.name).toLowerCase()}…" oninput="collectOpts(${idx})"></div>`;
+      const capsStyle=opt.force_caps?'text-transform:uppercase':'';
+      const capsHandler=opt.force_caps?`this.value=this.value.toUpperCase();collectOpts(${idx})`:`collectOpts(${idx})`;
+      return`<div class="opt-row"><label>${esc(opt.name)}</label><input type="text" id="ov-${idx}-${opt.id}" value="${esc(opt.force_caps&&val?val.toUpperCase():val)}" placeholder="Enter ${esc(opt.name).toLowerCase()}…" style="${capsStyle}" oninput="${capsHandler}"></div>`;
     } else {
       // dropdown
       const items=opt.options.split(',').map(s=>s.trim()).filter(Boolean);
@@ -1063,6 +1066,8 @@ function collectOpts(idx){
     const el=document.getElementById('ov-'+idx+'-'+opt.id);
     if(!el) return '';
     let val=el.value;
+    // Apply force_caps for text fields
+    if(opt.display==='text' && opt.force_caps && val) val=val.toUpperCase();
 
     if(isColOpt){
       // For colour opts: read from the native select
@@ -1433,17 +1438,25 @@ function renderCatBlocks(){
             ondragend="optDragEnd(event)">
             <span class="opt-drag"><i class="ti ti-grip-vertical"></i></span>
             <input type="text" value="${esc(o.name)}" placeholder="Field name" oninput="opts[${globalIdx}].name=this.value">
-            <select onchange="opts[${globalIdx}].display=this.value;renderCatBlocks()">
-              <option${o.display==='text'?' selected':''}>text</option>
-              <option${o.display==='dropdown'?' selected':''}>dropdown</option>
-              <option value="colour" ${o.display==='colour'?' selected':''}>colour selector</option>
-            </select>
-            ${o.display==='colour'?`<div class="opt-colour-cfg">
-              <label>Colours:</label>
-              <input type="number" min="1" max="8" value="${o.num_colours||4}"
-                style="width:50px;height:26px;padding:0 6px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none"
-                oninput="opts[${globalIdx}].num_colours=parseInt(this.value)||4">
-            </div>`:''}
+            <div class="opt-type-wrap">
+              <select onchange="opts[${globalIdx}].display=this.value;renderCatBlocks()">
+                <option${o.display==='text'?' selected':''}>text</option>
+                <option${o.display==='dropdown'?' selected':''}>dropdown</option>
+                <option value="colour" ${o.display==='colour'?' selected':''}>colour selector</option>
+              </select>
+              ${o.display==='colour'?`<div class="opt-type-extra">
+                <label class="opt-extra-label">Layers:</label>
+                <input type="number" class="opt-num-input" min="1" max="8" value="${o.num_colours||4}"
+                  oninput="opts[${globalIdx}].num_colours=parseInt(this.value)||4">
+              </div>`:''}
+              ${o.display==='text'?`<div class="opt-type-extra">
+                <label class="opt-extra-label" title="Force all caps">
+                  <input type="checkbox" ${o.force_caps?'checked':''} onchange="opts[${globalIdx}].force_caps=this.checked"
+                    style="width:13px;height:13px;accent-color:var(--accent);cursor:pointer;margin:0">
+                  Caps
+                </label>
+              </div>`:''}
+            </div>
             <button class="icon-btn del" onclick="removeOpt(${globalIdx})"><i class="ti ti-trash"></i></button>
             ${o.display==='dropdown'?`<div class="opt-dropdown-vals">
               <input type="text" value="${esc(o.options)}" placeholder="Comma-separated values, add Custom for free text"
@@ -1488,7 +1501,7 @@ function addCat(){cats.push({id:nextCatId(),name:'',price:0});renderCatBlocks();
 function removeCat(i){cats.splice(i,1);renderCatBlocks();}
 function removeOpt(i){opts.splice(i,1);renderCatBlocks();}
 function addOptToCat(catId){
-  opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4});
+  opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4,force_caps:false});
   renderCatBlocks();
 }
 
@@ -1496,7 +1509,7 @@ async function saveCatsAndOpts(){
   setStatus('spin','Saving…');closeCatModal();populateCatFilter();
   try{
     await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price})));
-    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4})));
+    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false})));
     setStatus('ok','Saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
