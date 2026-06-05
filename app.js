@@ -1,30 +1,53 @@
 // ── Sidebar ────────────────────────────────────────────────
-let sidebarPinned = false;
+// modes: 'hover' (default), 'expanded' (pinned open), 'collapsed' (always closed)
+let sidebarMode = 'hover';
 
 function initSidebar(){
-  // Restore pin state from preferences (set by loadPreferences)
-  setSidebarPin(sidebarPinned);
+  applySidebarMode(sidebarMode);
 }
 
-function setSidebarPin(pinned){
-  sidebarPinned = pinned;
+function applySidebarMode(mode){
+  sidebarMode = mode;
   const sidebar = document.getElementById('sidebar');
-  const icon    = document.getElementById('sidebarPinIcon');
   const app     = document.getElementById('mainApp');
-  if(pinned){
+
+  // Remove all mode classes
+  sidebar.classList.remove('pinned','force-collapsed');
+  app.classList.remove('sidebar-pinned');
+
+  if(mode === 'expanded'){
     sidebar.classList.add('pinned');
-    icon.className = 'ti ti-pin-filled';
     app.classList.add('sidebar-pinned');
-  } else {
-    sidebar.classList.remove('pinned');
-    icon.className = 'ti ti-pin';
-    app.classList.remove('sidebar-pinned');
+  } else if(mode === 'collapsed'){
+    sidebar.classList.add('force-collapsed');
   }
+  // 'hover' = default, no extra classes needed
+
+  updateSidebarMenuDots();
 }
 
-function toggleSidebarPin(){
-  setSidebarPin(!sidebarPinned);
+function updateSidebarMenuDots(){
+  ['expanded','collapsed','hover'].forEach(m=>{
+    const dot = document.getElementById('dot'+m.charAt(0).toUpperCase()+m.slice(1));
+    if(dot) dot.classList.toggle('active', sidebarMode===m);
+  });
+}
+
+function setSidebarMode(mode){
+  applySidebarMode(mode);
+  closeSidebarMenu();
   savePreferences();
+}
+
+function toggleSidebarMenu(e){
+  e.stopPropagation();
+  const menu = document.getElementById('sidebarMenu');
+  menu.classList.toggle('open');
+  updateSidebarMenuDots();
+}
+
+function closeSidebarMenu(){
+  document.getElementById('sidebarMenu').classList.remove('open');
 }
 
 // Mobile sidebar
@@ -36,8 +59,11 @@ function closeMobileSidebar(){
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sidebarOverlay').classList.remove('mobile-open');
 }
-// Close mobile sidebar when a nav item is clicked
+// Close menu and mobile sidebar on outside click
 document.addEventListener('click', e=>{
+  if(!e.target.closest('#sidebarMenu') && !e.target.closest('#sidebarPin')){
+    closeSidebarMenu();
+  }
   if(document.body.classList.contains('mobile') && e.target.closest('.sidebar-item')){
     closeMobileSidebar();
   }
@@ -171,7 +197,7 @@ async function loadPreferences(){
       const p = rows[0];
       if(p.accent_colour)  applyAccent(p.accent_colour, p.accent_colour2||darken(p.accent_colour,0.18), false);
       if(p.sort_key)       { sortKey=p.sort_key; sortDir=p.sort_dir||1; }
-      if(p.sidebar_pinned !== undefined) setSidebarPin(!!p.sidebar_pinned);
+      if(p.sidebar_pinned !== undefined){ sidebarMode = p.sidebar_pinned === true ? 'expanded' : (p.sidebar_mode||'hover'); applySidebarMode(sidebarMode); }
     }
   } catch(e) { console.warn('Could not load preferences:', e); }
 }
@@ -186,7 +212,8 @@ async function savePreferences(){
     accent_colour2: accent2,
     sort_key:       sortKey,
     sort_dir:       sortDir,
-    sidebar_pinned: sidebarPinned,
+    sidebar_pinned: sidebarMode==='expanded',
+    sidebar_mode:   sidebarMode,
     updated_at:     new Date().toISOString()
   };
   try {
