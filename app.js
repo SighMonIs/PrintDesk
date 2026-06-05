@@ -332,6 +332,7 @@ let orders    = [];
 let cats      = [];   // [{id,name,price}]
 let opts      = [];   // [{id,catId,name,display,options}]
 let colours   = [];   // [{id,name,code,available}]
+let customers  = [];   // [{id,name,email,phone,address,notes}]
 let editOId   = null;
 let sortKey   = 'orderId';
 let sortDir   = -1;
@@ -371,6 +372,10 @@ function makeRowId(orderId, itemIndex){
 function nextCatId(){
   const nums=cats.map(c=>c.id).filter(id=>/^C\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(1)));
   return 'C'+padN((nums.length?Math.max(...nums):0)+1,4);
+}
+function nextCustomerId(){
+  const nums=customers.map(c=>c.id).filter(id=>/^CUST\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(4)));
+  return 'CUST'+padN((nums.length?Math.max(...nums):0)+1,4);
 }
 function nextColourId(){
   const nums=colours.map(c=>c.id).filter(id=>/^COL\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(3)));
@@ -443,16 +448,18 @@ async function loadAll(){
   }
   setStatus('spin','Loading…');
   try{
-    const [ordersRaw, catsRaw, optsRaw, coloursRaw] = await Promise.all([
+    const [ordersRaw, catsRaw, optsRaw, coloursRaw, customersRaw] = await Promise.all([
       sbGet('orders', '?order=order_id.asc'),
       sbGet('categories', '?order=id.asc'),
       sbGet('options', '?order=sort_order.asc,id.asc'),
-      sbGet('colours', '?order=id.asc')
+      sbGet('colours', '?order=id.asc'),
+      sbGet('customers', '?order=name.asc')
     ]);
-    orders  = ordersRaw.map(normalise);
-    cats    = catsRaw.map(normaliseCat);
-    opts    = optsRaw.map(normaliseOpt);
-    colours = coloursRaw.map(normaliseColour);
+    orders    = ordersRaw.map(normalise);
+    cats      = catsRaw.map(normaliseCat);
+    opts      = optsRaw.map(normaliseOpt);
+    colours   = coloursRaw.map(normaliseColour);
+    customers = customersRaw.map(normaliseCustomer);
     if(!cats.length) cats = defaultCats();
     populateCatFilter();
     await loadPreferences();  // load sort prefs before rendering
@@ -478,7 +485,8 @@ function normalise(o){
     status:   String(o.status                      ||'Pending'),
     date:     toDisplay(String(o.date              ||'')),
     notes:    String(o.notes                       ||''),
-    options:  String(o.options                     ||'')
+    options:     String(o.options                     ||''),
+    customer_id: String(o.customer_id                  ||'')
   };
 }
 
@@ -493,6 +501,16 @@ function defaultCats(){
 }
 
 
+function normaliseCustomer(c){
+  return{
+    id:      String(c.id||''),
+    name:    String(c.name||''),
+    email:   String(c.email||''),
+    phone:   String(c.phone||''),
+    address: String(c.address||''),
+    notes:   String(c.notes||'')
+  };
+}
 function normaliseCat(c){
   return{id:String(c.id||''),name:String(c.name||''),price:Number(c.price||0)};
 }
@@ -1174,7 +1192,7 @@ function openAddModal(){
   document.getElementById('f-date-display').textContent=today;
   document.getElementById('modelRows').innerHTML='';mCounter=0;addModelRow();
   document.getElementById('orderModal').classList.add('open');
-  setTimeout(()=>{document.getElementById('f-customer').focus();initAutocomplete();},80);
+  setTimeout(()=>{document.getElementById('f-customer').focus();initAutocomplete();initCustomerAutocomplete();},80);
 }
 
 function openEdit(orderId){
@@ -1182,6 +1200,7 @@ function openEdit(orderId){
   editOId=orderId;acInst=null;const first=rows[0];
   document.getElementById('modalTitle').textContent='Edit Order';
   document.getElementById('f-customer').value=first.customer;
+  document.getElementById('f-customer-id').value=first.customer_id||'';
   document.getElementById('f-address').value=first.address||'';
   if(first.address){document.getElementById('f-address').classList.add('validated');document.getElementById('addrTick').style.display='';}
   else{document.getElementById('f-address').classList.remove('validated');document.getElementById('addrTick').style.display='none';}
@@ -1193,7 +1212,7 @@ function openEdit(orderId){
   document.getElementById('modelRows').innerHTML='';mCounter=0;
   rows.forEach(r=>addModelRow({model:r.model,catId:r.catId,qty:r.qty,price:r.price,notes:r.notes,options:r.options}));
   document.getElementById('orderModal').classList.add('open');
-  setTimeout(()=>initAutocomplete(),80);
+  setTimeout(()=>{initAutocomplete();initCustomerAutocomplete();},80);
 }
 
 function closeModal(){
@@ -1320,8 +1339,9 @@ async function saveOrder(){
   const payment=document.getElementById('f-payment').value;
   // Save whatever is in the address box — validated or not
   const address=document.getElementById('f-address').value.trim();
+  const customerId = document.getElementById('f-customer-id').value||'';
   const newRows=models.map((m,i)=>({
-    id:makeRowId(orderId, i),orderId,customer,address,delivery,payment,
+    id:makeRowId(orderId, i),orderId,customer,customer_id:customerId,address,delivery,payment,
     model:m.model,catId:m.catId,qty:m.qty,price:m.price,
     total:parseFloat((m.qty*m.price).toFixed(2)),
     status:'Pending',date,notes:m.notes,options:m.options
@@ -1344,6 +1364,7 @@ async function saveOrder(){
     for(const row of newRows){
       await sbUpsert('orders', {
         id: row.id, order_id: row.orderId, customer: row.customer,
+        customer_id: row.customer_id||null,
         address: row.address, delivery: row.delivery, payment: row.payment,
         model: row.model, cat_id: row.catId, qty: row.qty,
         price: row.price, total: row.total, status: row.status,
@@ -1806,6 +1827,173 @@ async function deleteUser(id, name){
   }catch(e){
     alert('Could not delete user: ' + e.message);
   }
+}
+
+
+// ── Customers modal ────────────────────────────────────────
+let editingCustomerId = null;
+
+function openCustomersModal(){
+  renderCustomerList();
+  document.getElementById('customersModal').classList.add('open');
+}
+function closeCustomersModal(){ document.getElementById('customersModal').classList.remove('open'); }
+
+function renderCustomerList(filter=''){
+  const el = document.getElementById('customersList');
+  const filtered = filter
+    ? customers.filter(c=>c.name.toLowerCase().includes(filter.toLowerCase())||c.email.toLowerCase().includes(filter.toLowerCase()))
+    : customers;
+  if(!filtered.length){
+    el.innerHTML='<div class="empty"><i class="ti ti-users"></i> No customers yet.</div>';
+    return;
+  }
+  el.innerHTML = filtered.map(c=>`
+    <div class="customer-card">
+      <div class="customer-avatar">${esc(c.name[0]?.toUpperCase()||'?')}</div>
+      <div class="customer-info">
+        <div class="customer-name">${esc(c.name)}</div>
+        <div class="customer-meta">
+          ${c.email?`<span><i class="ti ti-mail"></i> ${esc(c.email)}</span>`:''}
+          ${c.phone?`<span><i class="ti ti-phone"></i> ${esc(c.phone)}</span>`:''}
+        </div>
+        ${c.address?`<div class="customer-address"><i class="ti ti-map-pin"></i> ${esc(c.address)}</div>`:''}
+      </div>
+      <div class="customer-actions">
+        <button class="icon-btn" onclick="openEditCustomer('${esc(c.id)}')" title="Edit"><i class="ti ti-edit"></i></button>
+        <button class="icon-btn del" onclick="deleteCustomer('${esc(c.id)}','${esc(c.name)}')" title="Delete"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`).join('');
+}
+
+function openAddCustomer(){
+  editingCustomerId = null;
+  document.getElementById('cf-name').value='';
+  document.getElementById('cf-email').value='';
+  document.getElementById('cf-phone').value='';
+  document.getElementById('cf-address').value='';
+  document.getElementById('cf-notes').value='';
+  document.getElementById('cf-error').style.display='none';
+  document.getElementById('cf-title').textContent='Add customer';
+  document.getElementById('customerForm').style.display='';
+  document.getElementById('cf-name').focus();
+}
+
+function openEditCustomer(id){
+  const c = customers.find(c=>c.id===id);
+  if(!c) return;
+  editingCustomerId = id;
+  document.getElementById('cf-name').value=c.name;
+  document.getElementById('cf-email').value=c.email;
+  document.getElementById('cf-phone').value=c.phone;
+  document.getElementById('cf-address').value=c.address;
+  document.getElementById('cf-notes').value=c.notes;
+  document.getElementById('cf-error').style.display='none';
+  document.getElementById('cf-title').textContent='Edit customer';
+  document.getElementById('customerForm').style.display='';
+  document.getElementById('cf-name').focus();
+}
+
+function closeCustomerForm(){
+  document.getElementById('customerForm').style.display='none';
+  editingCustomerId=null;
+}
+
+async function saveCustomer(){
+  const name    = document.getElementById('cf-name').value.trim();
+  const email   = document.getElementById('cf-email').value.trim();
+  const phone   = document.getElementById('cf-phone').value.trim();
+  const address = document.getElementById('cf-address').value.trim();
+  const notes   = document.getElementById('cf-notes').value.trim();
+  const errEl   = document.getElementById('cf-error');
+  const btn     = document.getElementById('cf-save');
+  errEl.style.display='none';
+  if(!name){ errEl.textContent='Name is required.'; errEl.style.display=''; return; }
+  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> Saving…';
+  try{
+    const row = {
+      id:      editingCustomerId||nextCustomerId(),
+      name, email, phone, address, notes
+    };
+    await sbUpsert('customers', row);
+    if(editingCustomerId){
+      const idx=customers.findIndex(c=>c.id===editingCustomerId);
+      if(idx>=0) customers[idx]=row;
+    } else {
+      customers.push(row);
+      customers.sort((a,b)=>a.name.localeCompare(b.name));
+    }
+    closeCustomerForm();
+    renderCustomerList(document.getElementById('customerSearch').value);
+  }catch(e){
+    errEl.textContent=e.message; errEl.style.display='';
+  }finally{
+    btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i> Save';
+  }
+}
+
+async function deleteCustomer(id, name){
+  if(!confirm(`Delete customer "${name}"?`)) return;
+  try{
+    await sbDelete('customers','id=eq.'+encodeURIComponent(id));
+    customers=customers.filter(c=>c.id!==id);
+    renderCustomerList(document.getElementById('customerSearch').value);
+  }catch(e){ alert('Delete failed: '+e.message); }
+}
+
+// ── Customer autocomplete in order modal ───────────────────
+function initCustomerAutocomplete(){
+  const input = document.getElementById('f-customer');
+  const list  = document.getElementById('customerSuggestions');
+  if(!input||!list) return;
+
+  input.addEventListener('input', ()=>{
+    const q = input.value.trim().toLowerCase();
+    document.getElementById('f-customer-id').value='';
+    if(q.length<1){ list.style.display='none'; return; }
+    const matches = customers.filter(c=>c.name.toLowerCase().includes(q)).slice(0,6);
+    if(!matches.length){ list.style.display='none'; return; }
+    list.innerHTML = matches.map(c=>`
+      <div class="cp-option customer-suggestion" onmousedown="selectCustomer('${esc(c.id)}','${esc(c.name)}','${esc(c.address)}')">
+        <div class="customer-avatar" style="width:24px;height:24px;font-size:11px;flex-shrink:0">${esc(c.name[0]?.toUpperCase()||'?')}</div>
+        <div>
+          <div style="font-size:12px">${esc(c.name)}</div>
+          ${c.email?`<div style="font-size:10px;color:var(--muted)">${esc(c.email)}</div>`:''}
+        </div>
+      </div>`).join('');
+    list.style.display='';
+  });
+
+  input.addEventListener('blur', ()=>setTimeout(()=>list.style.display='none',150));
+}
+
+function selectCustomer(id, name, address){
+  document.getElementById('f-customer').value=name;
+  document.getElementById('f-customer-id').value=id;
+  document.getElementById('customerSuggestions').style.display='none';
+  // Pre-fill address if field is empty
+  if(address && !document.getElementById('f-address').value){
+    document.getElementById('f-address').value=address;
+  }
+}
+
+async function createCustomerInline(){
+  const name = document.getElementById('f-customer').value.trim();
+  if(!name){ alert('Enter a customer name first.'); return; }
+  // Check if already exists
+  const existing = customers.find(c=>c.name.toLowerCase()===name.toLowerCase());
+  if(existing){
+    selectCustomer(existing.id, existing.name, existing.address);
+    return;
+  }
+  try{
+    const row = { id:nextCustomerId(), name, email:'', phone:'', address:'', notes:'' };
+    await sbUpsert('customers', row);
+    customers.push(row);
+    customers.sort((a,b)=>a.name.localeCompare(b.name));
+    selectCustomer(row.id, row.name, '');
+    setStatus('ok','Customer created');
+  }catch(e){ alert('Failed to create customer: '+e.message); }
 }
 
 // ── Stats modal ────────────────────────────────────────────
