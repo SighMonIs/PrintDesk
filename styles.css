@@ -459,7 +459,7 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 
 /* Nav items */
 .sidebar-nav{flex:1;padding:8px 0;overflow-y:auto;overflow-x:hidden;}
-.sidebar-bottom{padding:8px 0;border-top:1px solid var(--border);}
+.sidebar-bottom{padding:8px 0;}
 .sidebar-item{
   display:flex;align-items:center;gap:12px;
   width:100%;padding:10px 14px;
@@ -568,11 +568,12 @@ body.mobile .sidebar-pin{opacity:1!important;}
 
 /* ── Sidebar version + status dot ── */
 .sidebar-version-row{
-  display:flex;align-items:center;gap:8px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
   padding:10px 15px;
 }
 .sidebar-version-row .dot{flex-shrink:0;}
 .sidebar-ver-text{
-  font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);
+  font-family:'DM Mono',monospace;font-size:11px;
+  color:rgba(136,136,133,0.5);
   white-space:nowrap;
 }
