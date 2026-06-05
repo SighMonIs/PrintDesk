@@ -1681,7 +1681,7 @@ async function saveUser(){
     }
 
     const text = await res.text();
-    let data = {};
+    data = {};
     try{ data = JSON.parse(text); }catch(e){ throw new Error('Unexpected response: ' + text.slice(0, 100)); }
     if(!res.ok) throw new Error(data.msg || data.error_description || data.message || 'Failed');
 
@@ -1752,16 +1752,11 @@ function openStatsModal(){
 
   // Name badge breakdown
   const badgeCat=cats.find(c=>c.name.toLowerCase().includes('name badge'));
-  let badgeHtml='';
+  let pins=0, mags=0;
   if(badgeCat){
     const badges=completed.filter(o=>String(o.catId)===String(badgeCat.id));
-    const pins=badges.filter(o=>o.options&&o.options.toLowerCase().includes('pin')).length;
-    const mags=badges.filter(o=>o.options&&o.options.toLowerCase().includes('magnet')).length;
-    badgeHtml=`<div class="stats-card">
-      <div class="stats-card-title">Name Badge Types (Completed)</div>
-      ${[['Pin',pins],['Magnet',mags]].map(([l,v])=>`
-        <div class="stat-break-row"><span class="stat-break-label">${l}</span><span class="stat-break-val">${v}</span></div>`).join('')}
-    </div>`;
+    pins=badges.filter(o=>o.options&&o.options.toLowerCase().includes('pin')).length;
+    mags=badges.filter(o=>o.options&&o.options.toLowerCase().includes('magnet')).length;
   }
 
   grid.innerHTML=`
@@ -1772,20 +1767,25 @@ function openStatsModal(){
     </div>
     <div class="stats-card">
       <div class="stats-card-title">Revenue (Completed)</div>
-      <div class="stats-card-val">$${completed.reduce((s,o)=>s+o.total,0).toFixed(2)}</div>
       ${[['Simon','var(--green)'],['Wade','#2e7d32']].map(([n,c])=>`
         <div class="stat-break-row"><span class="stat-break-label">${n}</span><span class="stat-break-val" style="color:${c}">$${payRev[n].toFixed(2)}</span></div>`).join('')}
       ${[['No','var(--red)'],['Free','var(--blue)']].map(([n,c])=>`
         <div class="stat-break-row"><span class="stat-break-label">${n}</span><span class="stat-break-val" style="color:${c}">${payBreak[n]}</span></div>`).join('')}
-    </div>
-    <div class="stats-card full">
-      <div class="stats-card-title">Items by Category (All Orders)</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px">
-        ${Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`
-          <div class="stat-break-row"><span class="stat-break-label">${esc(name)}</span><span class="stat-break-val">${count}</span></div>`).join('')}
+      <div class="stat-break-row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
+        <span class="stat-break-label" style="font-weight:600;color:var(--text)">Total</span>
+        <span class="stat-break-val" style="color:var(--accent);font-weight:600">$${completed.reduce((s,o)=>s+o.total,0).toFixed(2)}</span>
       </div>
     </div>
-    ${badgeHtml}
+    <div class="stats-card">
+      <div class="stats-card-title">Items by Category</div>
+      ${Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`
+        <div class="stat-break-row"><span class="stat-break-label">${esc(name)}</span><span class="stat-break-val">${count}</span></div>`).join('')}
+    </div>
+    ${badgeCat?`<div class="stats-card">
+      <div class="stats-card-title">Name Badges (Completed)</div>
+      ${[['Pin',pins],['Magnet',mags]].map(([l,v])=>`
+        <div class="stat-break-row"><span class="stat-break-label">${l}</span><span class="stat-break-val">${v}</span></div>`).join('')}
+    </div>`:'<div class="stats-card"></div>'}
   `;
   document.getElementById('statsModal').classList.add('open');
 }
