@@ -1773,19 +1773,19 @@ function openStatsModal(){
         <div class="stat-break-row"><span class="stat-break-label">${n}</span><span class="stat-break-val" style="color:${c}">${payBreak[n]}</span></div>`).join('')}
       <div class="stat-break-row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
         <span class="stat-break-label" style="font-weight:600;color:var(--text)">Total</span>
-        <span class="stat-break-val" style="color:var(--accent);font-weight:600">$${completed.reduce((s,o)=>s+o.total,0).toFixed(2)}</span>
+        <span class="stat-break-val" style="color:var(--accent);font-weight:600">$${(payRev.Simon+payRev.Wade).toFixed(2)}</span>
       </div>
     </div>
     <div class="stats-card">
       <div class="stats-card-title">Items by Category</div>
-      ${Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`
-        <div class="stat-break-row"><span class="stat-break-label">${esc(name)}</span><span class="stat-break-val">${count}</span></div>`).join('')}
+      ${Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>{
+        const isBadge = badgeCat && name.toLowerCase()===badgeCat.name.toLowerCase();
+        return `<div class="stat-break-row"><span class="stat-break-label">${esc(name)}</span><span class="stat-break-val">${count}</span></div>`+
+          (isBadge && (pins||mags) ? `
+            <div class="stat-break-row" style="padding-left:12px"><span class="stat-break-label" style="font-size:10px;color:var(--muted)">↳ Pin</span><span class="stat-break-val" style="font-size:11px">${pins}</span></div>
+            <div class="stat-break-row" style="padding-left:12px"><span class="stat-break-label" style="font-size:10px;color:var(--muted)">↳ Magnet</span><span class="stat-break-val" style="font-size:11px">${mags}</span></div>` : '');
+      }).join('')}
     </div>
-    ${badgeCat?`<div class="stats-card">
-      <div class="stats-card-title">Name Badges (Completed)</div>
-      ${[['Pin',pins],['Magnet',mags]].map(([l,v])=>`
-        <div class="stat-break-row"><span class="stat-break-label">${l}</span><span class="stat-break-val">${v}</span></div>`).join('')}
-    </div>`:'<div class="stats-card"></div>'}
   `;
   document.getElementById('statsModal').classList.add('open');
 }
