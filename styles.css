@@ -423,18 +423,15 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 
 /* Sidebar top */
 .sidebar-top{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px;
+  display:flex;align-items:center;justify-content:flex-start;
+  padding:0 0 0 14px;
   border-bottom:1px solid var(--border);
-  min-height:52px;
+  height:52px;flex-shrink:0;
   overflow:hidden;
   box-sizing:border-box;
-  width:var(--sidebar-collapsed);
-  transition:width 0.2s ease;
+  position:relative;
 }
-.sidebar:hover .sidebar-top,
-.sidebar.pinned .sidebar-top{width:var(--sidebar-expanded);}
-.sidebar-logo{display:flex;align-items:center;gap:10px;overflow:hidden;flex:1;}
+.sidebar-logo{display:flex;align-items:center;gap:10px;overflow:hidden;flex:1;min-width:0;}
 .sidebar-logo-icon{font-size:22px;color:var(--accent);flex-shrink:0;width:24px;text-align:center;line-height:1;}
 .sidebar-logo-text{
   font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:15px;font-weight:600;
@@ -444,17 +441,24 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 .sidebar:hover .sidebar-logo-text,
 .sidebar.pinned .sidebar-logo-text{opacity:1;}
 
-/* Pin button */
+/* Pin/controls button — always visible at right of collapsed sidebar */
 .sidebar-pin{
   background:transparent;border:none;cursor:pointer;
   color:var(--muted);font-size:16px;padding:4px;
   border-radius:var(--radius);flex-shrink:0;
   opacity:0.5;transition:opacity 0.15s,color 0.12s,background 0.12s;
   display:flex;align-items:center;justify-content:center;
-  position:relative;
+  position:absolute;right:0;top:0;bottom:0;
+  width:var(--sidebar-collapsed);justify-content:center;
 }
-.sidebar:hover .sidebar-pin{opacity:1;}
-.sidebar-pin:hover{background:var(--surface2);color:var(--text);}
+.sidebar:hover .sidebar-pin,
+.sidebar.pinned .sidebar-pin{
+  opacity:1;
+  width:auto;
+  position:relative;
+  right:auto;
+  padding:4px 10px 4px 4px;
+}
 .sidebar-pin:hover{background:var(--surface2);color:var(--text);}
 
 /* Nav items */
