@@ -393,7 +393,7 @@ function renderTable(){
       <td data-label="Options" style="padding:7px 8px;font-size:11px;overflow:visible;white-space:normal;line-height:1.6">${optHtml}</td>
       <td data-label="Qty" class="mono" style="padding:7px 8px">${o.qty}</td>
       <td data-label="Total" class="mono" style="padding:7px 8px">$${o.total.toFixed(2)}</td>
-      <td data-label="Status" style="padding:7px 8px"><select class="status-select b-${(o.status||'pending').toLowerCase()}" data-prev="${o.status||'Pending'}" onchange="updateStatus('${o.orderId}','${o.id}',this.value,this)" onclick="event.stopPropagation()">
+      <td data-label="Status" style="padding:7px 6px;text-align:center"><select class="status-select b-${(o.status||'pending').toLowerCase()}" data-prev="${o.status||'Pending'}" onchange="updateStatus('${o.orderId}','${o.id}',this.value,this)" onclick="event.stopPropagation()">
         <option${o.status==='Pending'?' selected':''}>Pending</option>
         <option${o.status==='Printing'?' selected':''}>Printing</option>
         <option${o.status==='Complete'?' selected':''}>Complete</option>
