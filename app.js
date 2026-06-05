@@ -1669,7 +1669,7 @@ async function saveUser(){
       });
     } else {
       // Invite new user — Supabase sends email with link to simonreid.space
-      res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/invite', {
+      res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/invite', {
         method: 'POST',
         headers: SB_ADMIN_HEADERS(),
         body: JSON.stringify({
@@ -1680,7 +1680,9 @@ async function saveUser(){
       });
     }
 
-    data = await res.json();
+    const text = await res.text();
+    let data = {};
+    try{ data = JSON.parse(text); }catch(e){ throw new Error('Unexpected response: ' + text.slice(0, 100)); }
     if(!res.ok) throw new Error(data.msg || data.error_description || data.message || 'Failed');
 
     closeUserForm();
