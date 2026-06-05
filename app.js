@@ -437,6 +437,43 @@ function normaliseColour(c){
   };
 }
 
+
+// ── Custom status dropdown ─────────────────────────────────
+function toggleStatusDd(rowId, btn){
+  // Close all other open dropdowns
+  document.querySelectorAll('.status-dd-list.open').forEach(el=>{
+    if(el.id !== 'sdd-'+rowId) el.classList.remove('open');
+  });
+  const list = document.getElementById('sdd-'+rowId);
+  if(list) list.classList.toggle('open');
+}
+
+function selectStatus(orderId, rowId, newStatus, optEl){
+  // Close the dropdown
+  const list = document.getElementById('sdd-'+rowId);
+  if(list) list.classList.remove('open');
+  // Update button appearance
+  const wrap = list?.closest('.status-dd-wrap');
+  const btn  = wrap?.querySelector('.status-dd-btn');
+  if(btn){
+    btn.className = 'status-dd-btn b-'+newStatus.toLowerCase();
+    btn.innerHTML = newStatus + ' <i class="ti ti-chevron-down"></i>';
+  }
+  // Update active dot
+  list?.querySelectorAll('.status-dd-opt').forEach(o=>{
+    o.classList.toggle('active', o.textContent.trim()===newStatus);
+  });
+  // Update data and save
+  updateStatus(orderId, rowId, newStatus, btn);
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.status-dd-wrap')){
+    document.querySelectorAll('.status-dd-list.open').forEach(el=>el.classList.remove('open'));
+  }
+});
+
 // ── Previously made check ─────────────────────────────────
 // A signature is catId + normalised options string
 // An order row counts as "made" if ANY order row with the same
@@ -626,12 +663,21 @@ function renderTable(){
       <td data-label="Options" style="padding:7px 8px;font-size:11px;overflow:visible;white-space:normal;line-height:1.6">${optHtml}</td>
       <td data-label="Qty" class="mono" style="padding:7px 8px">${o.qty}</td>
       <td data-label="Total" class="mono" style="padding:7px 8px">$${o.total.toFixed(2)}</td>
-      <td data-label="Status" style="padding:7px 6px;text-align:center"><select class="status-select b-${(o.status||'pending').toLowerCase()}" data-prev="${o.status||'Pending'}" onchange="updateStatus('${o.orderId}','${o.id}',this.value,this)" onclick="event.stopPropagation()">
-        <option${o.status==='Pending'?' selected':''}>Pending</option>
-        <option${o.status==='Printing'?' selected':''}>Printing</option>
-        <option${o.status==='Complete'?' selected':''}>Complete</option>
-        <option${o.status==='Cancelled'?' selected':''}>Cancelled</option>
-      </select></td>
+      <td data-label="Status" style="padding:7px 6px;text-align:center">
+        <div class="status-dd-wrap" onclick="event.stopPropagation()">
+          <button class="status-dd-btn b-${(o.status||'pending').toLowerCase()}"
+            onclick="toggleStatusDd('${o.id}',this)">
+            ${o.status||'Pending'} <i class="ti ti-chevron-down"></i>
+          </button>
+          <div class="status-dd-list" id="sdd-${o.id}">
+            ${['Pending','Printing','Complete','Cancelled'].map(s=>`
+              <div class="status-dd-opt b-${s.toLowerCase()}${o.status===s?' active':''}"
+                onclick="selectStatus('${esc(o.orderId)}','${esc(o.id)}','${s}',this)">
+                ${s}
+              </div>`).join('')}
+          </div>
+        </div>
+      </td>
       <td data-label="$" style="padding:7px 6px;text-align:center">${isFirst?`<span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span>`:''}</td>
       <td data-label="Note" style="padding:7px 6px">${noteHtml}</td>
       <td class="card-actions" style="display:flex;gap:3px;padding:5px 6px;justify-content:flex-end">
@@ -1157,9 +1203,8 @@ async function saveOrder(){
 }
 
 async function updateStatus(orderId,rowId,newStatus,sel){
-  // Update the select appearance immediately
-  sel.className='status-select b-'+newStatus.toLowerCase();
-  sel.disabled=true;
+  // sel may be the custom btn or legacy select — disable during save
+  if(sel) sel.disabled=true;
   // Find row by id
   const row=orders.find(o=>String(o.id)===String(rowId));
   if(!row){sel.disabled=false;return;}
@@ -1181,7 +1226,7 @@ async function updateStatus(orderId,rowId,newStatus,sel){
   }catch(e){
     // Revert on failure
     row.status=prevStatus;
-    sel.className='status-select b-'+prevStatus.toLowerCase();
+    if(sel){ sel.className=(sel.classList.contains('status-dd-btn')?'status-dd-btn':'status-select')+' b-'+prevStatus.toLowerCase(); }
     setStatus('err','Update failed: '+e.message);
     alert('Status save failed: '+e.message);
   }finally{
