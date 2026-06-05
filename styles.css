@@ -595,7 +595,7 @@ body.mobile .sidebar-pin{opacity:1!important;}
 .status-dd-btn.b-cancelled{background:rgba(224,92,92,0.15); color:#e05c5c;border-color:rgba(224,92,92,0.4);}
 .status-dd-btn i{font-size:10px;}
 .status-dd-list{
-  position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);
+  position:fixed;
   background:var(--surface);border:1px solid var(--border2);
   border-radius:var(--radius-lg);z-index:9999;
   padding:4px;display:none;min-width:110px;
