@@ -1566,12 +1566,10 @@ async function saveColours(){
 }
 
 // ── Settings ───────────────────────────────────────────────
-const ACCENT_PRESETS=[
-  {label:'Gold',a:'#e8d5a3',a2:'#c4a96b'},{label:'Coral',a:'#f4a27a',a2:'#d97a4a'},
-  {label:'Mint',a:'#7dd8b0',a2:'#4db88a'},{label:'Lavender',a:'#b8a4f0',a2:'#8f74d8'},
-  {label:'Sky',a:'#7ec8f4',a2:'#4aa8d8'},{label:'Rose',a:'#f4a0b0',a2:'#d87080'},
-];
-function loadAccent(){const s=localStorage.getItem('pd_accent');if(s){try{const p=JSON.parse(s);applyAccent(p.a,p.a2,false);}catch(e){}}}
+function loadAccent(){
+  const s=localStorage.getItem('pd_accent');
+  if(s){try{const p=JSON.parse(s);applyAccent(p.a,p.a2,false);}catch(e){}}
+}
 function applyAccent(a,a2,save=true){
   document.documentElement.style.setProperty('--accent',a);
   document.documentElement.style.setProperty('--accent2',a2);
@@ -1580,28 +1578,105 @@ function applyAccent(a,a2,save=true){
     savePreferences();
   }
 }
-function previewAccent(hex){const a2=darken(hex,0.18);applyAccent(hex,a2);document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));}
-function darken(hex,amt){let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);r=Math.max(0,Math.round(r*(1-amt)));g=Math.max(0,Math.round(g*(1-amt)));b=Math.max(0,Math.round(b*(1-amt)));return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');}
-function buildSwatches(){const row=document.getElementById('swatchRow');row.innerHTML='';ACCENT_PRESETS.forEach(p=>{const d=document.createElement('div');d.className='swatch';d.style.background=p.a;d.title=p.label;d.onclick=()=>{applyAccent(p.a,p.a2);document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));d.classList.add('active');document.getElementById('customColour').value=p.a;};row.appendChild(d);});}
+function previewAccent(hex){
+  const a2=darken(hex,0.18);
+  applyAccent(hex,a2);
+  // Deselect all swatches
+  document.querySelectorAll('.accent-swatch-circle').forEach(s=>s.classList.remove('active'));
+}
+function darken(hex,amt){
+  let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  r=Math.max(0,Math.round(r*(1-amt)));g=Math.max(0,Math.round(g*(1-amt)));b=Math.max(0,Math.round(b*(1-amt)));
+  return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+function buildAccentSwatches(){
+  const grid=document.getElementById('accentSwatchGrid');
+  if(!grid) return;
+  const currentAccent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  grid.innerHTML=colours.filter(c=>c.available).map(c=>`
+    <div class="accent-swatch-item" onclick="selectAccentColour('${esc(c.code)}','${esc(c.name)}')">
+      <div class="accent-swatch-circle ${c.code.toLowerCase()===currentAccent.toLowerCase()?'active':''}"
+        style="background:${esc(c.code)}" title="${esc(c.name)}"></div>
+      <span class="accent-swatch-name">${esc(c.name)}</span>
+    </div>`).join('');
+}
+
+function selectAccentColour(hex, name){
+  const a2=darken(hex,0.18);
+  applyAccent(hex,a2);
+  document.querySelectorAll('.accent-swatch-circle').forEach(s=>s.classList.remove('active'));
+  event.currentTarget.querySelector('.accent-swatch-circle').classList.add('active');
+  document.getElementById('customColour').value=hex;
+}
+
 function openSettings(){
-  buildSwatches();
-  document.getElementById('settingsGasUrl').value=getCfg('SUPABASE_URL');
-  const su=getCfg('SHEET_URL');
-  document.getElementById('settingsSheetUrl').value=su;updateSheetLink(su);
-  const s=localStorage.getItem('pd_accent');if(s){try{document.getElementById('customColour').value=JSON.parse(s).a;}catch(e){}}
+  // Populate profile fields
+  if(currentUser){
+    document.getElementById('settingsEmail').value=currentUser.email||'';
+    document.getElementById('settingsName').value=currentUser.user_metadata?.display_name||'';
+  }
+  document.getElementById('settingsPassword').value='';
+  document.getElementById('settingsPasswordConfirm').value='';
+  document.getElementById('settingsPasswordError').style.display='none';
+  // Build colour swatches from filament colours
+  buildAccentSwatches();
+  const s=localStorage.getItem('pd_accent');
+  if(s){try{document.getElementById('customColour').value=JSON.parse(s).a;}catch(e){}}
   document.getElementById('settingsModal').classList.add('open');
 }
+
 function closeSettings(){document.getElementById('settingsModal').classList.remove('open');}
-function applySettings(){
-  const g=document.getElementById('settingsGasUrl').value.trim();
-  const s=document.getElementById('settingsSheetUrl').value.trim();
-  if(g) localStorage.setItem('pd_SUPABASE_URL', g);
-  if(s){ localStorage.setItem('pd_sheet_url',s); updateSheetLink(s); }
-  closeSettings();
-  savePreferences();
-  if(g) loadAll();
+
+async function applySettings(){
+  const name     = document.getElementById('settingsName').value.trim();
+  const email    = document.getElementById('settingsEmail').value.trim();
+  const password = document.getElementById('settingsPassword').value;
+  const confirm  = document.getElementById('settingsPasswordConfirm').value;
+  const errEl    = document.getElementById('settingsPasswordError');
+  errEl.style.display='none';
+
+  if(password && password !== confirm){
+    errEl.textContent='Passwords do not match.';
+    errEl.style.display='';
+    return;
+  }
+  if(password && password.length < 6){
+    errEl.textContent='Password must be at least 6 characters.';
+    errEl.style.display='';
+    return;
+  }
+
+  const btn=document.getElementById('settingsSaveBtn');
+  btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Saving…';
+
+  try{
+    const token=getAccessToken();
+    const updates={};
+    if(email && email!==currentUser.email) updates.email=email;
+    if(password) updates.password=password;
+    if(name) updates.data={display_name:name};
+
+    if(Object.keys(updates).length){
+      const res=await fetch(sbAuthUrl('/user'),{
+        method:'PUT',
+        headers:{...sbAuthHeaders(),'Authorization':'Bearer '+token},
+        body:JSON.stringify(updates)
+      });
+      const data=await res.json();
+      if(!res.ok) throw new Error(data.msg||data.error_description||'Update failed');
+      currentUser=data;
+    }
+
+    savePreferences();
+    closeSettings();
+  }catch(e){
+    errEl.textContent=e.message;
+    errEl.style.display='';
+  }finally{
+    btn.disabled=false;btn.innerHTML='<i class="ti ti-check"></i> Save settings';
+  }
 }
-function updateSheetLink(url){const l=document.getElementById('sheetLink');if(url){l.href=url;l.style.opacity='1';}else{l.href='#';l.style.opacity='0.4';}}
 
 // ── Status ─────────────────────────────────────────────────
 function setStatus(state,msg){
@@ -1622,7 +1697,7 @@ document.addEventListener('click', e=>{
 
 // ── Boot ───────────────────────────────────────────────────
 loadAccent();
-updateSheetLink(getCfg('SHEET_URL'));
+
 document.getElementById('setupBanner').style.display='none';
 // Check for existing session
 restoreSession().then(ok=>{
