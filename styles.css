@@ -9,7 +9,7 @@
 }
 html,body{height:100%;background:var(--bg);}
 body{font-family:'Sora',sans-serif;color:var(--text);font-size:13px;line-height:1.5;}
-.app{max-width:1400px;margin:0 auto;padding:2rem 1.5rem 4rem;}
+.app{padding:2rem 1.5rem 4rem;max-width:none;}
 
 .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;gap:12px;flex-wrap:wrap;}
 .logo{font-size:20px;font-weight:600;color:var(--accent);letter-spacing:-0.5px;font-family:'DM Mono',monospace;}
@@ -424,13 +424,18 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 /* Sidebar top */
 .sidebar-top{
   display:flex;align-items:center;justify-content:space-between;
-  padding:14px 12px 10px;
+  padding:12px;
   border-bottom:1px solid var(--border);
   min-height:52px;
   overflow:hidden;
+  box-sizing:border-box;
+  width:var(--sidebar-collapsed);
+  transition:width 0.2s ease;
 }
-.sidebar-logo{display:flex;align-items:center;gap:10px;overflow:hidden;}
-.sidebar-logo-icon{font-size:20px;color:var(--accent);flex-shrink:0;}
+.sidebar:hover .sidebar-top,
+.sidebar.pinned .sidebar-top{width:var(--sidebar-expanded);}
+.sidebar-logo{display:flex;align-items:center;gap:10px;overflow:hidden;flex:1;}
+.sidebar-logo-icon{font-size:22px;color:var(--accent);flex-shrink:0;width:24px;text-align:center;line-height:1;}
 .sidebar-logo-text{
   font-family:'DM Mono',monospace;font-size:15px;font-weight:600;
   color:var(--accent);white-space:nowrap;
@@ -481,12 +486,19 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   transition:margin-left 0.2s ease;
   flex:1;min-width:0;
   padding:1.5rem 1.5rem 4rem;
+  width:calc(100% - var(--sidebar-collapsed));
+  box-sizing:border-box;
 }
-.sidebar.pinned ~ #sidebarOverlay ~ .mobile-hamburger ~ .app,
-#mainContent{
-  /* handled by JS class on #mainApp */
+#mainApp.sidebar-pinned .app{
+  margin-left:var(--sidebar-expanded);
+  width:calc(100% - var(--sidebar-expanded));
 }
-#mainApp.sidebar-pinned .app{margin-left:var(--sidebar-expanded);}
+/* Also expand when hovering sidebar (not pinned) */
+#mainApp:has(.sidebar:hover) .app{
+  margin-left:var(--sidebar-expanded);
+  width:calc(100% - var(--sidebar-expanded));
+}
+
 
 /* Mobile */
 .mobile-hamburger{
