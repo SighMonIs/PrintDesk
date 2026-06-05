@@ -372,3 +372,29 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
 .opt-dropdown-vals input:focus{border-color:var(--accent2);}
 .add-opt-btn{font-size:11px;color:var(--muted);background:transparent;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 0;margin-top:2px;transition:color 0.12s;}
 .add-opt-btn:hover{color:var(--accent);}
+
+/* ── Login screen ── */
+.login-screen{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  z-index:9999;padding:1rem;
+}
+.login-card{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius-lg);padding:2rem;
+  width:100%;max-width:360px;
+}
+.login-logo{
+  font-family:'DM Mono',monospace;font-size:24px;font-weight:600;
+  color:var(--accent);letter-spacing:-0.5px;
+  text-align:center;margin-bottom:4px;
+}
+.login-subtitle{
+  font-size:12px;color:var(--muted);text-align:center;
+  margin-bottom:1.5rem;
+}
+.login-error{
+  background:rgba(224,92,92,0.1);border:1px solid rgba(224,92,92,0.3);
+  border-radius:var(--radius);padding:8px 12px;
+  font-size:12px;color:var(--red);margin-bottom:1rem;
+}
