@@ -1386,18 +1386,26 @@ function getCatOpts_byCatId(catId){
 
 function renderCatBlocks(){
   const list=document.getElementById('catFlatList');
+  // Preserve current expanded states
+  const expanded={};
+  list.querySelectorAll('.cat-block').forEach(el=>{
+    const ci=el.dataset.ci;
+    expanded[ci]=!el.querySelector('.cat-opts-area')?.classList.contains('collapsed');
+  });
   list.innerHTML=cats.map((c,ci)=>{
     const catOpts=getCatOpts_byCatId(c.id);
+    const isExpanded=expanded[ci]||false; // collapsed by default
     return `<div class="cat-block" data-ci="${ci}">
-      <div class="cat-block-hdr">
-        <span class="id-label">${esc(c.id)}</span>
-        <input type="text" value="${esc(c.name)}" placeholder="Category name" oninput="cats[${ci}].name=this.value">
-        <div class="cat-price-wrap"><span>$ default</span>
-          <input type="number" value="${c.price}" step="0.01" min="0" oninput="cats[${ci}].price=parseFloat(this.value)||0">
+      <div class="cat-block-hdr" onclick="toggleCatBlock(${ci})" style="cursor:pointer">
+        <i class="ti ti-chevron-right cat-chevron${isExpanded?' expanded':''}" style="font-size:14px;color:var(--muted);flex-shrink:0;transition:transform 0.15s"></i>
+        <input type="text" value="${esc(c.name)}" placeholder="Category name" oninput="cats[${ci}].name=this.value" onclick="event.stopPropagation()">
+        <div class="cat-price-wrap">
+          <span>$</span>
+          <input type="number" value="${c.price}" step="0.01" min="0" oninput="cats[${ci}].price=parseFloat(this.value)||0" onclick="event.stopPropagation()">
         </div>
-        <button class="icon-btn del" onclick="removeCat(${ci})"><i class="ti ti-trash"></i></button>
+        <button class="icon-btn del" onclick="event.stopPropagation();removeCat(${ci})"><i class="ti ti-trash"></i></button>
       </div>
-      <div class="cat-opts-area" id="cat-opts-${ci}">
+      <div class="cat-opts-area${isExpanded?'':' collapsed'}" id="cat-opts-${ci}">
         ${catOpts.length===0?'<div class="cat-opts-area-empty">No options — add one below</div>':''}
         ${catOpts.map((o,oi)=>{
           const globalIdx=opts.indexOf(o);
@@ -1426,6 +1434,16 @@ function renderCatBlocks(){
       </div>
     </div>`;
   }).join('');
+}
+
+function toggleCatBlock(ci){
+  const block  = document.querySelector(`.cat-block[data-ci="${ci}"]`);
+  const area   = block?.querySelector('.cat-opts-area');
+  const chev   = block?.querySelector('.cat-chevron');
+  if(!area) return;
+  const isCollapsed = area.classList.contains('collapsed');
+  area.classList.toggle('collapsed', !isCollapsed);
+  if(chev) chev.classList.toggle('expanded', isCollapsed);
 }
 
 // Drag and drop reordering for options
