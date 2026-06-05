@@ -401,7 +401,7 @@ function renderTable(){
       </select></td>
       <td data-label="$" style="padding:7px 6px;text-align:center">${isFirst?`<span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span>`:''}</td>
       <td data-label="Note" style="padding:7px 6px">${noteHtml}</td>
-      <td class="card-actions" style="display:flex;gap:3px;padding:5px 6px">
+      <td class="card-actions" style="display:flex;gap:3px;padding:5px 6px;justify-content:flex-end">
         ${isFirst?`<button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
         <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>`:''}
       </td>
