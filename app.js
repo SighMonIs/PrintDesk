@@ -244,6 +244,13 @@ const SB_HEADERS = () => ({
   'Prefer':        'return=representation'
 });
 
+// Admin headers use service role key — for user management only
+const SB_ADMIN_HEADERS = () => ({
+  'apikey':        getCfg('SUPABASE_SERVICE_KEY') || getCfg('SUPABASE_KEY'),
+  'Authorization': 'Bearer ' + (getCfg('SUPABASE_SERVICE_KEY') || getAccessToken()),
+  'Content-Type':  'application/json'
+});
+
 function sbUrl(table, query){
   return getCfg('SUPABASE_URL') + '/rest/v1/' + table + (query||'');
 }
@@ -1496,7 +1503,7 @@ async function loadUsers(){
     // So we use the auth admin endpoint with the user's JWT
     const token = getAccessToken();
     const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users', {
-      headers: { ...sbAuthHeaders(), 'Authorization': 'Bearer ' + token }
+      headers: SB_ADMIN_HEADERS()
     });
     if(!res.ok){
       // Fallback — just show current user if admin endpoint not available
@@ -1596,14 +1603,14 @@ async function saveUser(){
       if(password) body.password = password;
       res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users/' + editingUserId, {
         method: 'PUT',
-        headers: { ...sbAuthHeaders(), 'Authorization': 'Bearer ' + token },
+        headers: SB_ADMIN_HEADERS(),
         body: JSON.stringify(body)
       });
     } else {
       // Create new user
       res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users', {
         method: 'POST',
-        headers: { ...sbAuthHeaders(), 'Authorization': 'Bearer ' + token },
+        headers: SB_ADMIN_HEADERS(),
         body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { display_name: name } })
       });
     }
@@ -1628,7 +1635,7 @@ async function deleteUser(id, name){
     const token = getAccessToken();
     const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users/' + id, {
       method: 'DELETE',
-      headers: { ...sbAuthHeaders(), 'Authorization': 'Bearer ' + token }
+      headers: SB_ADMIN_HEADERS()
     });
     if(!res.ok){ const d=await res.json(); throw new Error(d.msg||'Delete failed'); }
     loadUsers();
