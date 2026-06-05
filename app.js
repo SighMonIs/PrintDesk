@@ -69,6 +69,68 @@ document.addEventListener('click', e=>{
   }
 });
 
+
+// ── Invite / Set password flow ─────────────────────────────
+// When an invited user clicks their email link, Supabase redirects to
+// simonreid.space with #access_token=...&type=invite in the URL hash
+async function checkInviteToken(){
+  const hash = window.location.hash;
+  if(!hash) return false;
+  const params = new URLSearchParams(hash.slice(1));
+  const type   = params.get('type');
+  const token  = params.get('access_token');
+  if((type === 'invite' || type === 'recovery') && token){
+    // Store token temporarily for use when setting password
+    sessionStorage.setItem('invite_token', token);
+    // Clear the hash from URL
+    history.replaceState(null, '', window.location.pathname);
+    // Show set password screen
+    document.getElementById('setPasswordScreen').style.display = 'flex';
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'none';
+    return true;
+  }
+  return false;
+}
+
+async function doSetPassword(){
+  const password = document.getElementById('setPasswordInput').value;
+  const confirm  = document.getElementById('setPasswordConfirm').value;
+  const errEl    = document.getElementById('setPasswordError');
+  const btn      = document.getElementById('setPasswordBtn');
+  errEl.style.display = 'none';
+
+  if(password.length < 6){ errEl.textContent='Password must be at least 6 characters.'; errEl.style.display=''; return; }
+  if(password !== confirm){ errEl.textContent='Passwords do not match.'; errEl.style.display=''; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> Setting password…';
+
+  try{
+    const inviteToken = sessionStorage.getItem('invite_token');
+    // Update password using the invite token
+    const res = await fetch(sbAuthUrl('/user'), {
+      method: 'PUT',
+      headers: { ...sbAuthHeaders(), 'Authorization': 'Bearer ' + inviteToken },
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.msg || data.error_description || 'Failed to set password');
+
+    // Now log them in properly
+    currentUser = data;
+    localStorage.setItem('pd_access_token', inviteToken);
+    sessionStorage.removeItem('invite_token');
+    document.getElementById('setPasswordScreen').style.display = 'none';
+    showApp();
+  } catch(e){
+    errEl.textContent = e.message;
+    errEl.style.display = '';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-check"></i> Set password & sign in';
+  }
+}
+
 // ── Auth ──────────────────────────────────────────────────
 let currentUser = null;
 
@@ -1550,14 +1612,13 @@ function renderUserCard(u, isCurrentUser){
 function openAddUserForm(){
   editingUserId = null;
   document.getElementById('uf-email').value = '';
-  document.getElementById('uf-password').value = '';
   document.getElementById('uf-name').value = '';
   document.getElementById('uf-email').disabled = false;
-  document.getElementById('uf-password').placeholder = 'Min. 6 characters';
+  document.getElementById('uf-password-row').style.display = 'none';
   document.getElementById('uf-error').style.display = 'none';
-  document.getElementById('uf-save').innerHTML = '<i class="ti ti-check"></i> Create user';
+  document.getElementById('uf-save').innerHTML = '<i class="ti ti-mail"></i> Send invite';
   document.getElementById('userForm').style.display = '';
-  document.getElementById('uf-email').focus();
+  document.getElementById('uf-name').focus();
 }
 
 function openEditUserForm(id, email, name){
@@ -1566,6 +1627,7 @@ function openEditUserForm(id, email, name){
   document.getElementById('uf-password').value = '';
   document.getElementById('uf-name').value = name;
   document.getElementById('uf-email').disabled = true;
+  document.getElementById('uf-password-row').style.display = '';
   document.getElementById('uf-password').placeholder = 'Leave blank to keep current';
   document.getElementById('uf-error').style.display = 'none';
   document.getElementById('uf-save').innerHTML = '<i class="ti ti-check"></i> Save changes';
@@ -1587,8 +1649,7 @@ async function saveUser(){
   errEl.style.display = 'none';
 
   if(!editingUserId && !email){ errEl.textContent='Email is required.'; errEl.style.display=''; return; }
-  if(!editingUserId && !password){ errEl.textContent='Password is required for new users.'; errEl.style.display=''; return; }
-  if(password && password.length < 6){ errEl.textContent='Password must be at least 6 characters.'; errEl.style.display=''; return; }
+  if(editingUserId && password && password.length < 6){ errEl.textContent='Password must be at least 6 characters.'; errEl.style.display=''; return; }
 
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader-2"></i> Saving…';
@@ -1607,11 +1668,15 @@ async function saveUser(){
         body: JSON.stringify(body)
       });
     } else {
-      // Create new user
-      res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users', {
+      // Invite new user — Supabase sends email with link to simonreid.space
+      res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/invite', {
         method: 'POST',
         headers: SB_ADMIN_HEADERS(),
-        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { display_name: name } })
+        body: JSON.stringify({
+          email,
+          data: { display_name: name },
+          redirect_to: 'https://simonreid.space'
+        })
       });
     }
 
@@ -1619,7 +1684,14 @@ async function saveUser(){
     if(!res.ok) throw new Error(data.msg || data.error_description || data.message || 'Failed');
 
     closeUserForm();
-    loadUsers();
+    if(!editingUserId){
+      // Show success message briefly before reloading list
+      const el = document.getElementById('usersList');
+      el.innerHTML = '<div class="empty" style="color:var(--green)"><i class="ti ti-mail"></i> Invite sent to '+esc(email)+'</div>';
+      setTimeout(loadUsers, 2000);
+    } else {
+      loadUsers();
+    }
   }catch(e){
     errEl.textContent = e.message;
     errEl.style.display = '';
