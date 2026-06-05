@@ -1214,6 +1214,11 @@ function closeModal(){
   document.querySelectorAll('.model-row.row-error').forEach(el=>el.classList.remove('row-error'));
   document.querySelectorAll('.opt-row.opt-error').forEach(el=>el.classList.remove('opt-error'));
   document.querySelectorAll('.colour-picker-wrap.cp-error').forEach(el=>el.classList.remove('cp-error'));
+  // Reset new customer panel
+  const panel = document.getElementById('newCustomerPanel');
+  if(panel) panel.style.display='none';
+  const btn = document.getElementById('createCustomerBtn');
+  if(btn){ btn.style.borderColor=''; btn.style.color=''; }
 }
 
 function validateOrder(){
@@ -1314,6 +1319,10 @@ function validateOrder(){
 }
 
 async function saveOrder(){
+  // If new customer panel is open, create the customer first
+  if(document.getElementById('newCustomerPanel')?.style.display!=='none'){
+    await createCustomerInline();
+  }
   const errors=validateOrder();
   if(errors.length){
     // Scroll to first error
@@ -1322,6 +1331,10 @@ async function saveOrder(){
     return;
   }
   if(busy)return;
+  // If new customer panel is open, create the customer first
+  if(document.getElementById('newCustomerPanel')?.style.display!=='none'){
+    await createCustomerInline();
+  }
   const customer=document.getElementById('f-customer').value.trim();
   const models=getModelData();
   const orderId=editOId||nextOrderId();
@@ -1971,22 +1984,55 @@ function selectCustomer(id, name, address){
   updateAddrRefreshBtn();
 }
 
+function toggleNewCustomerPanel(){
+  const panel  = document.getElementById('newCustomerPanel');
+  const btn    = document.getElementById('createCustomerBtn');
+  const isOpen = panel.style.display !== 'none';
+  if(isOpen){
+    // Close panel
+    panel.style.display = 'none';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  } else {
+    // Open panel — check name is entered first
+    const name = document.getElementById('f-customer').value.trim();
+    if(!name){ alert('Enter a customer name first.'); return; }
+    // Check if already exists
+    const existing = customers.find(c=>c.name.toLowerCase()===name.toLowerCase());
+    if(existing){
+      selectCustomer(existing.id, existing.name, existing.address);
+      return;
+    }
+    panel.style.display = '';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+    document.getElementById('nc-email').focus();
+  }
+}
+
 async function createCustomerInline(){
-  const name = document.getElementById('f-customer').value.trim();
+  const name    = document.getElementById('f-customer').value.trim();
+  const email   = document.getElementById('nc-email')?.value.trim()||'';
+  const phone   = document.getElementById('nc-phone')?.value.trim()||'';
+  const address = document.getElementById('f-address')?.value.trim()||'';
+  const notes   = document.getElementById('nc-notes')?.value.trim()||'';
   if(!name){ alert('Enter a customer name first.'); return; }
-  // Check if already exists
   const existing = customers.find(c=>c.name.toLowerCase()===name.toLowerCase());
   if(existing){
     selectCustomer(existing.id, existing.name, existing.address);
     return;
   }
   try{
-    const row = { id:nextCustomerId(), name, email:'', phone:'', address:'', notes:'' };
+    const row = { id:nextCustomerId(), name, email, phone, address, notes };
     await sbUpsert('customers', row);
     customers.push(row);
     customers.sort((a,b)=>a.name.localeCompare(b.name));
-    selectCustomer(row.id, row.name, '');
+    selectCustomer(row.id, row.name, address);
     setStatus('ok','Customer created');
+    // Close panel
+    document.getElementById('newCustomerPanel').style.display='none';
+    const btn = document.getElementById('createCustomerBtn');
+    if(btn){ btn.style.borderColor=''; btn.style.color=''; }
   }catch(e){ alert('Failed to create customer: '+e.message); }
 }
 
