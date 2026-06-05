@@ -876,15 +876,24 @@ function renderModelOpts(idx, catId, savedOpts){
     } else {
       // dropdown
       const items=opt.options.split(',').map(s=>s.trim()).filter(Boolean);
-      const isCustom=val==='Custom'||(!items.includes(val)&&val!=='');
-      const ddVal=isCustom?'Custom':(val||'');
-      const customVal=isCustom?val:'';
-      const opts_html=items.map(it=>`<option${ddVal===it?' selected':''}>${esc(it)}</option>`).join('');
       const isColourOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
+
+      // For colour opts: pipe-separated value = saved combo key (not Custom)
+      let isCustom, ddVal, customVal;
+      if(isColourOpt && val && val.includes('|') && !val.startsWith('Custom:')){
+        // Pipe-separated colour names — treat as saved combo
+        isCustom  = false;
+        ddVal     = val;   // the key is the pipe-separated names
+        customVal = '';
+      } else {
+        isCustom  = val==='Custom'||(!items.includes(val)&&val!==''&&!isColourOpt);
+        ddVal     = isCustom?'Custom':(val||'');
+        customVal = isCustom?val:'';
+      }
+
+      const opts_html=items.map(it=>`<option${ddVal===it?' selected':''}>${esc(it)}</option>`).join('');
       if(isColourOpt){
         const savedCombos=getSavedColourCombos();
-        // Use a native <select> — reliable, no overflow issues
-        // Custom first, then saved combos as optgroup
         const comboOptions=savedCombos.map(combo=>{
           const label=combo.layers.map(l=>l.name).join(' / ');
           const key=combo.key;
