@@ -496,12 +496,15 @@ body.mobile .mf input,body.mobile .mf select,body.mobile .model-notes input,body
   width:calc(100% - var(--sidebar-expanded));
 }
 /* Force collapsed mode */
-.sidebar.force-collapsed{width:var(--sidebar-collapsed)!important;}
+.sidebar.force-collapsed{width:var(--sidebar-collapsed)!important;transition:none;}
 .sidebar.force-collapsed:hover{width:var(--sidebar-collapsed)!important;}
+.sidebar.force-collapsed .sidebar-label{opacity:0!important;transition:none;}
+.sidebar.force-collapsed .sidebar-logo-text{opacity:0!important;transition:none;}
+.sidebar.force-collapsed .sidebar-pin{opacity:0.5!important;}
 #mainApp:has(.sidebar.force-collapsed) .app{margin-left:var(--sidebar-collapsed);width:calc(100% - var(--sidebar-collapsed));}
 
-/* Also expand when hovering sidebar (not pinned) */
-#mainApp:has(.sidebar:hover) .app{
+/* Also expand when hovering sidebar (hover mode only, not collapsed) */
+#mainApp:not(.sidebar-pinned):has(.sidebar:not(.force-collapsed):hover) .app{
   margin-left:var(--sidebar-expanded);
   width:calc(100% - var(--sidebar-expanded));
 }
