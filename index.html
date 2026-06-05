@@ -16,7 +16,26 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
 <body>
 
-<!-- ══ Login Screen ══ -->
+<!-- ══ Set Password Screen (for invited users) ══ -->
+<div id="setPasswordScreen" class="login-screen" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">PrintDesk</div>
+    <div class="login-subtitle">Welcome! Set your password to continue.</div>
+    <div id="setPasswordError" class="login-error" style="display:none"></div>
+    <div class="field">
+      <label>New password</label>
+      <input type="password" id="setPasswordInput" placeholder="Min. 6 characters" onkeydown="if(event.key==='Enter')doSetPassword()">
+    </div>
+    <div class="field">
+      <label>Confirm password</label>
+      <input type="password" id="setPasswordConfirm" placeholder="Repeat password" onkeydown="if(event.key==='Enter')doSetPassword()">
+    </div>
+    <button class="btn primary" style="width:100%;height:40px;font-size:13px;margin-top:4px" id="setPasswordBtn" onclick="doSetPassword()">
+      <i class="ti ti-check"></i> Set password &amp; sign in
+    </button>
+  </div>
+</div>
+
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
     <div class="login-logo">PrintDesk</div>
@@ -103,7 +122,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v2.6.0</span>
+        <span class="sidebar-label sidebar-ver-text">v2.7.0</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
@@ -333,20 +352,22 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <div id="userForm" style="display:none">
       <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px">
         <div class="field-row">
+          <div class="field"><label>Display name</label>
+            <input type="text" id="uf-name" placeholder="Their name">
+          </div>
           <div class="field"><label>Email</label>
             <input type="email" id="uf-email" placeholder="user@example.com">
           </div>
-          <div class="field"><label>Password</label>
-            <input type="password" id="uf-password" placeholder="Min. 6 characters">
-          </div>
         </div>
-        <div class="field"><label>Display name</label>
-          <input type="text" id="uf-name" placeholder="Their name">
+        <div class="field-row" id="uf-password-row" style="display:none">
+          <div class="field"><label>New password</label>
+            <input type="password" id="uf-password" placeholder="Leave blank to keep current">
+          </div>
         </div>
         <div id="uf-error" style="font-size:11px;color:var(--red);margin-top:4px;display:none"></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn" onclick="closeUserForm()">Cancel</button>
-          <button class="btn primary" id="uf-save" onclick="saveUser()"><i class="ti ti-check"></i> Save</button>
+          <button class="btn primary" id="uf-save" onclick="saveUser()"><i class="ti ti-mail"></i> Send invite</button>
         </div>
       </div>
     </div>
