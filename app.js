@@ -817,67 +817,42 @@ function sortBy(k){
 function showNote(m,n){document.getElementById('noteModalTitle').textContent=m?'Note — '+m:'Note';document.getElementById('noteModalBody').textContent=n||'(No note recorded)';document.getElementById('noteModal').classList.add('open');}
 function closeNoteModal(){document.getElementById('noteModal').classList.remove('open');}
 
-// ── Address autocomplete (Nominatim / OpenStreetMap) ──────
-let nominatimTimer = null;
-let nominatimList  = null;
-
+// ── Address autocomplete (Google Maps Places) ─────────────
 function initAutocomplete(){
-  // Order modal address
   const input = document.getElementById('f-address');
   if(acInst) return;
   acInst = true;
-  attachNominatim(input, document.getElementById('addrTick'));
+  attachGooglePlaces(input, document.getElementById('addrTick'));
 }
 
 function attachNominatim(input, tickEl){
-  if(!input || input.dataset.nominatim) return;
-  input.dataset.nominatim = '1';
-  input.parentElement.style.position = 'relative';
+  // Now uses Google Maps Places instead of Nominatim
+  attachGooglePlaces(input, tickEl);
+}
 
-  const list = document.createElement('div');
-  list.className = 'colour-picker-list';
-  list.style.cssText = 'display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:9999;max-height:200px;overflow-y:auto';
-  input.parentElement.appendChild(list);
-
-  let timer = null;
-
-  input.addEventListener('input', ()=>{
-    clearTimeout(timer);
-    if(tickEl){ input.classList.remove('validated'); tickEl.style.display='none'; }
-    const q = input.value.trim();
-    if(q.length < 3){ list.style.display='none'; return; }
-    timer = setTimeout(()=>fetchNominatim(q, input, list, tickEl), 350);
+function attachGooglePlaces(input, tickEl){
+  if(!input || input.dataset.gmaps) return;
+  if(typeof google === 'undefined' || !google.maps?.places){
+    // Google Maps not loaded yet — retry after delay
+    setTimeout(()=>attachGooglePlaces(input, tickEl), 500);
+    return;
+  }
+  input.dataset.gmaps = '1';
+  const ac = new google.maps.places.Autocomplete(input, {
+    types: ['address'],
+    componentRestrictions: { country: 'au' }
   });
-
-  input.addEventListener('blur', ()=>{
-    setTimeout(()=>{ list.style.display='none'; }, 200);
+  ac.addListener('place_changed', ()=>{
+    const place = ac.getPlace();
+    if(place && place.formatted_address){
+      input.value = place.formatted_address;
+      if(tickEl){ input.classList.add('validated'); tickEl.style.display=''; }
+    }
   });
 }
 
 async function fetchNominatim(q, input, list, tickEl){
-  if(!list) list = nominatimList; // fallback for legacy calls
-  try{
-    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&q=' + encodeURIComponent(q);
-    const res  = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'PrintDesk/3.0' } });
-    const data = await res.json();
-    list.innerHTML = '';
-    if(!data.length){ list.style.display='none'; return; }
-    data.forEach(place=>{
-      const div = document.createElement('div');
-      div.className = 'cp-option';
-      div.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:8px 10px;cursor:pointer;';
-      div.innerHTML = `<i class="ti ti-map-pin" style="font-size:13px;color:var(--muted);flex-shrink:0;margin-top:2px"></i><span style="font-size:12px;line-height:1.4">${esc(place.display_name)}</span>`;
-      div.onmousedown = ()=>{
-        input.value = place.display_name;
-        if(tickEl){ input.classList.add('validated'); tickEl.style.display=''; }
-        list.style.display = 'none';
-      };
-      list.appendChild(div);
-    });
-    list.style.display = '';
-  } catch(e){
-    if(list) list.style.display = 'none';
-  }
+  // No longer used — kept as stub to avoid reference errors
 }
 
 // ── Model rows ─────────────────────────────────────────────
