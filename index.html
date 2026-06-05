@@ -126,7 +126,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v3.0.2</span>
+        <span class="sidebar-label sidebar-ver-text">v3.0.3</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
@@ -205,7 +205,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
               oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
             <div id="customerSuggestions" class="colour-picker-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:9999;max-height:200px;overflow-y:auto"></div>
           </div>
-          <button class="btn icon-only" onclick="createCustomerInline()" title="Create new customer" style="flex-shrink:0"><i class="ti ti-user-plus"></i></button>
+          <button class="btn icon-only" id="createCustomerBtn" onclick="createCustomerInline()" title="Create new customer" style="flex-shrink:0"><i class="ti ti-user-plus"></i></button>
         </div>
         <input type="hidden" id="f-customer-id">
       </div>
@@ -216,9 +216,12 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <div class="field-row">
       <div class="field">
         <label>Address / Location</label>
-        <div class="addr-wrap">
-          <input id="f-address" type="text" placeholder="Address or location note…" autocomplete="off" oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
-          <i class="ti ti-map-pin-check addr-tick" id="addrTick"></i>
+        <div class="addr-wrap" style="display:flex;gap:6px;align-items:center">
+          <div style="position:relative;flex:1">
+            <input id="f-address" type="text" placeholder="Address or location note…" autocomplete="off" oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
+            <i class="ti ti-map-pin-check addr-tick" id="addrTick"></i>
+          </div>
+          <button class="btn icon-only" id="addrRefreshBtn" onclick="revertToCustomerAddress()" style="flex-shrink:0" title=""><i class="ti ti-refresh"></i></button>
         </div>
         <div class="field-hint">Select a suggestion for a validated address, or type any location note freely.</div>
       </div>
