@@ -104,7 +104,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v2.4.1</span>
+        <span class="sidebar-label sidebar-ver-text">v2.4.2</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
@@ -298,9 +298,20 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
     <div class="settings-section">
       <div class="settings-section-title">Accent colour</div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Choose from your filament colours or pick a custom colour.</p>
-      <div class="accent-swatch-grid" id="accentSwatchGrid"></div>
-      <div class="colour-custom" style="margin-top:10px">
+      <div class="field">
+        <label>Choose from your filament colours</label>
+        <div class="colour-picker-wrap" id="accentPickerWrap">
+          <div class="colour-picker-btn" onclick="toggleColourPicker('accent-sel')" id="cpb-accent-sel">
+            <div class="cp-swatch" id="accent-sel-swatch" style="background:var(--accent)"></div>
+            <span class="cp-label" id="accent-sel-label">Current accent</span>
+            <i class="ti ti-chevron-down cp-arrow"></i>
+          </div>
+          <div class="colour-picker-list" id="cpl-accent-sel" style="display:none">
+            <div class="cp-none" onclick="selectAccentColour('','',this)">— none / custom —</div>
+          </div>
+        </div>
+      </div>
+      <div class="colour-custom" style="margin-top:8px">
         <input type="color" id="customColour" oninput="previewAccent(this.value)">
         <label style="font-size:12px;color:var(--muted)">Custom colour</label>
       </div>
