@@ -42,7 +42,16 @@ function setSidebarMode(mode){
 function toggleSidebarMenu(e){
   e.stopPropagation();
   const menu = document.getElementById('sidebarMenu');
-  menu.classList.toggle('open');
+  if(menu.classList.contains('open')){
+    menu.classList.remove('open');
+    return;
+  }
+  // Position relative to the button using fixed coords
+  const btn  = document.getElementById('sidebarPin');
+  const rect = btn.getBoundingClientRect();
+  menu.style.top  = (rect.bottom + 4) + 'px';
+  menu.style.left = rect.left + 'px';
+  menu.classList.add('open');
   updateSidebarMenuDots();
 }
 
