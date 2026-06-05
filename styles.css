@@ -542,12 +542,12 @@ body.mobile .sidebar-pin{opacity:1!important;}
 
 /* ── Sidebar controls popup menu ── */
 .sidebar-menu{
-  position:absolute;top:52px;right:0;
+  position:fixed;
   background:var(--surface);border:1px solid var(--border2);
   border-radius:var(--radius-lg);
   padding:6px 0;min-width:170px;
   box-shadow:0 8px 24px rgba(0,0,0,0.4);
-  z-index:200;display:none;
+  z-index:9999;display:none;
 }
 .sidebar-menu.open{display:block;}
 .sidebar-menu-title{
