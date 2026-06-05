@@ -1608,7 +1608,14 @@ function renderUserCard(u, isCurrentUser){
   if(!u) return '';
   const name  = u.user_metadata?.display_name || u.email?.split('@')[0] || 'Unknown';
   const email = u.email || '—';
-  const since = u.created_at ? new Date(u.created_at).toLocaleDateString('en-AU') : '—';
+  const hasSignedIn = !!u.last_sign_in_at;
+  const dateLabel = hasSignedIn ? 'Joined' : 'Invited';
+  const dateVal   = hasSignedIn
+    ? new Date(u.created_at).toLocaleDateString('en-AU')
+    : u.invited_at
+      ? new Date(u.invited_at).toLocaleDateString('en-AU')
+      : new Date(u.created_at).toLocaleDateString('en-AU');
+  const dateColour = hasSignedIn ? '' : 'color:var(--amber)';
   return `<div style="display:flex;align-items:center;justify-content:space-between;
     padding:10px 12px;background:var(--surface2);border:1px solid var(--border);
     border-radius:var(--radius-lg);margin-bottom:8px">
@@ -1621,7 +1628,7 @@ function renderUserCard(u, isCurrentUser){
       <div>
         <div style="font-size:13px;font-weight:500">${esc(name)}${isCurrentUser?' <span style="font-size:10px;color:var(--muted)">(you)</span>':''}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(email)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:1px">Joined ${since}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:1px;${dateColour}">${dateLabel} ${dateVal}</div>
       </div>
     </div>
     <div style="display:flex;gap:6px">
