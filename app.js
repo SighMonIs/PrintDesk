@@ -1595,18 +1595,18 @@ function buildAccentSwatches(){
   if(!grid) return;
   const currentAccent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
   grid.innerHTML=colours.filter(c=>c.available).map(c=>`
-    <div class="accent-swatch-item" onclick="selectAccentColour('${esc(c.code)}','${esc(c.name)}')">
+    <div class="accent-swatch-item" onclick="selectAccentColour('${esc(c.code)}','${esc(c.name)}',this)">
       <div class="accent-swatch-circle ${c.code.toLowerCase()===currentAccent.toLowerCase()?'active':''}"
         style="background:${esc(c.code)}" title="${esc(c.name)}"></div>
       <span class="accent-swatch-name">${esc(c.name)}</span>
     </div>`).join('');
 }
 
-function selectAccentColour(hex, name){
+function selectAccentColour(hex, name, el){
   const a2=darken(hex,0.18);
   applyAccent(hex,a2);
   document.querySelectorAll('.accent-swatch-circle').forEach(s=>s.classList.remove('active'));
-  event.currentTarget.querySelector('.accent-swatch-circle').classList.add('active');
+  if(el) el.querySelector('.accent-swatch-circle')?.classList.add('active');
   document.getElementById('customColour').value=hex;
 }
 
