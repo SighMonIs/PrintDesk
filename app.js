@@ -706,19 +706,60 @@ function sortBy(k){
 function showNote(m,n){document.getElementById('noteModalTitle').textContent=m?'Note — '+m:'Note';document.getElementById('noteModalBody').textContent=n||'(No note recorded)';document.getElementById('noteModal').classList.add('open');}
 function closeNoteModal(){document.getElementById('noteModal').classList.remove('open');}
 
-// ── Address autocomplete ───────────────────────────────────
+// ── Address autocomplete (Nominatim / OpenStreetMap) ──────
+let nominatimTimer = null;
+let nominatimList  = null;
+
 function initAutocomplete(){
-  const input=document.getElementById('f-address');
-  if(acInst)return;
-  acInst=new google.maps.places.Autocomplete(input,{types:['address']});
-  acInst.addListener('place_changed',()=>{
-    const place=acInst.getPlace();
-    if(place&&place.formatted_address){
-      input.value=place.formatted_address;
-      input.classList.add('validated');
-      document.getElementById('addrTick').style.display='';
-    }
+  const input = document.getElementById('f-address');
+  if(acInst) return;
+  acInst = true; // mark as initialised
+
+  // Create suggestion list
+  nominatimList = document.createElement('div');
+  nominatimList.className = 'colour-picker-list';
+  nominatimList.style.cssText = 'display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:9999;max-height:200px;overflow-y:auto';
+  input.parentElement.style.position = 'relative';
+  input.parentElement.appendChild(nominatimList);
+
+  input.addEventListener('input', ()=>{
+    clearTimeout(nominatimTimer);
+    input.classList.remove('validated');
+    document.getElementById('addrTick').style.display = 'none';
+    const q = input.value.trim();
+    if(q.length < 3){ nominatimList.style.display='none'; return; }
+    nominatimTimer = setTimeout(()=>fetchNominatim(q, input), 350);
   });
+
+  input.addEventListener('blur', ()=>{
+    setTimeout(()=>{ nominatimList.style.display='none'; }, 200);
+  });
+}
+
+async function fetchNominatim(q, input){
+  try{
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&q=' + encodeURIComponent(q);
+    const res  = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'PrintDesk/2.5' } });
+    const data = await res.json();
+    nominatimList.innerHTML = '';
+    if(!data.length){ nominatimList.style.display='none'; return; }
+    data.forEach(place=>{
+      const div = document.createElement('div');
+      div.className = 'cp-option';
+      div.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:8px 10px;cursor:pointer;';
+      div.innerHTML = `<i class="ti ti-map-pin" style="font-size:13px;color:var(--muted);flex-shrink:0;margin-top:2px"></i><span style="font-size:12px;line-height:1.4">${esc(place.display_name)}</span>`;
+      div.onmousedown = ()=>{
+        input.value = place.display_name;
+        input.classList.add('validated');
+        document.getElementById('addrTick').style.display = '';
+        nominatimList.style.display = 'none';
+      };
+      nominatimList.appendChild(div);
+    });
+    nominatimList.style.display = '';
+  } catch(e){
+    nominatimList.style.display = 'none';
+  }
 }
 
 // ── Model rows ─────────────────────────────────────────────
