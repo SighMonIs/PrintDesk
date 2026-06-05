@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>PrintDesk</title>
+<title>DripDesk</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
@@ -20,7 +20,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 <!-- ══ Set Password Screen (for invited users) ══ -->
 <div id="setPasswordScreen" class="login-screen" style="display:none">
   <div class="login-card">
-    <div class="login-logo">PrintDesk</div>
+    <div class="login-logo">DripDesk</div>
     <div class="login-subtitle">Welcome! Set your password to continue.</div>
     <div id="setPasswordError" class="login-error" style="display:none"></div>
     <div class="field">
@@ -39,7 +39,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
-    <div class="login-logo">PrintDesk</div>
+    <div class="login-logo">DripDesk</div>
     <div class="login-subtitle">Sign in to continue</div>
     <div id="loginError" class="login-error" style="display:none"></div>
     <div class="field">
@@ -61,7 +61,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   <!-- Setup banner -->
   <div class="setup-banner" id="setupBanner" style="display:none">
     <h3><i class="ti ti-plug" style="vertical-align:-2px;margin-right:6px"></i>Connect to Supabase</h3>
-    <p>Enter your Supabase project URL and anon key to connect PrintDesk to your database.</p>
+    <p>Enter your Supabase project URL and anon key to connect DripDesk to your database.</p>
     <div class="url-input-row" style="margin-bottom:6px">
       <input type="url" id="gasUrlInput" placeholder="https://xxxxxxxxxxxx.supabase.co">
     </div>
@@ -76,7 +76,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <div class="sidebar-top">
       <div class="sidebar-logo">
         <i class="ti ti-printer sidebar-logo-icon"></i>
-        <span class="sidebar-label sidebar-logo-text">PrintDesk</span>
+        <span class="sidebar-label sidebar-logo-text">DripDesk</span>
       </div>
       <button class="sidebar-pin" id="sidebarPin" onclick="toggleSidebarMenu(event)" title="Sidebar controls">
         <i class="ti ti-layout-sidebar"></i>
@@ -126,7 +126,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v3.0.3</span>
+        <span class="sidebar-label sidebar-ver-text">v3.0.4</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
