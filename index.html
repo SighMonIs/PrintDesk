@@ -95,12 +95,15 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <button class="sidebar-item" onclick="openSettings()">
         <i class="ti ti-settings"></i><span class="sidebar-label">Settings</span>
       </button>
+      <button class="sidebar-item" onclick="openUsersModal()">
+        <i class="ti ti-users"></i><span class="sidebar-label">Users</span>
+      </button>
       <button class="sidebar-item sidebar-logout" onclick="doLogout()">
         <i class="ti ti-logout"></i><span class="sidebar-label">Sign out</span>
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v2.5.1</span>
+        <span class="sidebar-label sidebar-ver-text">v2.6.0</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
@@ -313,6 +316,46 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <div class="modal-actions">
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" id="settingsSaveBtn" onclick="applySettings()"><i class="ti ti-check"></i> Save settings</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ Users Modal ══ -->
+<div class="modal-bg" id="usersModal" onclick="if(event.target===this)closeUsersModal()">
+  <div class="modal md" onclick="event.stopPropagation()">
+    <div class="modal-title-row">
+      <div class="modal-title"><i class="ti ti-users" style="margin-right:8px;vertical-align:-2px"></i>Users</div>
+      <button class="btn sm" onclick="openAddUserForm()"><i class="ti ti-plus"></i> Add user</button>
+    </div>
+
+    <!-- Add / Edit user form -->
+    <div id="userForm" style="display:none">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px">
+        <div class="field-row">
+          <div class="field"><label>Email</label>
+            <input type="email" id="uf-email" placeholder="user@example.com">
+          </div>
+          <div class="field"><label>Password</label>
+            <input type="password" id="uf-password" placeholder="Min. 6 characters">
+          </div>
+        </div>
+        <div class="field"><label>Display name</label>
+          <input type="text" id="uf-name" placeholder="Their name">
+        </div>
+        <div id="uf-error" style="font-size:11px;color:var(--red);margin-top:4px;display:none"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn" onclick="closeUserForm()">Cancel</button>
+          <button class="btn primary" id="uf-save" onclick="saveUser()"><i class="ti ti-check"></i> Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- User list -->
+    <div id="usersList"><div class="empty"><i class="ti ti-loader-2"></i> Loading users…</div></div>
+
+    <div class="modal-actions">
+      <button class="btn primary" onclick="closeUsersModal()">Close</button>
     </div>
   </div>
 </div>
