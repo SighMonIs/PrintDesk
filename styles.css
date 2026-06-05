@@ -295,7 +295,7 @@ thead th.sortable{user-select:none;}
 
 
 /* Stats modal */
-.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
 .stats-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;}
 .stats-card-title{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
 .stats-card-val{font-size:28px;font-weight:600;font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;color:var(--accent);margin-bottom:8px;}
@@ -635,3 +635,5 @@ body.mobile .sidebar-pin{opacity:1!important;}
   font-size:9px;color:var(--muted);text-align:center;
   max-width:40px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+@media (max-width:700px){.stats-grid{grid-template-columns:1fr 1fr;}}
+@media (max-width:400px){.stats-grid{grid-template-columns:1fr;}}
