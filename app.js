@@ -333,6 +333,7 @@ let cats      = [];   // [{id,name,price}]
 let opts      = [];   // [{id,catId,name,display,options}]
 let colours   = [];   // [{id,name,code,available}]
 let customers  = [];   // [{id,name,email,phone,address,notes}]
+let showArchivedCats = false;
 let editOId   = null;
 let sortKey   = 'orderId';
 let sortDir   = -1;
@@ -512,7 +513,7 @@ function normaliseCustomer(c){
   };
 }
 function normaliseCat(c){
-  return{id:String(c.id||''),name:String(c.name||''),price:Number(c.price||0)};
+  return{id:String(c.id||''),name:String(c.name||''),price:Number(c.price||0),archived:Boolean(c.archived||false)};
 }
 function normaliseOpt(o){
   return{
@@ -523,7 +524,8 @@ function normaliseOpt(o){
     options:     String(o.options||''),
     sort_order:  Number(o.sort_order||0),
     num_colours: Number(o.num_colours||4),
-    force_caps:  Boolean(o.force_caps||false)
+    force_caps:  Boolean(o.force_caps||false),
+    archived:    Boolean(o.archived||false)
   };
 }
 function normaliseColour(c){
@@ -858,12 +860,12 @@ async function fetchNominatim(q, input, list, tickEl){
 // ── Model rows ─────────────────────────────────────────────
 function catOptions(selId){
   let html='<option value="">— select —</option>';
-  cats.forEach(c=>{html+=`<option value="${c.id}" ${String(c.id)===String(selId)?'selected':''}>${esc(c.name)}</option>`;});
+  cats.filter(c=>!c.archived).forEach(c=>{html+=`<option value="${c.id}" ${String(c.id)===String(selId)?'selected':''}>${esc(c.name)}</option>`;});
   return html;
 }
 
 // Get options for a given catId
-function getCatOpts(catId){return opts.filter(o=>String(o.catId)===String(catId));}
+function getCatOpts(catId){return opts.filter(o=>String(o.catId)===String(catId)&&!o.archived);}
 
 // Render option fields for a model row
 function renderModelOpts(idx, catId, savedOpts){
@@ -1426,7 +1428,13 @@ async function deleteOrder(orderId){
 
 // ── Categories modal ───────────────────────────────────────
 // ── Combined Categories + Options modal ──────────────────
-function openCatModal(){renderCatBlocks();document.getElementById('catModal').classList.add('open');}
+function openCatModal(){
+  // Sync checkbox state
+  const cb = document.getElementById('showArchivedCb');
+  if(cb) cb.checked = showArchivedCats;
+  renderCatBlocks();
+  document.getElementById('catModal').classList.add('open');
+}
 function closeCatModal(){document.getElementById('catModal').classList.remove('open');}
 
 function getCatOpts_byCatId(catId){
@@ -1441,18 +1449,38 @@ function renderCatBlocks(){
     const ci=el.dataset.ci;
     expanded[ci]=!el.querySelector('.cat-opts-area')?.classList.contains('collapsed');
   });
-  list.innerHTML=cats.map((c,ci)=>{
-    const catOpts=getCatOpts_byCatId(c.id);
-    const isExpanded=expanded[ci]||false; // collapsed by default
-    return `<div class="cat-block" data-ci="${ci}">
-      <div class="cat-block-hdr" onclick="toggleCatBlock(${ci})" style="cursor:pointer">
+  // Build set of used cat/opt IDs from completed orders
+  const usedCatIds=new Set(orders.filter(o=>o.status==='Complete').map(o=>o.catId));
+  const usedOptKeys=new Set();
+  orders.filter(o=>o.status==='Complete').forEach(o=>{
+    if(o.options) o.options.split('||').forEach(p=>{
+      const name=p.split(':')[0]?.trim();
+      if(name) usedOptKeys.add(o.catId+'|'+name);
+    });
+  });
+
+  const visibleCats = showArchivedCats ? cats : cats.filter(c=>!c.archived);
+
+  list.innerHTML=visibleCats.map((c,ci)=>{
+    const realCi=cats.indexOf(c);
+    const catOpts=getCatOpts_byCatId(c.id).filter(o=>showArchivedCats||!o.archived);
+    const isExpanded=expanded[realCi]||false;
+    const isUsed=usedCatIds.has(c.id);
+    const canDelete=!isUsed&&!c.archived;
+    return `<div class="cat-block${c.archived?' cat-archived':''}" data-ci="${realCi}">
+      <div class="cat-block-hdr" onclick="toggleCatBlock(${realCi})" style="cursor:pointer">
         <i class="ti ti-chevron-right cat-chevron${isExpanded?' expanded':''}" style="font-size:14px;color:var(--muted);flex-shrink:0;transition:transform 0.15s"></i>
-        <input type="text" value="${esc(c.name)}" placeholder="Category name" oninput="cats[${ci}].name=this.value" onclick="event.stopPropagation()">
+        <input type="text" value="${esc(c.name)}" placeholder="Category name" oninput="cats[${realCi}].name=this.value" onclick="event.stopPropagation()" ${c.archived?'disabled':''}>
         <div class="cat-price-wrap">
           <span>$</span>
-          <input type="number" value="${c.price}" step="0.01" min="0" oninput="cats[${ci}].price=parseFloat(this.value)||0" onclick="event.stopPropagation()">
+          <input type="number" value="${c.price}" step="0.01" min="0" oninput="cats[${realCi}].price=parseFloat(this.value)||0" onclick="event.stopPropagation()" ${c.archived?'disabled':''}>
         </div>
-        <button class="icon-btn del" onclick="event.stopPropagation();removeCat(${ci})"><i class="ti ti-trash"></i></button>
+        ${c.archived
+          ? `<button class="icon-btn" onclick="event.stopPropagation();unarchiveCat(${realCi})" title="Unarchive"><i class="ti ti-archive-off"></i></button>`
+          : canDelete
+            ? `<button class="icon-btn del" onclick="event.stopPropagation();removeCat(${realCi})"><i class="ti ti-trash"></i></button>`
+            : `<button class="icon-btn" onclick="event.stopPropagation();archiveCat(${realCi})" title="Archive — used in completed orders"><i class="ti ti-archive"></i></button>`
+        }
       </div>
       <div class="cat-opts-area${isExpanded?'':' collapsed'}" id="cat-opts-${ci}">
         ${catOpts.length===0?'<div class="cat-opts-area-empty">No options — add one below</div>':''}
@@ -1485,7 +1513,12 @@ function renderCatBlocks(){
                 </label>
               </div>`:''}
             </div>
-            <button class="icon-btn del" onclick="removeOpt(${globalIdx})"><i class="ti ti-trash"></i></button>
+            ${o.archived
+              ? `<button class="icon-btn" onclick="unarchiveOpt(${globalIdx})" title="Unarchive"><i class="ti ti-archive-off"></i></button>`
+              : usedOptKeys.has('${esc(c.id)}|'+o.name)
+                ? `<button class="icon-btn" onclick="archiveOpt(${globalIdx})" title="Archive — used in completed orders"><i class="ti ti-archive"></i></button>`
+                : `<button class="icon-btn del" onclick="removeOpt(${globalIdx})"><i class="ti ti-trash"></i></button>`
+            }
             ${o.display==='dropdown'?`<div class="opt-dropdown-vals">
               <input type="text" value="${esc(o.options)}" placeholder="Comma-separated values, add Custom for free text"
                 oninput="opts[${globalIdx}].options=this.value">
@@ -1499,6 +1532,13 @@ function renderCatBlocks(){
     </div>`;
   }).join('');
 }
+
+
+function archiveCat(ci){ cats[ci].archived=true; renderCatBlocks(); }
+function unarchiveCat(ci){ cats[ci].archived=false; renderCatBlocks(); }
+function archiveOpt(i){ opts[i].archived=true; renderCatBlocks(); }
+function unarchiveOpt(i){ opts[i].archived=false; renderCatBlocks(); }
+function toggleShowArchived(cb){ showArchivedCats=cb.checked; renderCatBlocks(); }
 
 function toggleCatBlock(ci){
   const block  = document.querySelector(`.cat-block[data-ci="${ci}"]`);
@@ -1529,15 +1569,15 @@ function addCat(){cats.push({id:nextCatId(),name:'',price:0});renderCatBlocks();
 function removeCat(i){cats.splice(i,1);renderCatBlocks();}
 function removeOpt(i){opts.splice(i,1);renderCatBlocks();}
 function addOptToCat(catId){
-  opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4,force_caps:false});
+  opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4,force_caps:false,archived:false});
   renderCatBlocks();
 }
 
 async function saveCatsAndOpts(){
   setStatus('spin','Saving…');closeCatModal();populateCatFilter();
   try{
-    await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price})));
-    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false})));
+    await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price,archived:c.archived||false})));
+    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false,archived:o.archived||false})));
     setStatus('ok','Saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
@@ -1852,7 +1892,11 @@ function renderCustomerList(filter=''){
     el.innerHTML='<div class="empty"><i class="ti ti-users"></i> No customers yet.</div>';
     return;
   }
-  el.innerHTML = filtered.map(c=>`
+  // Build set of customer_ids that have orders
+  const usedIds = new Set(orders.map(o=>o.customer_id).filter(Boolean));
+  el.innerHTML = filtered.map(c=>{
+    const hasOrders = usedIds.has(c.id);
+    return `
     <div class="customer-card">
       <div class="customer-avatar">${esc(c.name[0]?.toUpperCase()||'?')}</div>
       <div class="customer-info">
@@ -1865,9 +1909,10 @@ function renderCustomerList(filter=''){
       </div>
       <div class="customer-actions">
         <button class="icon-btn" onclick="openEditCustomer('${esc(c.id)}')" title="Edit"><i class="ti ti-edit"></i></button>
-        <button class="icon-btn del" onclick="deleteCustomer('${esc(c.id)}','${esc(c.name)}')" title="Delete"><i class="ti ti-trash"></i></button>
+        ${!hasOrders?`<button class="icon-btn del" onclick="deleteCustomer('${esc(c.id)}','${esc(c.name)}')" title="Delete"><i class="ti ti-trash"></i></button>`:''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function openAddCustomer(){
