@@ -693,3 +693,16 @@ body.mobile .sidebar-pin{opacity:1!important;}
 .cat-archived{opacity:0.45;}
 .cat-archived .cat-block-hdr{background:var(--surface);}
 .cat-archived input,.cat-archived select{color:var(--muted)!important;}
+
+/* ── Payment option settings rows ── */
+.payment-opt-row{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:var(--radius);
+}
+.payment-opt-name{font-size:13px;font-weight:500;}
+.payment-opt-tag{
+  font-size:10px;padding:2px 6px;border-radius:999px;
+  background:rgba(92,184,122,0.15);color:var(--green);
+  border:1px solid rgba(92,184,122,0.3);
+}
