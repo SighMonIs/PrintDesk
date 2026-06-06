@@ -73,7 +73,7 @@ document.addEventListener('click', e=>{
   if(!e.target.closest('#sidebarMenu') && !e.target.closest('#sidebarPin')){
     closeSidebarMenu();
   }
-  if(document.body.classList.contains('mobile') && e.target.closest('.sidebar-item')){
+  if(window.innerWidth<=640 && e.target.closest('.sidebar-item')){
     closeMobileSidebar();
   }
 });
