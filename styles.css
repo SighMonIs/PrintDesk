@@ -688,3 +688,8 @@ body.mobile .sidebar-pin{opacity:1!important;}
 .customer-address{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;margin-top:2px;}
 .customer-address i{font-size:12px;flex-shrink:0;}
 .customer-actions{display:flex;gap:4px;flex-shrink:0;}
+
+/* ── Archived categories/options ── */
+.cat-archived{opacity:0.45;}
+.cat-archived .cat-block-hdr{background:var(--surface);}
+.cat-archived input,.cat-archived select{color:var(--muted)!important;}
