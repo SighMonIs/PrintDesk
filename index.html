@@ -126,7 +126,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v3.2.0</span>
+        <span class="sidebar-label sidebar-ver-text">v3.2.1</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
@@ -154,7 +154,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
   <!-- Toolbar -->
   <div class="toolbar">
-    <input type="text" id="search" placeholder="Search..." oninput="renderTable()">
+    <input type="text" id="search" placeholder="Search customer, model, address, notes…" oninput="renderTable()">
     <select id="filterStatus" onchange="renderTable()">
       <option value="">All statuses</option>
       <option>Pending</option><option>Printing</option><option>Complete</option><option>Cancelled</option>
