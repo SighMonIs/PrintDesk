@@ -1045,8 +1045,7 @@ function setStatus(state,msg){
 }
 
 // ── Mobile detection ───────────────────────────────────────
-function checkMobile(){if(window.innerWidth<=640)document.body.classList.add('mobile');else document.body.classList.remove('mobile');}
-checkMobile();window.addEventListener('resize',checkMobile);
+// Mobile layout handled via CSS @media (max-width: 640px)
 
 // Close colour picker dropdowns when clicking outside
 document.addEventListener('click', e=>{
