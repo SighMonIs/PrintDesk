@@ -126,7 +126,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v3.0.6</span>
+        <span class="sidebar-label sidebar-ver-text">v3.1.0</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
@@ -273,6 +273,11 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   <div class="modal" onclick="event.stopPropagation()" style="max-width:720px">
     <div class="modal-title">Manage categories</div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Each category can have options — extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical" style="font-size:12px"></i> to reorder options.</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <label class="toolbar-check" style="height:28px;padding:0 8px;font-size:11px">
+        <input type="checkbox" id="showArchivedCb" onchange="toggleShowArchived(this)"> Show archived
+      </label>
+    </div>
     <div id="catFlatList"></div>
     <button class="btn" style="width:100%;margin-top:8px" onclick="addCat()"><i class="ti ti-plus"></i> Add category</button>
     <div class="modal-actions">
