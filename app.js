@@ -1944,7 +1944,12 @@ async function deleteCustomer(id, name){
     await sbDelete('customers','id=eq.'+encodeURIComponent(id));
     customers=customers.filter(c=>c.id!==id);
     renderCustomerList(document.getElementById('customerSearch').value);
-  }catch(e){ alert('Delete failed: '+e.message); }
+  }catch(e){
+    const msg = e.message&&e.message.includes('409')
+      ? 'This customer is linked to orders and cannot be deleted.'
+      : 'Delete failed: '+e.message;
+    alert(msg);
+  }
 }
 
 // ── Customer autocomplete in order modal ───────────────────
