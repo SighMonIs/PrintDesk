@@ -126,7 +126,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v3.1.0</span>
+        <span class="sidebar-label sidebar-ver-text">v3.2.0</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
@@ -236,7 +236,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <div class="field-hint">Select a suggestion for a validated address, or type any location note freely.</div>
       </div>
       <div class="field"><label>Payment</label>
-        <select id="f-payment"><option value="No">No</option><option value="Free">Free</option><option value="Simon">Simon</option><option value="Wade">Wade</option></select>
+        <select id="f-payment"></select>
       </div>
     </div>
 
@@ -365,6 +365,20 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     </div>
     <input type="color" id="customColour" style="display:none" oninput="previewAccent(this.value)">
 
+    <div class="settings-section">
+      <div class="settings-section-title">Payment options</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Manage payment types. Archive options used in orders, delete unused ones. "Revenue" options are included in revenue totals.</p>
+      <div id="paymentOptionsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+        <input type="text" id="newPaymentName" placeholder="New payment option…"
+          style="flex:1;height:30px;padding:0 8px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);white-space:nowrap;cursor:pointer">
+          <input type="checkbox" id="newPaymentRevenue" style="accent-color:var(--accent)"> Revenue
+        </label>
+        <button class="btn sm" onclick="addPaymentOption()"><i class="ti ti-plus"></i> Add</button>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" onclick="closeSettings()">Cancel</button>
       <button class="btn primary" id="settingsSaveBtn" onclick="applySettings()"><i class="ti ti-check"></i> Save settings</button>
@@ -458,6 +472,8 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
+<script src="api.js"></script>
+<script src="ui.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
