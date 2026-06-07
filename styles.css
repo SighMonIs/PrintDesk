@@ -866,34 +866,43 @@ thead th.sortable{user-select:none;}
 
 /* ── Mobile order card — flight card layout ── */
 .mc-card{
-  background:var(--surface);
-  border-radius:var(--radius-lg);
-  overflow:hidden;
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius-lg);overflow:hidden;
 }
+/* Header: customer + status */
 .mc-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px 8px;
-  border-bottom:1px solid var(--border);
+  display:flex;align-items:flex-start;justify-content:space-between;
+  padding:10px 12px;border-bottom:1px solid var(--border);gap:8px;
 }
-.mc-order-num{
-  font-family:ui-monospace,'Cascadia Code','Consolas',monospace;
-  font-size:11px;color:var(--muted);font-weight:500;
+.mc-customer{font-size:16px;font-weight:600;color:var(--text);}
+.mc-order-num{font-size:11px;color:var(--muted);font-family:ui-monospace,'Cascadia Code',monospace;margin-top:2px;}
+/* Items section */
+.mc-items{padding:0;}
+.mc-item{display:flex;align-items:stretch;min-height:52px;}
+.mc-item-left{
+  display:flex;align-items:center;justify-content:center;
+  width:44px;flex-shrink:0;padding:8px 0;
+  font-family:ui-monospace,'Cascadia Code',monospace;
+  font-size:10px;color:var(--muted);text-align:center;
 }
-.mc-body{padding:10px 12px 8px;}
-.mc-customer{font-size:17px;font-weight:600;color:var(--text);margin-bottom:2px;}
-.mc-category{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;margin-bottom:4px;}
-.mc-opts{font-size:12px;color:var(--muted);margin-top:2px;}
-.mc-colours{display:flex;gap:4px;margin-top:6px;}
-.mc-divider{height:1px;background:var(--border);margin:0 12px;}
+.mc-item-divider{width:1px;background:var(--border);flex-shrink:0;margin:6px 0;}
+.mc-item-right{flex:1;padding:8px 12px;min-width:0;}
+.mc-item-cat{font-size:13px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:4px;}
+.mc-item-opts{font-size:11px;color:var(--muted);margin-top:2px;}
+.mc-item-colours{display:flex;gap:3px;margin-top:4px;}
+.mc-swatch{display:inline-block;width:12px;height:12px;border-radius:2px;border:1px solid rgba(255,255,255,0.15);}
+.mc-item-total{font-size:11px;color:var(--muted);margin-top:4px;}
+.mc-item-sep{height:1px;background:var(--border);margin:0 12px;}
+/* Footer */
 .mc-footer{
   display:flex;align-items:center;
-  padding:8px 10px;gap:0;
+  padding:8px 10px;border-top:1px solid var(--border);
 }
 .mc-stat{
   display:flex;flex-direction:column;align-items:center;
-  flex:0 0 auto;padding:0 12px;
+  flex:0 0 auto;padding:0 10px;
 }
 .mc-stat:first-child{padding-left:4px;}
 .mc-stat-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:2px;}
-.mc-stat-val{font-size:14px;font-weight:600;color:var(--text);}
-.mc-stat-sep{width:1px;height:24px;background:var(--border);flex-shrink:0;}
+.mc-stat-val{font-size:13px;font-weight:600;color:var(--text);}
+.mc-stat-sep{width:1px;height:22px;background:var(--border);flex-shrink:0;}
