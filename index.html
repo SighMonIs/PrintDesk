@@ -131,7 +131,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v3.2.5</span>
+        <span class="sidebar-label sidebar-ver-text">v3.2.6</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
@@ -140,10 +140,13 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   <!-- Mobile overlay -->
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
 
-  <!-- Mobile hamburger -->
-  <button class="mobile-hamburger" onclick="openMobileSidebar()">
-    <i class="ti ti-menu-2"></i>
-  </button>
+  <!-- Mobile top bar: hamburger + search (hidden on desktop via CSS) -->
+  <div class="mobile-topbar">
+    <button class="mobile-hamburger" style="position:static;flex-shrink:0;margin:0" onclick="openMobileSidebar()">
+      <i class="ti ti-menu-2"></i>
+    </button>
+    <input type="text" id="search-mobile" placeholder="Search…" oninput="document.getElementById('search').value=this.value;renderTable()">
+  </div>
 
 <div class="app" id="mainContent">
 
