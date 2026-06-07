@@ -237,31 +237,63 @@ function renderTable(){
     </div>`;
 
     if(isMobile){
-      if(!isFirst) return ''; // Group items — only show one card per order on mobile
-      const itemCount = list.filter(r=>r.orderId===o.orderId).length;
-      const totalAmt  = list.filter(r=>r.orderId===o.orderId).reduce((s,r)=>s+r.total,0);
+      if(!isFirst) return ''; // Whole order rendered as one card
+      const orderRows = list.filter(r=>r.orderId===o.orderId);
+      const totalAmt  = orderRows.reduce((s,r)=>s+r.total,0);
+
+      // Build each item row
+      const itemRows = orderRows.map(r=>{
+        const rCat = cats.find(c=>String(c.id)===String(r.catId));
+        const rParsedOpts={};
+        if(r.options){r.options.split('||').forEach(p=>{const idx=p.indexOf(':');if(idx>=0)rParsedOpts[p.slice(0,idx).trim()]=p.slice(idx+1).trim();});}
+        const rCatOpts = opts.filter(opt=>String(opt.catId)===String(r.catId));
+        const rSwatches = rCatOpts.filter(opt=>opt.display==='colour'||opt.name.toLowerCase().includes('colour')).map(opt=>{
+          const val=rParsedOpts[opt.name];
+          if(!val) return '';
+          return val.split('|').map(name=>{
+            const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
+            return`<span class="mc-swatch" style="background:${c?c.code:'#ccc'}" title="${esc(name)}"></span>`;
+          }).join('');
+        }).join('');
+        const rTextOpts = rCatOpts.filter(opt=>opt.display!=='colour'&&!opt.name.toLowerCase().includes('colour')).map(opt=>{
+          const val=rParsedOpts[opt.name];
+          return val?esc(val):'';
+        }).filter(Boolean).join(' · ');
+        const rPrevMade = wasPreviouslyMade(r, madeSet);
+        return`<div class="mc-item">
+          <div class="mc-item-left">
+            <div class="mc-item-num">${orderNumFromId(r.orderId)}-${r.id.split('-').pop()}</div>
+          </div>
+          <div class="mc-item-divider"></div>
+          <div class="mc-item-right">
+            <div class="mc-item-cat">${rCat?esc(rCat.name):'—'}${rPrevMade?' <span class="made-tick"><i class="ti ti-circle-check-filled"></i></span>':''}</div>
+            ${rTextOpts?`<div class="mc-item-opts">${rTextOpts}</div>`:''}
+            ${rSwatches?`<div class="mc-item-colours">${rSwatches}</div>`:''}
+            <div class="mc-item-total">×${r.qty} &nbsp; $${r.total.toFixed(2)}</div>
+          </div>
+        </div>`;
+      }).join('<div class="mc-item-sep"></div>');
+
       return`<tr class="mobile-card">
         <td colspan="11" style="padding:0;border:none!important;background:transparent!important">
           <div class="mc-card">
-            <!-- Header: order # + status -->
+            <!-- Header: customer + status pill -->
             <div class="mc-header">
-              <span class="mc-order-num">${orderNum}</span>
+              <div>
+                <div class="mc-customer">${esc(o.customer)||'—'}</div>
+                <div class="mc-order-num">${orderNum}</div>
+              </div>
               ${statusDd}
             </div>
-            <!-- Main: customer + category -->
-            <div class="mc-body">
-              <div class="mc-customer">${esc(o.customer)||'—'}</div>
-              <div class="mc-category">${cat?esc(cat.name):'—'}${prevMade?' <span class="made-tick" title="Previously made"><i class="ti ti-circle-check-filled"></i></span>':''}</div>
-              ${textOpts?`<div class="mc-opts">${textOpts}</div>`:''}
-              ${colourSwatches?`<div class="mc-colours">${colourSwatches}</div>`:''}
+            <!-- Items -->
+            <div class="mc-items">
+              ${itemRows}
             </div>
-            <!-- Divider -->
-            <div class="mc-divider"></div>
-            <!-- Footer stats: qty, total, payment -->
+            <!-- Footer -->
             <div class="mc-footer">
               <div class="mc-stat">
                 <span class="mc-stat-label">Items</span>
-                <span class="mc-stat-val">${itemCount}</span>
+                <span class="mc-stat-val">${orderRows.length}</span>
               </div>
               <div class="mc-stat-sep"></div>
               <div class="mc-stat">
