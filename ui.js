@@ -196,15 +196,95 @@ function renderTable(){
   if(!list.length){tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;return;}
 
   const seen=new Set();
+  const isMobile = window.innerWidth <= 640;
 
   tbody.innerHTML=list.map(o=>{
     const isFirst=!seen.has(o.orderId);seen.add(o.orderId);
     const cat=cats.find(c=>String(c.id)===String(o.catId));
     const bc='b-'+(o.status||'pending').toLowerCase();
-    const addrShort=o.address?o.address.split(',').slice(0,2).join(','):'—';
     const orderNum=orderNumFromId(o.orderId);
     const hasNote=!!o.notes.trim();
     const prevMade=wasPreviouslyMade(o, madeSet);
+
+    // Parse options
+    const parsedOpts={};
+    if(o.options){o.options.split('||').forEach(p=>{const idx=p.indexOf(':');if(idx>=0)parsedOpts[p.slice(0,idx).trim()]=p.slice(idx+1).trim();});}
+    const catOpts=opts.filter(opt=>String(opt.catId)===String(o.catId));
+
+    const colourSwatches = catOpts.filter(opt=>opt.display==='colour'||opt.name.toLowerCase().includes('colour')).map(opt=>{
+      const val=parsedOpts[opt.name];
+      if(!val) return '';
+      return val.split('|').map(name=>{
+        const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
+        return`<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${c?c.code:'#ccc'};border:1px solid rgba(255,255,255,0.15)" title="${esc(name)}"></span>`;
+      }).join('');
+    }).join('');
+
+    const textOpts = catOpts.filter(opt=>opt.display!=='colour'&&!opt.name.toLowerCase().includes('colour')).map(opt=>{
+      const val=parsedOpts[opt.name];
+      return val?esc(val):'';
+    }).filter(Boolean).join(' · ');
+
+    const statusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
+      <button class="status-dd-btn b-${(o.status||'pending').toLowerCase()}" onclick="toggleStatusDd('${o.id}',this)">
+        ${o.status||'Pending'} <i class="ti ti-chevron-down"></i>
+      </button>
+      <div class="status-dd-list" id="sdd-${o.id}">
+        ${['Pending','Printing','Complete','Cancelled'].map(s=>`
+          <div class="status-dd-opt b-${s.toLowerCase()}${o.status===s?' active':''}"
+            onclick="selectStatus('${esc(o.orderId)}','${esc(o.id)}','${s}',this)">${s}</div>`).join('')}
+      </div>
+    </div>`;
+
+    if(isMobile){
+      if(!isFirst) return ''; // Group items — only show one card per order on mobile
+      const itemCount = list.filter(r=>r.orderId===o.orderId).length;
+      const totalAmt  = list.filter(r=>r.orderId===o.orderId).reduce((s,r)=>s+r.total,0);
+      return`<tr class="mobile-card">
+        <td colspan="11" style="padding:0;border:none!important;background:transparent!important">
+          <div class="mc-card">
+            <!-- Header: order # + status -->
+            <div class="mc-header">
+              <span class="mc-order-num">${orderNum}</span>
+              ${statusDd}
+            </div>
+            <!-- Main: customer + category -->
+            <div class="mc-body">
+              <div class="mc-customer">${esc(o.customer)||'—'}</div>
+              <div class="mc-category">${cat?esc(cat.name):'—'}${prevMade?' <span class="made-tick" title="Previously made"><i class="ti ti-circle-check-filled"></i></span>':''}</div>
+              ${textOpts?`<div class="mc-opts">${textOpts}</div>`:''}
+              ${colourSwatches?`<div class="mc-colours">${colourSwatches}</div>`:''}
+            </div>
+            <!-- Divider -->
+            <div class="mc-divider"></div>
+            <!-- Footer stats: qty, total, payment -->
+            <div class="mc-footer">
+              <div class="mc-stat">
+                <span class="mc-stat-label">Items</span>
+                <span class="mc-stat-val">${itemCount}</span>
+              </div>
+              <div class="mc-stat-sep"></div>
+              <div class="mc-stat">
+                <span class="mc-stat-label">Total</span>
+                <span class="mc-stat-val">$${totalAmt.toFixed(2)}</span>
+              </div>
+              <div class="mc-stat-sep"></div>
+              <div class="mc-stat">
+                <span class="mc-stat-label">Payment</span>
+                <span class="mc-stat-val">${esc(o.payment||'—')}</span>
+              </div>
+              <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
+                ${hasNote?`<button class="icon-btn has-note" onclick="showNote('',${JSON.stringify(esc(o.notes))})" title="Note"><i class="ti ti-notes"></i></button>`:''}
+                <button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
+                <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+    }
+
+    // ── Desktop row ──────────────────────────────────────────
     const catHtml=cat
       ?`<span class="cat-path">${esc(cat.name)}</span>${prevMade?'<span class="made-tick" title="Model previously made"><i class="ti ti-circle-check-filled"></i></span>':''}`
       :'—';
@@ -212,16 +292,11 @@ function renderTable(){
     const deliveryIcon=isFirst?(o.delivery==='Pick Up'
       ?'<i class="ti ti-hand-stop" title="Pick Up" style="font-size:13px;color:var(--muted);margin-right:5px;flex-shrink:0"></i>'
       :'<i class="ti ti-mail" title="Post" style="font-size:13px;color:var(--muted);margin-right:5px;flex-shrink:0"></i>'):'';
-    // Render options in sort_order — iterate through opts for this category
-    const parsedOpts={};
-    if(o.options){o.options.split('||').forEach(p=>{const idx=p.indexOf(':');if(idx>=0)parsedOpts[p.slice(0,idx).trim()]=p.slice(idx+1).trim();});}
-    const catOpts=opts.filter(opt=>String(opt.catId)===String(o.catId));
     const optLines=catOpts.map(opt=>{
       const val=parsedOpts[opt.name];
       if(!val) return null;
-      const isColOpt=opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
+      const isColOpt=opt.display==='colour'||opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
       if(isColOpt){
-        // Show swatches for each colour name
         const names=val.split('|').map(s=>s.trim()).filter(Boolean);
         const swatches=names.map(name=>{
           const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
@@ -245,19 +320,7 @@ function renderTable(){
       <td data-label="Qty" class="mono" style="padding:7px 8px">${o.qty}</td>
       <td data-label="Total" class="mono" style="padding:7px 8px">$${o.total.toFixed(2)}</td>
       <td data-label="Status" style="padding:7px 6px;text-align:center">
-        <div class="status-dd-wrap" onclick="event.stopPropagation()">
-          <button class="status-dd-btn b-${(o.status||'pending').toLowerCase()}"
-            onclick="toggleStatusDd('${o.id}',this)">
-            ${o.status||'Pending'} <i class="ti ti-chevron-down"></i>
-          </button>
-          <div class="status-dd-list" id="sdd-${o.id}">
-            ${['Pending','Printing','Complete','Cancelled'].map(s=>`
-              <div class="status-dd-opt b-${s.toLowerCase()}${o.status===s?' active':''}"
-                onclick="selectStatus('${esc(o.orderId)}','${esc(o.id)}','${s}',this)">
-                ${s}
-              </div>`).join('')}
-          </div>
-        </div>
+        ${statusDd}
       </td>
       <td data-label="$" style="padding:7px 6px;text-align:center">${isFirst?`<span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span>`:''}</td>
       <td data-label="Note" style="padding:7px 6px">${noteHtml}</td>
