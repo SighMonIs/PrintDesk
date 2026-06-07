@@ -314,88 +314,44 @@ thead th.sortable{user-select:none;}
 /* Mobile */
 
 @media (max-width: 640px) {
-.app{padding:1rem 0.75rem 2rem;}
-.hdr{margin-bottom:1.25rem;gap:10px;}
-.hdr-actions{flex-wrap:wrap;}
-.hdr-actions .btn:not(.icon-only) .btn-label{display:none;}
-.hdr-actions .btn:not(.icon-only){padding:0 10px;}
-.stats{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1.25rem;}
-.stat{padding:10px 12px;}
-.stat-val{font-size:20px;}
-.toolbar{display:none;}
-.tbl-wrap{margin-top:8px;}
-.tbl-wrap{border:none;border-radius:0;background:transparent;overflow:visible;}
-table,thead,tbody,tr,th,td{display:block;}
-thead{display:none;}
-/* ── Mobile order card — flight card inspired ── */
-tbody tr{
-  background:var(--surface);
-  border:1px solid var(--border2)!important;
-  border-radius:var(--radius-lg);
-  margin-bottom:10px;padding:0;
-  overflow:visible;white-space:normal;
-  display:flex!important;flex-direction:column;
-  box-shadow:0 2px 8px rgba(0,0,0,0.2);
-}
-/* Hide all default td label pseudo-elements */
-tbody td::before{display:none!important;}
-/* Hide all cells by default — we show only what we want */
-tbody td{display:none!important;}
+  /* App layout */
+  .app{padding:0.75rem 0.75rem 2rem;padding-top:64px!important;}
 
-/* Card header: customer + order# left, status right */
-td.mob-header{
-  display:flex!important;align-items:flex-start;justify-content:space-between;
-  padding:12px 14px 10px;border-bottom:1px solid var(--border);
-}
-td.mob-header .mob-title{font-size:15px;font-weight:600;color:var(--text);}
-td.mob-header .mob-subtitle{font-size:11px;color:var(--muted);margin-top:2px;font-family:ui-monospace,'Cascadia Code',monospace;}
+  /* Hide desktop toolbar — mobile uses topbar */
+  .toolbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .toolbar #search{display:none;}
+  .filter-wrap{flex:1;min-width:0;}
+  .sort-btn-wrap{flex:1;min-width:0;}
+  .filter-wrap .btn{width:100%;justify-content:center;box-sizing:border-box;}
+  .sort-btn-group{width:100%;display:flex;box-sizing:border-box;}
+  .sort-btn-main{flex:1;justify-content:center;}
 
-/* Middle row: category left, options/colours right */
-td.mob-middle{
-  display:flex!important;align-items:center;justify-content:space-between;
-  padding:8px 14px;border-bottom:1px solid var(--border);
-  font-size:12px;
-}
-td.mob-middle .mob-cat{color:var(--text);font-weight:500;}
-td.mob-middle .mob-opts{color:var(--muted);font-size:11px;display:flex;align-items:center;gap:3px;}
+  /* Table reset for card layout */
+  .tbl-wrap{border:none;border-radius:0;background:transparent;overflow:visible;}
+  table,thead,tbody,tr,th,td{display:block;}
+  thead{display:none;}
 
-/* Bottom row: 3 equal columns like flight card */
-td.mob-footer{
-  display:flex!important;
-  padding:8px 14px;
-  border-bottom:1px solid var(--border);
-}
-td.mob-footer .mob-col{flex:1;display:flex;flex-direction:column;gap:2px;}
-td.mob-footer .mob-col:not(:first-child){border-left:1px solid var(--border);padding-left:12px;}
-td.mob-footer .mob-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;}
-td.mob-footer .mob-value{font-size:14px;font-weight:600;color:var(--text);}
+  /* Hide all default rows/cells */
+  tbody tr{background:transparent;border:none!important;padding:0;margin:0;}
+  tbody td{display:none!important;}
+  tbody td::before{display:none!important;}
 
-/* Actions row */
-td.mob-actions{
-  display:flex!important;justify-content:flex-end;
-  padding:6px 10px;gap:4px;
-}
+  /* Show only mobile-card rows */
+  tbody tr.mobile-card{display:block!important;margin-bottom:10px;}
+  tbody tr.mobile-card > td{display:block!important;padding:0!important;border:none!important;background:transparent!important;}
 
-/* Status pill size */
-.status-dd-btn{height:24px;font-size:9px;padding:0 8px;}
-.modal-bg{padding:0;align-items:flex-end;}
-.modal,.modal.sm,.modal.md{max-width:100%;width:100%;border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:1.25rem 1rem 1.5rem;max-height:92vh;overflow-y:auto;margin:0;}
-.field-row{grid-template-columns:1fr;}
-.model-row-top{grid-template-columns:1fr 70px;}
-.model-row-top .mf:first-child{grid-column:1 / -1;}
-.model-row-top .mf:nth-child(4){grid-column:1 / -1;}
-.opt-block-top{grid-template-columns:1fr 1fr;}
-.opt-block-top span{display:none;}
-.statusbar{padding:8px 1rem;font-size:11px;}
-input,select,textarea{font-size:16px!important;}
-.mf input,.mf select,.model-notes input,.opt-row input,.opt-row select{font-size:14px!important;}
-/* Mobile toolbar */
-.toolbar{flex-wrap:wrap;gap:6px;}
-.filter-wrap{order:2;flex:1;min-width:0;}
-.sort-btn-wrap{order:2;flex:1;min-width:0;}
-.filter-wrap .btn{width:100%;justify-content:center;box-sizing:border-box;}
-.sort-btn-group{width:100%;display:flex;box-sizing:border-box;}
-.sort-btn-main{flex:1;justify-content:center;}
+  /* Modals */
+  .modal-bg{padding:0;align-items:flex-end;}
+  .modal,.modal.sm,.modal.md{max-width:100%;width:100%;border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:1.25rem 1rem 1.5rem;max-height:92vh;overflow-y:auto;margin:0;}
+  .field-row{grid-template-columns:1fr;}
+  .model-row-top{grid-template-columns:1fr 70px;}
+  .model-row-top .mf:first-child{grid-column:1 / -1;}
+  .model-row-top .mf:nth-child(4){grid-column:1 / -1;}
+  .opt-block-top{grid-template-columns:1fr 1fr;}
+  .opt-block-top span{display:none;}
+  input,select,textarea{font-size:16px!important;}
+  .mf input,.mf select,.model-notes input,.opt-row input,.opt-row select{font-size:14px!important;}
+  .status-dd-btn{height:24px;font-size:9px;padding:0 8px;}
 }
 
 /* ── Combined category + options modal ── */
