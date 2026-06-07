@@ -940,7 +940,16 @@ function updateFilterCount(){
 function toggleFilterPanel(e){
   e.stopPropagation();
   const panel = document.getElementById('filterPanel');
-  if(panel) panel.style.display = panel.style.display==='none' ? '' : 'none';
+  const btn   = document.getElementById('filterBtn');
+  if(!panel) return;
+  if(panel.style.display !== 'none'){
+    panel.style.display = 'none';
+    return;
+  }
+  const rect = btn.getBoundingClientRect();
+  panel.style.top  = (rect.bottom + 6) + 'px';
+  panel.style.left = Math.max(8, rect.right - 220) + 'px';
+  panel.style.display = '';
 }
 
 document.addEventListener('click', e=>{
