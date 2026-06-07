@@ -69,6 +69,19 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <input type="text" id="sbKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…">
       <button class="btn primary" onclick="saveSupabaseConfig()"><i class="ti ti-check"></i> Connect</button>
     </div>
+    <div class="sort-btn-wrap" id="sortWrap">
+      <div class="sort-btn-group">
+        <button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)">
+          <i class="ti ti-arrows-sort"></i> Sort
+        </button>
+        <button class="sort-btn-dir" id="sortDirBtn" onclick="toggleSortDir()" title="Toggle sort direction">
+          <i class="ti ti-arrow-up" id="sortDirIcon"></i>
+        </button>
+      </div>
+      <div class="sort-panel" id="sortPanel" style="display:none">
+        <div class="filter-section-title">Sort by</div>
+      </div>
+    </div>
   </div>
 
   <!-- Sidebar -->
@@ -182,14 +195,14 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <table>
       <thead>
         <tr>
-          <th class="sortable" style="width:44px" data-key="orderId" onclick="sortBy('orderId')"># <span class="sort-arrow" data-key="orderId"></span></th>
-          <th class="sortable" style="width:130px" data-key="customer" onclick="sortBy('customer')">Customer <span class="sort-arrow" data-key="customer"></span></th>
+          <th style="width:44px" data-key="orderId" >#</th>
+          <th style="width:130px" data-key="customer" >Customer</th>
           <th style="width:170px">Address</th>
-          <th class="sortable" style="width:150px" data-key="catId" onclick="sortBy('catId')">Category <span class="sort-arrow" data-key="catId"></span></th>
+          <th style="width:150px" data-key="catId" >Category</th>
           <th style="width:160px">Options</th>
-          <th class="sortable" style="width:44px" data-key="qty" onclick="sortBy('qty')">Qty <span class="sort-arrow" data-key="qty"></span></th>
-          <th class="sortable" style="width:80px" data-key="total" onclick="sortBy('total')">Total <span class="sort-arrow" data-key="total"></span></th>
-          <th class="sortable" style="width:78px;text-align:center" data-key="status" onclick="sortBy('status')">Status <span class="sort-arrow" data-key="status"></span></th>
+          <th style="width:44px" data-key="qty" >Qty</th>
+          <th style="width:80px" data-key="total" >Total</th>
+          <th style="width:78px;text-align:center" data-key="status" >Status</th>
           <th style="width:40px">$</th>
           <th style="width:40px">Note</th>
           <th style="width:66px;text-align:right">Actions</th>
@@ -203,7 +216,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <span class="footer-sep">·</span>
     <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing</span>
     <span class="footer-sep">·</span>
-    <span id="footerVersion">v3.3.3</span>
+    <span id="footerVersion">v3.3.4</span>
     <span class="footer-sep">·</span>
     <span id="statusMsg" class="footer-status">Loading…</span>
   </footer>
