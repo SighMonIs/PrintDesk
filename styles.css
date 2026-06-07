@@ -568,13 +568,17 @@ input,select,textarea{font-size:16px!important;}
 .sidebar-version-row{
   display:flex;align-items:center;justify-content:center;gap:8px;
   padding:10px 15px;
+  min-height:36px;
 }
 .sidebar-version-row .dot{flex-shrink:0;}
 .sidebar-ver-text{
   font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:11px;
   color:rgba(136,136,133,0.5);
   white-space:nowrap;
+  opacity:0;transition:opacity 0.15s;
 }
+.sidebar:hover .sidebar-ver-text,
+.sidebar.pinned .sidebar-ver-text{opacity:1;}
 
 /* ── Custom status dropdown ── */
 .status-dd-wrap{position:relative;display:inline-block;width:100%;}
