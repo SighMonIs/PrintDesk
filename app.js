@@ -1034,8 +1034,10 @@ async function applySettings(){
 
 // ── Status ─────────────────────────────────────────────────
 function setStatus(state,msg){
-  document.getElementById('dot').className='dot'+(state==='err'?' err':state==='spin'?' spin':'');
-  document.getElementById('statusMsg').textContent=msg;
+  const el = document.getElementById('statusMsg');
+  if(!el) return;
+  el.textContent = msg;
+  el.className = 'footer-status'+(state==='err'?' footer-status-err':state==='spin'?' footer-status-spin':'');
 }
 
 // ── Mobile detection ───────────────────────────────────────
