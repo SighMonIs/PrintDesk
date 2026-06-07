@@ -963,10 +963,8 @@ document.addEventListener('click', e=>{
 const SORT_OPTIONS = [
   {key:'orderId',  label:'Order #'},
   {key:'customer', label:'Customer'},
-  {key:'date',     label:'Date'},
-  {key:'status',   label:'Status'},
   {key:'catId',    label:'Category'},
-  {key:'total',    label:'Total'},
+  {key:'status',   label:'Status'},
 ];
 
 function buildSortPanel(){
