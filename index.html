@@ -131,7 +131,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v3.2.8</span>
+        <span class="sidebar-label sidebar-ver-text">v3.2.9</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
@@ -162,13 +162,23 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
   <!-- Toolbar -->
   <div class="toolbar">
-    <input type="text" id="search" placeholder="Search customer, model, address, notes…" oninput="renderTable()">
-    <select id="filterStatus" onchange="renderTable()">
-      <option value="">All statuses</option>
-      <option>Pending</option><option>Printing</option><option>Complete</option><option>Cancelled</option>
-    </select>
-    <select id="filterCat" onchange="renderTable()"><option value="">All categories</option></select>
-    <label class="toolbar-check"><input type="checkbox" id="hideCompleted" onchange="renderTable()"> Hide Completed</label>
+    <input type="text" id="search" placeholder="Search…" oninput="renderTable()">
+    <div class="filter-wrap" id="filterWrap">
+      <button class="btn" id="filterBtn" onclick="toggleFilterPanel(event)">
+        <i class="ti ti-filter"></i> Filters <span id="filterCount" style="display:none;background:var(--accent);color:var(--bg);font-size:10px;padding:1px 6px;border-radius:999px;margin-left:4px"></span>
+      </button>
+      <div class="filter-panel" id="filterPanel" style="display:none">
+        <div class="filter-section-title">Status</div>
+        <label class="filter-check"><input type="checkbox" data-filter="status" value="Pending" onchange="renderTable();updateFilterCount()"> Pending</label>
+        <label class="filter-check"><input type="checkbox" data-filter="status" value="Printing" onchange="renderTable();updateFilterCount()"> Printing</label>
+        <label class="filter-check"><input type="checkbox" data-filter="status" value="Complete" onchange="renderTable();updateFilterCount()"> Complete</label>
+        <label class="filter-check"><input type="checkbox" data-filter="status" value="Cancelled" onchange="renderTable();updateFilterCount()"> Cancelled</label>
+        <div class="filter-section-title" style="margin-top:10px">Category</div>
+        <div id="filterCatChecks"></div>
+        <div class="filter-section-title" style="margin-top:10px">Payment</div>
+        <div id="filterPayChecks"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Table -->
