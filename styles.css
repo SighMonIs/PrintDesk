@@ -528,9 +528,30 @@ input,select,textarea{font-size:16px!important;}
   align-items:center;justify-content:center;flex-shrink:0;
 }
 /* When inside mobile-topbar, override fixed positioning */
+.mobile-topbar{
+  display:none;
+  position:fixed;top:0;left:0;right:0;z-index:98;
+  height:52px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border2);
+  align-items:center;
+  padding:0 10px;
+  gap:8px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.3);
+}
 .mobile-topbar .mobile-hamburger{
   position:static;top:auto;left:auto;z-index:auto;
+  width:38px;height:38px;flex-shrink:0;
 }
+.mobile-topbar input{
+  flex:1;height:36px;
+  padding:0 10px;font-size:15px;
+  border-radius:var(--radius);
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  color:var(--text);outline:none;
+}
+.mobile-topbar input:focus{border-color:var(--accent2);}
 .sidebar-overlay{
   display:none;position:fixed;inset:0;
   background:rgba(0,0,0,0.6);z-index:99;
@@ -645,7 +666,8 @@ input,select,textarea{font-size:16px!important;}
 /* ── Sidebar responsive behaviour ── */
 /* Mobile: full-screen slide-in */
 @media (max-width: 640px){
-  .mobile-hamburger{display:flex!important;}
+  .mobile-topbar{display:flex!important;}
+.mobile-hamburger{display:none!important;}
 .mobile-topbar ~ .app .mobile-hamburger:not(.mobile-topbar .mobile-hamburger){display:none!important;}
   .sidebar-close-btn{display:flex!important;}
   .sidebar-pin{display:none!important;}
@@ -660,7 +682,8 @@ input,select,textarea{font-size:16px!important;}
   .sidebar.mobile-open{transform:translateX(0)!important;}
   .sidebar-overlay.mobile-open{display:block;}
   .sidebar-logo-text,.sidebar-label{opacity:1!important;}
-  .app{margin-left:0!important;width:100%!important;}
+  .app{margin-left:0!important;width:100%!important;padding-top:64px!important;}
+.mobile-topbar{display:flex!important;}
   .sidebar-top{
     position:sticky;top:0;z-index:2;
     background:var(--surface);
