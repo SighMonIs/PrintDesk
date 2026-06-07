@@ -808,3 +808,8 @@ input,select,textarea{font-size:16px!important;}
 }
 .footer-sep{color:var(--border2);}
 @media (max-width:640px){.site-footer{font-size:10px;gap:6px;}}
+
+/* ── Footer status text ── */
+.footer-status{color:var(--muted);font-size:11px;}
+.footer-status-err{color:var(--red)!important;opacity:1;}
+.footer-status-spin{color:var(--amber)!important;opacity:1;}
