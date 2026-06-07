@@ -169,12 +169,6 @@ async function saveCatsAndOpts(){
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
 
-function populateCatFilter(){
-  const el=document.getElementById('filterCat');const cur=el.value;
-  while(el.options.length>1)el.remove(1);
-  cats.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;el.appendChild(o);});
-  el.value=cur;
-}
 
 
 
