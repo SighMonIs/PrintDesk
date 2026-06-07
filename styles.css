@@ -322,9 +322,7 @@ thead th.sortable{user-select:none;}
 .stats{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1.25rem;}
 .stat{padding:10px 12px;}
 .stat-val{font-size:20px;}
-.toolbar{flex-direction:column;align-items:stretch;}
-.toolbar #search{display:none;}
-.toolbar input,.toolbar select{min-width:0;width:100%;}
+.toolbar #search{width:100%;flex:none;order:1;}
 .tbl-wrap{border:none;border-radius:0;background:transparent;overflow:visible;}
 table,thead,tbody,tr,th,td{display:block;}
 thead{display:none;}
@@ -390,9 +388,8 @@ td.mob-actions{
 .statusbar{padding:8px 1rem;font-size:11px;}
 input,select,textarea{font-size:16px!important;}
 .mf input,.mf select,.model-notes input,.opt-row input,.opt-row select{font-size:14px!important;}
-/* Mobile toolbar: search full width, filters+sort side by side below */
+/* Mobile toolbar */
 .toolbar{flex-wrap:wrap;gap:6px;}
-.toolbar #search{order:1;width:100%;flex:none;}
 .filter-wrap{order:2;flex:1;min-width:0;}
 .sort-btn-wrap{order:2;flex:1;min-width:0;}
 .filter-wrap .btn{width:100%;justify-content:center;box-sizing:border-box;}
