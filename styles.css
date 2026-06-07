@@ -348,6 +348,7 @@ td.card-order-num::before{display:none;}
 .statusbar{padding:8px 1rem;font-size:11px;}
 input,select,textarea{font-size:16px!important;}
 .mf input,.mf select,.model-notes input,.opt-row input,.opt-row select{font-size:14px!important;}
+}
 
 /* ── Combined category + options modal ── */
 .cat-block{border:1px solid var(--border2);border-radius:var(--radius-lg);margin-bottom:12px;overflow:visible;}.cat-block:last-child{margin-bottom:0;}
