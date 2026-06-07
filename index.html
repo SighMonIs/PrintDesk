@@ -78,9 +78,14 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <i class="ti ti-printer sidebar-logo-icon"></i>
         <span class="sidebar-label sidebar-logo-text">DripDesk</span>
       </div>
-      <button class="sidebar-pin" id="sidebarPin" onclick="toggleSidebarMenu(event)" title="Sidebar controls">
-        <i class="ti ti-layout-sidebar"></i>
-      </button>
+      <div class="sidebar-top-actions">
+        <button class="sidebar-pin" id="sidebarPin" onclick="toggleSidebarMenu(event)" title="Sidebar controls">
+          <i class="ti ti-layout-sidebar"></i>
+        </button>
+        <button class="sidebar-close-btn" onclick="closeMobileSidebar()" title="Close">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
       <!-- Sidebar controls popup -->
       <div class="sidebar-menu" id="sidebarMenu">
         <div class="sidebar-menu-title">Sidebar Controls</div>
@@ -126,7 +131,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </button>
       <div class="sidebar-version-row">
         <div class="dot" id="dot"></div>
-        <span class="sidebar-label sidebar-ver-text">v3.2.2</span>
+        <span class="sidebar-label sidebar-ver-text">v3.2.3</span>
       </div>
       <span id="statusMsg" style="display:none"></span>
     </div>
