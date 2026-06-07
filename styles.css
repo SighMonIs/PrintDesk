@@ -323,6 +323,7 @@ thead th.sortable{user-select:none;}
 .stat{padding:10px 12px;}
 .stat-val{font-size:20px;}
 .toolbar{flex-direction:column;align-items:stretch;}
+.toolbar #search{display:none;}
 .toolbar input,.toolbar select{min-width:0;width:100%;}
 .tbl-wrap{border:none;border-radius:0;background:transparent;overflow:visible;}
 table,thead,tbody,tr,th,td{display:block;}
@@ -524,7 +525,11 @@ input,select,textarea{font-size:16px!important;}
   width:38px;height:38px;border-radius:var(--radius);
   background:var(--surface);border:1px solid var(--border2);
   color:var(--text);font-size:20px;cursor:pointer;
-  align-items:center;justify-content:center;
+  align-items:center;justify-content:center;flex-shrink:0;
+}
+/* When inside mobile-topbar, override fixed positioning */
+.mobile-topbar .mobile-hamburger{
+  position:static;top:auto;left:auto;z-index:auto;
 }
 .sidebar-overlay{
   display:none;position:fixed;inset:0;
@@ -641,6 +646,7 @@ input,select,textarea{font-size:16px!important;}
 /* Mobile: full-screen slide-in */
 @media (max-width: 640px){
   .mobile-hamburger{display:flex!important;}
+.mobile-topbar ~ .app .mobile-hamburger:not(.mobile-topbar .mobile-hamburger){display:none!important;}
   .sidebar-close-btn{display:flex!important;}
   .sidebar-pin{display:none!important;}
   .sidebar{
@@ -664,6 +670,7 @@ input,select,textarea{font-size:16px!important;}
 /* Desktop: always visible sidebar, normal width */
 @media (min-width: 641px){
   .mobile-hamburger{display:none!important;}
+  .mobile-topbar{display:none!important;}
   .sidebar-overlay{display:none!important;}
   .sidebar-close-btn{display:none!important;}
   .sidebar{
