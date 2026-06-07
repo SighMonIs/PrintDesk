@@ -145,16 +145,16 @@ function orderNumFromId(orderId) {
 }
 
 function renderTable(){
-  const q =document.getElementById('search').value.toLowerCase();
-  const fs=document.getElementById('filterStatus').value;
-  const fc=document.getElementById('filterCat').value;
-  const hc=document.getElementById('hideCompleted').checked;
+  const q = document.getElementById('search').value.toLowerCase();
+  const fStatuses = getFilterValues('status');
+  const fCats     = getFilterValues('cat');
+  const fPays     = getFilterValues('pay');
   const madeSet=buildMadeSet();
 
   let list=orders.filter(o=>{
-    if(hc&&(o.status==='Complete'||o.status==='Cancelled'))return false;
-    if(fs&&o.status!==fs)return false;
-    if(fc&&o.catId!==fc)return false;
+    if(fStatuses.length&&!fStatuses.includes(o.status||'Pending'))return false;
+    if(fCats.length&&!fCats.includes(String(o.catId)))return false;
+    if(fPays.length&&!fPays.includes(o.payment||''))return false;
     if(q){
       // Search: customer name, notes, and text option values only
       const textOptVals = o.options ? o.options.split('||')
