@@ -911,7 +911,7 @@ function populateCatFilter(){
   if(catEl){
     catEl.innerHTML = cats.filter(c=>!c.archived).map(c=>`
       <label class="filter-check">
-        <input type="checkbox" data-filter="cat" value="${esc(c.id)}" onchange="renderTable();updateFilterCount()">
+        <input type="checkbox" data-filter="cat" value="${esc(c.id)}" checked onchange="renderTable();updateFilterCount()">
         ${esc(c.name)}
       </label>`).join('');
   }
@@ -919,22 +919,32 @@ function populateCatFilter(){
   if(payEl){
     payEl.innerHTML = paymentOptions.filter(p=>!p.archived).map(p=>`
       <label class="filter-check">
-        <input type="checkbox" data-filter="pay" value="${esc(p.name)}" onchange="renderTable();updateFilterCount()">
+        <input type="checkbox" data-filter="pay" value="${esc(p.name)}" checked onchange="renderTable();updateFilterCount()">
         ${esc(p.name)}
       </label>`).join('');
   }
 }
 
 function getFilterValues(filter){
-  return Array.from(document.querySelectorAll(`[data-filter="${filter}"]:checked`)).map(el=>el.value);
+  const all   = document.querySelectorAll(`[data-filter="${filter}"]`);
+  const checked = document.querySelectorAll(`[data-filter="${filter}"]:checked`);
+  // If all ticked or none exist — no filter applied (show all)
+  if(all.length === 0 || all.length === checked.length) return [];
+  return Array.from(checked).map(el=>el.value);
 }
 
 function updateFilterCount(){
-  const total = document.querySelectorAll('[data-filter]:checked').length;
+  // Count only groups where not everything is ticked (i.e. something is filtered out)
+  let count = 0;
+  ['status','cat','pay'].forEach(filter=>{
+    const all     = document.querySelectorAll(`[data-filter="${filter}"]`);
+    const checked = document.querySelectorAll(`[data-filter="${filter}"]:checked`);
+    if(all.length > 0 && all.length !== checked.length) count++;
+  });
   const badge = document.getElementById('filterCount');
   const btn   = document.getElementById('filterBtn');
-  if(badge){ badge.textContent=total; badge.style.display=total?'':'none'; }
-  if(btn) btn.style.borderColor = total ? 'var(--accent)' : '';
+  if(badge){ badge.textContent=count; badge.style.display=count?'':'none'; }
+  if(btn) btn.style.borderColor = count ? 'var(--accent)' : '';
 }
 
 function toggleFilterPanel(e){
