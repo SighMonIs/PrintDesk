@@ -251,6 +251,7 @@ function showApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = '';
   initSidebar();
+  setTimeout(updateSortUI, 100);
   loadAll();
 }
 
@@ -335,7 +336,7 @@ let colours   = [];   // [{id,name,code,available}]
 let customers  = [];   // [{id,name,email,phone,address,notes}]
 let showArchivedCats = false;
 let editOId   = null;
-let sortKey   = 'orderId';
+let sortKey   = 'orderId';  // default: order # descending
 let sortDir   = -1;
 let mCounter  = 0;
 let acInst    = null;  // true = autocomplete initialised, prevents double-init
@@ -493,7 +494,7 @@ async function loadAll(){
     populateCatFilter();
     await loadPreferences();  // load sort prefs before rendering
     renderTable();
-    setStatus('ok','Connected · '+uniqueOrderCount()+' orders');
+    setStatus('ok','Connected');
   }catch(e){setStatus('err','Load failed: '+e.message);}
 }
 
