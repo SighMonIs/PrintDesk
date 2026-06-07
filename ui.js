@@ -270,21 +270,11 @@ function renderTable(){
 }
 
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function updateSortArrow(){
-  document.querySelectorAll('thead th').forEach(t=>t.classList.remove('sort-active'));
-  document.querySelectorAll('.sort-arrow').forEach(a=>{a.textContent='';});
-  const th=document.querySelector(`th[data-key="${sortKey}"]`);
-  if(th){
-    th.classList.add('sort-active');
-    const arrow=th.querySelector('.sort-arrow');
-    if(arrow)arrow.textContent=sortDir===1?' ↑':' ↓';
-  }
-}
-
+function updateSortArrow(){ updateSortUI(); }
 function sortBy(k){
   if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}
   savePreferences();
-  updateSortArrow();
+  updateSortUI();
   renderTable();
 }
 function showNote(m,n){document.getElementById('noteModalTitle').textContent=m?'Note — '+m:'Note';document.getElementById('noteModalBody').textContent=n||'(No note recorded)';document.getElementById('noteModal').classList.add('open');}
@@ -965,6 +955,71 @@ function toggleFilterPanel(e){
 document.addEventListener('click', e=>{
   if(!e.target.closest('#filterWrap')){
     const panel = document.getElementById('filterPanel');
+    if(panel) panel.style.display = 'none';
+  }
+});
+
+// ── Sort panel ─────────────────────────────────────────────
+const SORT_OPTIONS = [
+  {key:'orderId',  label:'Order #'},
+  {key:'customer', label:'Customer'},
+  {key:'date',     label:'Date'},
+  {key:'status',   label:'Status'},
+  {key:'catId',    label:'Category'},
+  {key:'total',    label:'Total'},
+];
+
+function buildSortPanel(){
+  const panel = document.getElementById('sortPanel');
+  if(!panel) return;
+  const optHtml = SORT_OPTIONS.map(o=>`
+    <div class="sort-option${sortKey===o.key?' active':''}" onclick="setSortKey('${o.key}')">
+      ${o.label}
+    </div>`).join('');
+  panel.innerHTML = '<div class="filter-section-title">Sort by</div>' + optHtml;
+}
+
+function toggleSortPanel(e){
+  e.stopPropagation();
+  const panel = document.getElementById('sortPanel');
+  const btn   = document.getElementById('sortBtn');
+  if(!panel) return;
+  if(panel.style.display !== 'none'){ panel.style.display='none'; return; }
+  buildSortPanel();
+  const rect = document.getElementById('sortWrap').getBoundingClientRect();
+  panel.style.top  = (rect.bottom + 6) + 'px';
+  panel.style.left = Math.max(8, rect.right - 190) + 'px';
+  panel.style.display = '';
+}
+
+function setSortKey(key){
+  sortKey = key;
+  savePreferences();
+  updateSortUI();
+  renderTable();
+  document.getElementById('sortPanel').style.display = 'none';
+}
+
+function toggleSortDir(){
+  sortDir *= -1;
+  savePreferences();
+  updateSortUI();
+  renderTable();
+}
+
+function updateSortUI(){
+  const icon  = document.getElementById('sortDirIcon');
+  const group = document.querySelector('.sort-btn-group');
+  const btn   = document.getElementById('sortBtn');
+  if(icon) icon.className = sortDir === 1 ? 'ti ti-arrow-up' : 'ti ti-arrow-down';
+  // Update sort button label to show current sort
+  const opt = SORT_OPTIONS.find(o=>o.key===sortKey);
+  if(btn && opt) btn.innerHTML = `<i class="ti ti-arrows-sort"></i> ${opt.label}`;
+}
+
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#sortWrap')){
+    const panel = document.getElementById('sortPanel');
     if(panel) panel.style.display = 'none';
   }
 });
