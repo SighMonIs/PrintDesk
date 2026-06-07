@@ -328,16 +328,23 @@ thead th.sortable{user-select:none;}
 .tbl-wrap{border:none;border-radius:0;background:transparent;overflow:visible;}
 table,thead,tbody,tr,th,td{display:block;}
 thead{display:none;}
-tbody tr{background:var(--surface);border:1px solid var(--border2)!important;border-radius:var(--radius-lg);margin-bottom:8px;padding:12px;overflow:visible;white-space:normal;}
+tbody tr{background:var(--surface);border:1px solid var(--border2)!important;border-radius:var(--radius);margin-bottom:6px;padding:8px 10px;overflow:visible;white-space:normal;}
 tbody tr.group-first{border-top:1px solid var(--border2)!important;}
-tbody td{display:flex;align-items:flex-start;gap:8px;padding:3px 0;overflow:visible;white-space:normal;text-overflow:unset;font-size:13px;}
-tbody td::before{content:attr(data-label);font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;min-width:70px;flex-shrink:0;padding-top:2px;}
-tbody td[data-label=""]{justify-content:flex-end;padding-top:6px;}
+tbody td{display:flex;align-items:center;gap:6px;padding:2px 0;overflow:visible;white-space:normal;text-overflow:unset;font-size:12px;}
+tbody td::before{content:attr(data-label);font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;min-width:62px;flex-shrink:0;}
+tbody td[data-label=""]{justify-content:flex-end;padding-top:4px;}
 tbody td[data-label=""]::before{display:none;}
-td.card-order-num{font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:11px;color:var(--muted);margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+/* Order number row: compact header */
+td.card-order-num{font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:10px;color:var(--muted);margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid var(--border);}
 td.card-order-num::before{display:none;}
-.card-actions{justify-content:flex-end!important;border-top:1px solid var(--border);margin-top:6px;padding-top:8px!important;}
+/* Hide address and options on mobile to save space */
+tbody td[data-label="Address"]{display:none;}
+tbody td[data-label="Options"]{display:none;}
+/* Status pill — smaller on mobile */
+.status-dd-btn{height:22px;font-size:9px;}
+.card-actions{justify-content:flex-end!important;border-top:1px solid var(--border);margin-top:4px;padding-top:6px!important;gap:4px;}
 .card-actions::before{display:none!important;}
+.card-actions .icon-btn{width:32px;height:32px;}
 .modal-bg{padding:0;align-items:flex-end;}
 .modal,.modal.sm,.modal.md{max-width:100%;width:100%;border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:1.25rem 1rem 1.5rem;max-height:92vh;overflow-y:auto;margin:0;}
 .field-row{grid-template-columns:1fr;}
