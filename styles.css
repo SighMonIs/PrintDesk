@@ -349,6 +349,13 @@ td.card-order-num::before{display:none;}
 .statusbar{padding:8px 1rem;font-size:11px;}
 input,select,textarea{font-size:16px!important;}
 .mf input,.mf select,.model-notes input,.opt-row input,.opt-row select{font-size:14px!important;}
+/* Mobile toolbar: filters and sort on same row, equal width */
+.toolbar{flex-wrap:wrap;gap:6px;}
+.toolbar #search{order:1;width:100%;}
+.filter-wrap,.sort-btn-wrap{order:2;flex:1;}
+.filter-wrap .btn,.sort-btn-group{width:100%;justify-content:center;}
+.sort-btn-group{display:flex;}
+.sort-btn-main{flex:1;}
 }
 
 /* ── Combined category + options modal ── */
