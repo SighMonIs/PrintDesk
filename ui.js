@@ -946,6 +946,9 @@ function toggleFilterPanel(e){
     panel.style.display = 'none';
     return;
   }
+  // Close sort panel if open
+  const sortPanel = document.getElementById('sortPanel');
+  if(sortPanel) sortPanel.style.display = 'none';
   const rect = btn.getBoundingClientRect();
   panel.style.top  = (rect.bottom + 6) + 'px';
   panel.style.left = Math.max(8, rect.right - 220) + 'px';
@@ -983,6 +986,9 @@ function toggleSortPanel(e){
   const btn   = document.getElementById('sortBtn');
   if(!panel) return;
   if(panel.style.display !== 'none'){ panel.style.display='none'; return; }
+  // Close filter panel if open
+  const filterPanel = document.getElementById('filterPanel');
+  if(filterPanel) filterPanel.style.display = 'none';
   buildSortPanel();
   const rect = document.getElementById('sortWrap').getBoundingClientRect();
   panel.style.top  = (rect.bottom + 6) + 'px';
