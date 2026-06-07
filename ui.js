@@ -260,16 +260,31 @@ function renderTable(){
           return val?esc(val):'';
         }).filter(Boolean).join(' · ');
         const rPrevMade = wasPreviouslyMade(r, madeSet);
+        // Build labelled option lines
+        const rLabelledOpts = rCatOpts.filter(opt=>opt.display!=='colour'&&!opt.name.toLowerCase().includes('colour')).map(opt=>{
+          const val=rParsedOpts[opt.name];
+          return val?`<span style="color:var(--muted)">${esc(opt.name)}:</span> ${esc(val)}`:'';
+        }).filter(Boolean);
+        const rColourOpts = rCatOpts.filter(opt=>opt.display==='colour'||opt.name.toLowerCase().includes('colour')).map(opt=>{
+          const val=rParsedOpts[opt.name];
+          if(!val) return '';
+          const swatchHtml = val.split('|').map(name=>{
+            const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
+            return`<span class="mc-swatch" style="background:${c?c.code:'#ccc'}" title="${esc(name)}"></span>`;
+          }).join('');
+          return`<div style="display:flex;align-items:center;gap:4px"><span style="color:var(--muted);font-size:10px">${esc(opt.name)}:</span>${swatchHtml}</div>`;
+        }).filter(Boolean);
+
         return`<div class="mc-item">
           <div class="mc-item-left">
-            <div class="mc-item-num">${orderNumFromId(r.orderId)}-${r.id.split('-').pop()}</div>
+            <div class="mc-item-qty">×${r.qty}</div>
+            <div class="mc-item-price">$${r.total.toFixed(2)}</div>
           </div>
           <div class="mc-item-divider"></div>
           <div class="mc-item-right">
             <div class="mc-item-cat">${rCat?esc(rCat.name):'—'}${rPrevMade?' <span class="made-tick"><i class="ti ti-circle-check-filled"></i></span>':''}</div>
-            ${rTextOpts?`<div class="mc-item-opts">${rTextOpts}</div>`:''}
-            ${rSwatches?`<div class="mc-item-colours">${rSwatches}</div>`:''}
-            <div class="mc-item-total">×${r.qty} &nbsp; $${r.total.toFixed(2)}</div>
+            ${rLabelledOpts.map(l=>`<div class="mc-item-opt-row">${l}</div>`).join('')}
+            ${rColourOpts.join('')}
           </div>
         </div>`;
       }).join('<div class="mc-item-sep"></div>');
@@ -277,13 +292,16 @@ function renderTable(){
       return`<tr class="mobile-card">
         <td colspan="11" style="padding:0;border:none!important;background:transparent!important">
           <div class="mc-card">
-            <!-- Header: customer + status pill -->
+            <!-- Header: order# left | customer right | status fixed right -->
             <div class="mc-header">
-              <div>
-                <div class="mc-customer">${esc(o.customer)||'—'}</div>
-                <div class="mc-order-num">${orderNum}</div>
+              <div class="mc-header-left">
+                <span class="mc-order-num">${orderNum}</span>
               </div>
-              ${statusDd}
+              <div class="mc-header-divider"></div>
+              <div class="mc-header-right">
+                <div class="mc-customer">${esc(o.customer)||'—'}</div>
+              </div>
+              <div class="mc-header-status">${statusDd}</div>
             </div>
             <!-- Items -->
             <div class="mc-items">
