@@ -904,3 +904,48 @@ async function deleteOrder(orderId){
 
 // ── Categories modal ───────────────────────────────────────
 // ── Combined Categories + Options modal ──────────────────
+
+// ── Filter panel ───────────────────────────────────────────
+function populateCatFilter(){
+  const catEl = document.getElementById('filterCatChecks');
+  if(catEl){
+    catEl.innerHTML = cats.filter(c=>!c.archived).map(c=>`
+      <label class="filter-check">
+        <input type="checkbox" data-filter="cat" value="${esc(c.id)}" onchange="renderTable();updateFilterCount()">
+        ${esc(c.name)}
+      </label>`).join('');
+  }
+  const payEl = document.getElementById('filterPayChecks');
+  if(payEl){
+    payEl.innerHTML = paymentOptions.filter(p=>!p.archived).map(p=>`
+      <label class="filter-check">
+        <input type="checkbox" data-filter="pay" value="${esc(p.name)}" onchange="renderTable();updateFilterCount()">
+        ${esc(p.name)}
+      </label>`).join('');
+  }
+}
+
+function getFilterValues(filter){
+  return Array.from(document.querySelectorAll(`[data-filter="${filter}"]:checked`)).map(el=>el.value);
+}
+
+function updateFilterCount(){
+  const total = document.querySelectorAll('[data-filter]:checked').length;
+  const badge = document.getElementById('filterCount');
+  const btn   = document.getElementById('filterBtn');
+  if(badge){ badge.textContent=total; badge.style.display=total?'':'none'; }
+  if(btn) btn.style.borderColor = total ? 'var(--accent)' : '';
+}
+
+function toggleFilterPanel(e){
+  e.stopPropagation();
+  const panel = document.getElementById('filterPanel');
+  if(panel) panel.style.display = panel.style.display==='none' ? '' : 'none';
+}
+
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#filterWrap')){
+    const panel = document.getElementById('filterPanel');
+    if(panel) panel.style.display = 'none';
+  }
+});
