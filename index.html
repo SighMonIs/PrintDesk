@@ -69,19 +69,6 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <input type="text" id="sbKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…">
       <button class="btn primary" onclick="saveSupabaseConfig()"><i class="ti ti-check"></i> Connect</button>
     </div>
-    <div class="sort-btn-wrap" id="sortWrap">
-      <div class="sort-btn-group">
-        <button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)">
-          <i class="ti ti-arrows-sort"></i> Sort
-        </button>
-        <button class="sort-btn-dir" id="sortDirBtn" onclick="toggleSortDir()" title="Toggle sort direction">
-          <i class="ti ti-arrow-up" id="sortDirIcon"></i>
-        </button>
-      </div>
-      <div class="sort-panel" id="sortPanel" style="display:none">
-        <div class="filter-section-title">Sort by</div>
-      </div>
-    </div>
   </div>
 
   <!-- Sidebar -->
@@ -172,8 +159,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   <!-- Toolbar -->
   <div class="toolbar">
     <input type="text" id="search" placeholder="Search…" oninput="renderTable()">
-    <div class="filter-wrap" id="filterWrap">
-      <button class="btn" id="filterBtn" onclick="toggleFilterPanel(event)">
+    <div class="filter-wrap" id="filterWrap">      <button class="btn" id="filterBtn" onclick="toggleFilterPanel(event)">
         <i class="ti ti-filter"></i> Filters <span id="filterCount" style="display:none;background:var(--accent);color:var(--bg);font-size:10px;padding:1px 6px;border-radius:999px;margin-left:4px"></span>
       </button>
       <div class="filter-panel" id="filterPanel" style="display:none">
@@ -188,9 +174,18 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <div id="filterPayChecks"></div>
       </div>
     </div>
+    <div class="sort-btn-wrap" id="sortWrap">
+      <div class="sort-btn-group">
+        <button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)">
+          <i class="ti ti-arrows-sort"></i> Sort
+        </button>
+        <button class="sort-btn-dir" id="sortDirBtn" onclick="toggleSortDir()" title="Toggle sort direction">
+          <i class="ti ti-arrow-up" id="sortDirIcon"></i>
+        </button>
+      </div>
+      <div class="sort-panel" id="sortPanel" style="display:none"></div>
+    </div>
   </div>
-
-  <!-- Table -->
   <div class="tbl-wrap">
     <table>
       <thead>
@@ -216,7 +211,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <span class="footer-sep">·</span>
     <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing</span>
     <span class="footer-sep">·</span>
-    <span id="footerVersion">v3.3.4</span>
+    <span id="footerVersion">v3.3.5</span>
     <span class="footer-sep">·</span>
     <span id="statusMsg" class="footer-status">Loading…</span>
   </footer>
