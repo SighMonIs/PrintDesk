@@ -806,11 +806,12 @@ thead th.sortable{user-select:none;}
 .site-footer{
   margin-top:3rem;padding:1rem 0;
   border-top:1px solid var(--border);
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  display:flex;flex-direction:column;gap:4px;
   font-size:11px;color:var(--muted);opacity:0.5;
 }
+.footer-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .footer-sep{color:var(--border2);}
-@media (max-width:640px){.site-footer{font-size:10px;gap:6px;}}
+@media (max-width:640px){.site-footer{font-size:10px;}}
 
 /* ── Footer status text ── */
 .footer-status{color:var(--muted);font-size:11px;}
