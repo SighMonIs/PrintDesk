@@ -208,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.4.0
+        v1.4.1
       </div>
     </div>
 
@@ -370,7 +370,10 @@ async function loadModel(){
   defRotX = parseFloat(p.def_rot_x??-0.5);
   defRotY = parseFloat(p.def_rot_y??0.2);
   defZoom = parseFloat(p.def_zoom??1);
-  scrollZoomSpeed = parseFloat(p.zoom_speed??0.1);
+  scrollZoomSpeed = parseFloat(p.zoom_speed??0.01);
+  // Sync zoom speed slider
+  const zs=document.getElementById('zoomSpd'), zsn=document.getElementById('zoomSpdN');
+  if(zs){zs.value=scrollZoomSpeed; zsn.value=scrollZoomSpeed.toFixed(3);}
   resetView();
 
   buildLayerUI();
@@ -640,8 +643,11 @@ async function saveDefaultAngle(){
 }
 
 function saveZoomSpeed(){
-  scrollZoomSpeed=parseFloat(document.getElementById('zoomSpd').value)||0.1;
+  scrollZoomSpeed=parseFloat(document.getElementById('zoomSpd').value)||0.01;
   syncNum('zoomSpd','zoomSpdN');
+  if(currentUser&&currentModel){
+    sbUpsert('badge_user_preferences',{user_id:currentUser.id,model_id:currentModel.id,def_rot_x:defRotX,def_rot_y:defRotY,def_zoom:defZoom,zoom_speed:scrollZoomSpeed,updated_at:new Date().toISOString()});
+  }
 }
 
 function setStatus(msg,cls=''){
