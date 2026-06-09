@@ -667,14 +667,29 @@ function exportTMF(){
     {border:0,  thick:t4, z:t1+t2+t3, colour:'#FFFFFF', name:'white',  extruder:4, filled:false},
   ];
 
-  // Generate mesh for each layer
+  // Generate mesh for each layer using same approach as preview
   const objects = layers.map((layer, idx) => {
-    const shapes = buildOffsetShapes(contours, layer.border, layer.filled);
-    const extrudeSettings = {depth:layer.thick, bevelEnabled:false};
-    const geo = new THREE.ExtrudeGeometry(shapes, extrudeSettings);
-    geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, layer.z));
-    return {geo, ...layer, id:idx+1};
-  });
+    const shapes = getTextShapes(name, fsize, layer.filled);
+    if(!shapes || !shapes.length){ console.warn('No shapes for layer', layer.name); return null; }
+
+    // Apply border offset if needed
+    let finalShapes = shapes;
+    if(layer.border > 0){
+      finalShapes = shapes.map(s=>{
+        const pts = s.getPoints(12);
+        const offsetPts = offsetContour(pts.map(p=>({x:p.x,y:p.y})), layer.border);
+        const ns = new THREE.Shape(offsetPts.map(p=>new THREE.Vector2(p.x,p.y)));
+        return ns;
+      });
+    }
+
+    const extrudeSettings = {depth:layer.thick, bevelEnabled:false, curveSegments:12};
+    const geo = new THREE.ExtrudeGeometry(finalShapes, extrudeSettings);
+    // Convert to non-indexed for 3MF (easier to export)
+    const nonIndexed = geo.toNonIndexed();
+    nonIndexed.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, layer.z));
+    return {geo: nonIndexed, ...layer, id:idx+1};
+  }).filter(Boolean);
 
   // Build 3MF XML
   const xml = build3MF(objects, name);
@@ -693,17 +708,15 @@ function build3MF(objects, name){
   objects.forEach(obj => {
     const {geo, id} = obj;
     const pos = geo.attributes.position;
-    const idx = geo.index;
 
     let vertices = '';
     for(let i=0; i<pos.count; i++){
       vertices += `   <vertex x="${pos.getX(i).toFixed(4)}" y="${pos.getY(i).toFixed(4)}" z="${pos.getZ(i).toFixed(4)}"/>\n`;
     }
     let triangles = '';
-    if(idx){
-      for(let i=0; i<idx.count; i+=3){
-        triangles += `   <triangle v1="${idx.getX(i)}" v2="${idx.getX(i+1)}" v3="${idx.getX(i+2)}"/>\n`;
-      }
+    // Non-indexed: every 3 vertices = 1 triangle
+    for(let i=0; i<pos.count; i+=3){
+      triangles += `   <triangle v1="${i}" v2="${i+1}" v3="${i+2}"/>\n`;
     }
 
     objectsXml += `  <object id="${id}" type="model" name="${obj.name}">
