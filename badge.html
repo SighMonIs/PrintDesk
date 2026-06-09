@@ -208,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.3.6
+        v1.3.7
       </div>
     </div>
 
@@ -659,11 +659,11 @@ camera.position.set(0,-100,200); camera.lookAt(0,0,0);
 scene.add(new THREE.AmbientLight(0xffffff,0.6));
 const dl=new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(50,-50,100); scene.add(dl);
 const fl=new THREE.DirectionalLight(0xffffff,0.3); fl.position.set(-50,50,50); scene.add(fl);
-const grid=new THREE.GridHelper(300,30,0x333337,0x222225); scene.add(grid);
+const grid=new THREE.GridHelper(300,30,0x333337,0x222225);
+const badgeGroup=new THREE.Group(); scene.add(badgeGroup);
+badgeGroup.add(grid);
 
 // Axis arrows removed
-
-const badgeGroup=new THREE.Group(); scene.add(badgeGroup);
 
 function resize(){const w=pane.clientWidth,h=pane.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(pane); resize();
