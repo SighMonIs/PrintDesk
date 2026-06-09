@@ -208,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.3.7
+        v1.3.8
       </div>
     </div>
 
@@ -766,8 +766,8 @@ function buildBadge(){
     if(!shapes.length){zOff+=l.thick;continue;}
     let finalShapes=shapes;
     if(l.border>0){finalShapes=shapes.map(s=>{const pts=s.getPoints(12);const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));});}
-    const geo=new THREE.ExtrudeGeometry(finalShapes,{depth:l.thick,bevelEnabled:false,curveSegments:12});
-    const mat=new THREE.MeshPhongMaterial({color:parseInt(l.colourHex.replace('#',''),16),shininess:40,polygonOffset:true,polygonOffsetFactor:-zOff,polygonOffsetUnits:-1});
+    const geo=new THREE.ExtrudeGeometry(finalShapes,{depth:l.thick,bevelEnabled:false,curveSegments:24});
+    const mat=new THREE.MeshPhongMaterial({color:parseInt(l.colourHex.replace('#',''),16),shininess:40,polygonOffset:true,polygonOffsetFactor:-(zOff+1)*2,polygonOffsetUnits:-4,depthWrite:true,depthTest:true});
     const mesh=new THREE.Mesh(geo,mat);
     // Centre X/Y on text bounds, centre Z on total stack height
     mesh.position.set(-cx, cy, zOff - totalThick/2);
@@ -790,7 +790,7 @@ function exportTMF(){
     const shapes=getTextShapes(name,fsize,l.filled);
     let finalShapes=shapes;
     if(l.border>0){finalShapes=shapes.map(s=>{const pts=s.getPoints(12);const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));});}
-    const geo=new THREE.ExtrudeGeometry(finalShapes,{depth:l.thick,bevelEnabled:false,curveSegments:12});
+    const geo=new THREE.ExtrudeGeometry(finalShapes,{depth:l.thick,bevelEnabled:false,curveSegments:24});
     const merged=THREE.BufferGeometryUtils?THREE.BufferGeometryUtils.mergeVertices(geo):geo;
     merged.computeVertexNormals();
     merged.applyMatrix4(new THREE.Matrix4().makeTranslation(0,0,zOff2));
