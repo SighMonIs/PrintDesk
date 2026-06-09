@@ -198,7 +198,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.2.1
+        v1.2.2
       </div>
     </div>
 
@@ -455,7 +455,11 @@ function selectColour(i,hex,colId,name){
 
 document.addEventListener('click',e=>{
   if(openPickerId!==null&&!e.target.closest('.colour-picker-wrap')){ document.getElementById('cplist-'+openPickerId).style.display='none'; openPickerId=null; }
-  ['camAnglePanel','camZoomPanel'].forEach(id=>{ const p=document.getElementById(id); if(p&&p.style.display!=='none'&&!e.target.closest('#'+id)&&!e.target.closest(`[onclick*="${id}"]`)) p.style.display='none'; });
+  ['camAnglePanel','camZoomPanel'].forEach(id=>{ 
+    const p=document.getElementById(id); 
+    if(p&&p.style.display!=='none'&&!e.target.closest('#'+id)&&!e.target.closest('.preview-controls')) 
+      p.style.display='none'; 
+  });
 });
 
 // ── Accordion ─────────────────────────────────────────────────
