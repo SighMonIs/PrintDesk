@@ -208,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.3.8
+        v1.3.9
       </div>
     </div>
 
@@ -752,7 +752,8 @@ function buildBadge(){
   if(!font||!layerConfig.length) return;
   const name=document.getElementById('nameInput').value.toUpperCase()||'NAME';
   const fsize=parseFloat(document.getElementById('fontSize').value)||49;
-  while(badgeGroup.children.length) badgeGroup.remove(badgeGroup.children[0]);
+  // Remove all children except the grid
+  badgeGroup.children.filter(c=>c!==grid).forEach(c=>badgeGroup.remove(c));
   const contours=getTextContours(name,fsize);
   if(!contours.length) return;
   const bounds=getBounds(contours);
