@@ -208,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.4.5
+        v1.4.6
       </div>
     </div>
 
@@ -797,28 +797,39 @@ function buildBadge(){
     const shapes=getTextShapes(name,fsize,l.filled);
     if(!shapes.length){zOff+=l.thick;continue;}
     let finalShapes=shapes;
-    if(l.border>0){
-      // Offset each shape outward — for filled layers this bridges inter-letter gaps
-      // because shapes are already merged; offset closes any remaining gaps
-      finalShapes=shapes.map(s=>{
+    if(l.filled){
+      // Two-pass offset to guarantee gap-free backing layers:
+      // 1. Expand by maxBorder to merge ALL inter-letter gaps
+      // 2. Contract by (maxBorder - thisBorder) to reach desired border size
+      const maxBorder = Math.max(...layerConfig.filter(lc=>lc.filled).map(lc=>lc.border));
+      const expand = maxBorder;
+      const contract = maxBorder - l.border;
+      // Pass 1: expand
+      let expanded = shapes.map(s=>{
         const pts=s.getPoints(24);
-        const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);
-        const ns=new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));
-        return ns;
+        return offsetContour(pts.map(p=>({x:p.x,y:p.y})), expand);
       });
-      // If filled: merge any overlapping offset shapes by re-combining into ShapePath
-      if(l.filled && finalShapes.length > 1){
-        const mergePath=new THREE.ShapePath();
-        finalShapes.forEach(s=>{
+      // Merge expanded shapes into one path
+      const mergePath=new THREE.ShapePath();
+      expanded.forEach(pts=>{
+        if(!pts.length) return;
+        mergePath.moveTo(pts[0].x,pts[0].y);
+        pts.slice(1).forEach(p=>mergePath.lineTo(p.x,p.y));
+        mergePath.currentPath.closePath();
+      });
+      let mergedShapes=mergePath.toShapes(false);
+      mergedShapes.forEach(s=>{s.holes=[];});
+      // Pass 2: contract if needed
+      if(contract > 0){
+        mergedShapes=mergedShapes.map(s=>{
           const pts=s.getPoints(24);
-          mergePath.moveTo(pts[0].x,pts[0].y);
-          pts.slice(1).forEach(p=>mergePath.lineTo(p.x,p.y));
-          mergePath.currentPath.closePath();
+          const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})), -contract);
+          return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));
         });
-        const merged=mergePath.toShapes(false);
-        merged.forEach(s=>{s.holes=[];});
-        finalShapes=merged;
       }
+      finalShapes=mergedShapes;
+    } else if(l.border>0){
+      finalShapes=shapes.map(s=>{const pts=s.getPoints(12);const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));});
     }
     const geo=new THREE.ExtrudeGeometry(finalShapes,{depth:l.thick,bevelEnabled:false,curveSegments:24});
     const mat=new THREE.MeshPhongMaterial({color:parseInt(l.colourHex.replace('#',''),16),shininess:20});
