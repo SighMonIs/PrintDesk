@@ -198,7 +198,7 @@ canvas{display:block;}
     <div class="status" id="status">Loading font…</div>
 
     <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-      v1.1.5
+      v1.1.6
     </div>
 
   </div>
@@ -222,33 +222,34 @@ canvas{display:block;}
       padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:50">
       <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Camera Angle</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <label style="font-size:12px;color:var(--muted);width:40px">rotX</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:11px;color:var(--muted);width:36px;flex-shrink:0">rotX</label>
           <input type="range" id="camRotX" min="-1.57" max="1.57" step="0.01" value="-0.5"
-            style="flex:1;accent-color:var(--accent)" oninput="applyCameraSettings()">
-          <span id="camRotXVal" style="font-size:11px;color:var(--muted);width:36px;text-align:right;font-family:ui-monospace,monospace">-0.50</span>
+            style="flex:1;accent-color:var(--accent)" oninput="syncNumFromSlider('camRotX','camRotXNum');applyCameraSettings()">
+          <input type="number" id="camRotXNum" value="-0.50" min="-1.57" max="1.57" step="0.01"
+            style="width:54px;height:24px;padding:0 4px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;font-family:ui-monospace,monospace"
+            oninput="syncSliderFromNum('camRotX','camRotXNum');applyCameraSettings()">
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <label style="font-size:12px;color:var(--muted);width:40px">rotY</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:11px;color:var(--muted);width:36px;flex-shrink:0">rotY</label>
           <input type="range" id="camRotY" min="-3.14" max="3.14" step="0.01" value="0.2"
-            style="flex:1;accent-color:var(--accent)" oninput="applyCameraSettings()">
-          <span id="camRotYVal" style="font-size:11px;color:var(--muted);width:36px;text-align:right;font-family:ui-monospace,monospace">0.20</span>
+            style="flex:1;accent-color:var(--accent)" oninput="syncNumFromSlider('camRotY','camRotYNum');applyCameraSettings()">
+          <input type="number" id="camRotYNum" value="0.20" min="-3.14" max="3.14" step="0.01"
+            style="width:54px;height:24px;padding:0 4px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;font-family:ui-monospace,monospace"
+            oninput="syncSliderFromNum('camRotY','camRotYNum');applyCameraSettings()">
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <label style="font-size:12px;color:var(--muted);width:40px">Zoom</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:11px;color:var(--muted);width:36px;flex-shrink:0">Zoom</label>
           <input type="range" id="camZoom" min="0.3" max="4" step="0.05" value="1"
-            style="flex:1;accent-color:var(--accent)" oninput="applyCameraSettings()">
-          <span id="camZoomVal" style="font-size:11px;color:var(--muted);width:36px;text-align:right;font-family:ui-monospace,monospace">1.00</span>
+            style="flex:1;accent-color:var(--accent)" oninput="syncNumFromSlider('camZoom','camZoomNum');applyCameraSettings()">
+          <input type="number" id="camZoomNum" value="1.00" min="0.3" max="4" step="0.05"
+            style="width:54px;height:24px;padding:0 4px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;font-family:ui-monospace,monospace"
+            oninput="syncSliderFromNum('camZoom','camZoomNum');applyCameraSettings()">
         </div>
       </div>
-      <div style="display:flex;gap:6px;margin-top:10px">
-        <button class="btn" style="flex:1;height:28px;font-size:11px" onclick="syncSlidersFromView()">
-          <i class="ti ti-copy"></i> Sync from view
-        </button>
-        <button class="btn" style="flex:1;height:28px;font-size:11px" onclick="resetView()">
-          <i class="ti ti-rotate-2"></i> Reset
-        </button>
-      </div>
+      <button class="btn primary" style="width:100%;height:30px;font-size:11px;margin-top:10px" onclick="saveDefaultAngle()">
+        <i class="ti ti-device-floppy"></i> Save as default
+      </button>
     </div>
     <div id="angleDisplay" style="position:absolute;bottom:40px;right:178px;font-size:10px;color:var(--muted);background:rgba(0,0,0,0.6);padding:6px 8px;border-radius:4px;font-family:ui-monospace,monospace;line-height:1.8;text-align:right"></div>
     <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px">
@@ -474,8 +475,9 @@ resize();
 
 // Orbit controls (manual)
 let isDragging = false, lastX = 0, lastY = 0;
-let rotX = -0.5, rotY = 0.2;
-let zoom = 1;
+let rotX = parseFloat(localStorage.getItem('badge_defRotX') ?? '-0.5');
+let rotY = parseFloat(localStorage.getItem('badge_defRotY') ?? '0.2');
+let zoom = parseFloat(localStorage.getItem('badge_defZoom') ?? '1');
 const badgeGroup = new THREE.Group();
 scene.add(badgeGroup);
 
@@ -501,7 +503,12 @@ canvas.addEventListener('touchmove', e=>{
   e.preventDefault();
 },{passive:false});
 
-function resetView(){ rotX=-0.5; rotY=0.2; zoom=1; syncSlidersFromView(); }
+// Default angle — loaded from localStorage if saved
+let defaultRotX = parseFloat(localStorage.getItem('badge_defRotX') ?? '-0.5');
+let defaultRotY = parseFloat(localStorage.getItem('badge_defRotY') ?? '0.2');
+let defaultZoom = parseFloat(localStorage.getItem('badge_defZoom') ?? '1');
+
+function resetView(){ rotX=defaultRotX; rotY=defaultRotY; zoom=defaultZoom; syncSlidersFromView(); }
 
 function toggleCameraSettings(){
   const p = document.getElementById('cameraSettingsPanel');
@@ -512,18 +519,35 @@ function applyCameraSettings(){
   rotX = parseFloat(document.getElementById('camRotX').value);
   rotY = parseFloat(document.getElementById('camRotY').value);
   zoom = parseFloat(document.getElementById('camZoom').value);
-  document.getElementById('camRotXVal').textContent = rotX.toFixed(2);
-  document.getElementById('camRotYVal').textContent = rotY.toFixed(2);
-  document.getElementById('camZoomVal').textContent = zoom.toFixed(2);
+}
+
+function syncNumFromSlider(sliderId, numId){
+  const v = parseFloat(document.getElementById(sliderId).value);
+  document.getElementById(numId).value = v.toFixed(2);
+}
+
+function syncSliderFromNum(sliderId, numId){
+  const v = parseFloat(document.getElementById(numId).value);
+  if(!isNaN(v)) document.getElementById(sliderId).value = v;
 }
 
 function syncSlidersFromView(){
-  const rx = document.getElementById('camRotX');
-  const ry = document.getElementById('camRotY');
-  const rz = document.getElementById('camZoom');
-  if(rx){ rx.value=rotX; document.getElementById('camRotXVal').textContent=rotX.toFixed(2); }
-  if(ry){ ry.value=rotY; document.getElementById('camRotYVal').textContent=rotY.toFixed(2); }
-  if(rz){ rz.value=zoom; document.getElementById('camZoomVal').textContent=zoom.toFixed(2); }
+  const rx=document.getElementById('camRotX'), rxn=document.getElementById('camRotXNum');
+  const ry=document.getElementById('camRotY'), ryn=document.getElementById('camRotYNum');
+  const rz=document.getElementById('camZoom'),  rzn=document.getElementById('camZoomNum');
+  if(rx){rx.value=rotX; rxn.value=rotX.toFixed(2);}
+  if(ry){ry.value=rotY; ryn.value=rotY.toFixed(2);}
+  if(rz){rz.value=zoom; rzn.value=zoom.toFixed(2);}
+}
+
+function saveDefaultAngle(){
+  defaultRotX=rotX; defaultRotY=rotY; defaultZoom=zoom;
+  localStorage.setItem('badge_defRotX', rotX);
+  localStorage.setItem('badge_defRotY', rotY);
+  localStorage.setItem('badge_defZoom', zoom);
+  const btn = event.currentTarget;
+  btn.textContent='✓ Saved!';
+  setTimeout(()=>btn.innerHTML='<i class="ti ti-device-floppy"></i> Save as default',1500);
 }
 
 // Close camera panel on outside click
