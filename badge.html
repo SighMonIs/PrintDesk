@@ -193,14 +193,12 @@ canvas{display:block;}
       <button class="btn primary" id="exportBtn" onclick="exportTMF()" style="flex:1">
         <i class="ti ti-download"></i> Export 3MF
       </button>
-      <button class="btn" onclick="resetView()" title="Reset camera">
-        <i class="ti ti-rotate-2"></i>
-      </button>
+
     </div>
     <div class="status" id="status">Loading font…</div>
 
     <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-      v1.1.2
+      v1.1.3
     </div>
 
   </div>
@@ -208,8 +206,17 @@ canvas{display:block;}
   <!-- 3D Preview -->
   <div class="preview" id="previewPane">
     <canvas id="canvas"></canvas>
+    <button onclick="resetView()" title="Reset camera"
+      style="position:absolute;bottom:132px;right:10px;width:80px;height:28px;
+        background:rgba(24,24,27,0.8);border:1px solid var(--border2);border-radius:var(--radius);
+        color:var(--muted);font-size:11px;cursor:pointer;display:flex;align-items:center;
+        justify-content:center;gap:4px;font-family:inherit;transition:color 0.12s"
+      onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+      <i class="ti ti-rotate-2"></i> Reset
+    </button>
     <canvas id="axesCanvas" style="position:absolute;bottom:40px;right:10px;width:80px;height:80px;pointer-events:none"></canvas>
     <div class="preview-label">Drag to rotate · Scroll to zoom</div>
+    <div id="angleDisplay" style="position:absolute;bottom:12px;left:12px;font-size:10px;color:var(--muted);background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;font-family:ui-monospace,monospace"></div>
     <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px">
       <button class="btn" id="toggleGridBtn" onclick="toggleGrid()" title="Toggle grid" style="height:32px;padding:0 10px;font-size:11px">
         <i class="ti ti-grid-dots"></i> Grid
@@ -397,6 +404,27 @@ const grid = new THREE.GridHelper(300, 30, 0x333337, 0x222225);
 grid.rotation.x = 0;
 scene.add(grid);
 
+// Axis arrows
+const arrowLen = 40;
+scene.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), arrowLen, 0xe05c5c, 6, 4)); // X red
+scene.add(new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), arrowLen, 0x5cb87a, 6, 4)); // Y green
+scene.add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), arrowLen, 0x5b9cf6, 6, 4)); // Z blue
+
+// Axis labels as sprites
+function makeAxisLabel(text, colour){
+  const c=document.createElement('canvas'); c.width=48; c.height=48;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle=colour; ctx.font='bold 28px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text,24,24);
+  const t=new THREE.CanvasTexture(c);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false}));
+  s.scale.set(8,8,1); return s;
+}
+const lx=makeAxisLabel('X','#e05c5c'); lx.position.set(arrowLen+6,0,0); scene.add(lx);
+const ly=makeAxisLabel('Y','#5cb87a'); ly.position.set(0,arrowLen+6,0); scene.add(ly);
+const lz=makeAxisLabel('Z','#5b9cf6'); lz.position.set(0,0,arrowLen+6); scene.add(lz);
+
 // Resize
 function resize(){
   const w = pane.clientWidth, h = pane.clientHeight;
@@ -502,6 +530,8 @@ function animate(){
   camera.position.set(0, -100*zoom, 200*zoom);
   camera.lookAt(0,0,0);
   renderer.render(scene, camera);
+  const ad=document.getElementById('angleDisplay');
+  if(ad) ad.textContent=`rotX:${rotX.toFixed(2)}  rotY:${rotY.toFixed(2)}  zoom:${zoom.toFixed(2)}`;
   // Sync orientation cube
   axesCube.rotation.copy(badgeGroup.rotation);
   axesRenderer.render(axesScene, axesCamera);
