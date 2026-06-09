@@ -69,6 +69,8 @@ canvas{display:block;}
 .colour-picker-list{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5);padding:4px 0;min-width:180px;}
 .cp-option{display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;font-size:12px;transition:background 0.1s;}
 .cp-option:hover{background:var(--surface2);}
+.combo-swatches{display:flex;gap:3px;align-items:center;flex-shrink:0;}
+.combo-swatch{width:12px;height:12px;border-radius:2px;border:1px solid rgba(255,255,255,0.15);}
 
 /* ── Accordion ── */
 .accordion{border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;}
@@ -153,7 +155,15 @@ canvas{display:block;}
       <!-- Layer colours -->
       <div>
         <div class="section-title">Layer Colours</div>
-        <div id="layerColoursList" style="display:flex;flex-direction:column;gap:7px"></div>
+        <div class="colour-picker-wrap" id="cpwCombo" style="margin-bottom:8px">
+          <div class="colour-picker-btn" onclick="toggleComboList(this)" id="comboBtnDisplay">
+            <div style="display:flex;gap:3px;align-items:center" id="comboSwatches"></div>
+            <span class="cp-label" id="comboLabel">Loading…</span>
+            <i class="ti ti-chevron-down" style="font-size:11px;color:var(--muted);flex-shrink:0"></i>
+          </div>
+          <div class="colour-picker-list" id="comboList" style="display:none;min-width:260px"></div>
+        </div>
+        <div id="layerColoursList" style="display:none;flex-direction:column;gap:7px"></div>
       </div>
 
       <!-- Advanced -->
@@ -198,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.3.1
+        v1.3.2
       </div>
     </div>
 
@@ -370,6 +380,7 @@ async function loadModel(){
   resetView();
 
   buildLayerUI();
+  loadPreviousCombos();
   updateFileNamePreview();
   setStatus('');
   if(font) buildBadge();
@@ -410,6 +421,120 @@ async function saveModelSettings(){
 
 // ── Layer UI ──────────────────────────────────────────────────
 let openPickerId = null;
+let openCombo = false;
+let previousCombos = [];
+
+async function loadPreviousCombos(){
+  // Fetch orders that have colour options for current model's category
+  // Get all complete orders with options containing colour data
+  try {
+    const orders = await sbGet('orders', '?select=options&status=eq.Complete&options=not.is.null&order=id.desc&limit=200');
+    const seen = new Set();
+    previousCombos = [];
+    for(const o of orders){
+      if(!o.options) continue;
+      // Extract colour values from options
+      const parts = o.options.split('||');
+      const colourParts = parts.filter(p=>{
+        const name = p.split(':')[0]?.toLowerCase()||'';
+        return name.includes('colour') || name.includes('color');
+      });
+      if(!colourParts.length) continue;
+      // Get the colour values (pipe-separated colour names)
+      const colourValues = colourParts.map(p=>p.split(':').slice(1).join(':').trim());
+      // Each value is like "Red|Yellow|Black|White" — split by pipe
+      const colourNames = colourValues[0]?.split('|').map(s=>s.trim()).filter(Boolean)||[];
+      if(colourNames.length !== layerConfig.length) continue;
+      const key = colourNames.join('|');
+      if(seen.has(key)) continue;
+      seen.add(key);
+      // Map colour names to hex codes
+      const hexCodes = colourNames.map(name=>{
+        const c = colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
+        return {name, hex: c?.code||'#888888', id: c?.id||null};
+      });
+      previousCombos.push({key, colours: hexCodes});
+      if(previousCombos.length >= 20) break;
+    }
+  } catch(e){ console.warn('Could not load combos:', e); }
+  buildComboList();
+}
+
+function buildComboList(){
+  const list = document.getElementById('comboList');
+  if(!list) return;
+  const items = [
+    // Custom option always first
+    `<div class="cp-option" onclick="selectCombo('custom')">
+      <i class="ti ti-adjustments" style="font-size:13px;color:var(--muted)"></i>
+      <span>Custom</span>
+    </div>`,
+    previousCombos.length ? '<div style="height:1px;background:var(--border);margin:4px 0"></div>' : '',
+    ...previousCombos.map((combo,i)=>`
+      <div class="cp-option" onclick="selectCombo(${i})">
+        <div class="combo-swatches">
+          ${combo.colours.map(c=>`<div class="combo-swatch" style="background:${c.hex}" title="${c.name}"></div>`).join('')}
+        </div>
+        <span style="font-size:11px">${combo.colours.map(c=>c.name).join(' · ')}</span>
+      </div>`)
+  ].join('');
+  list.innerHTML = items;
+  // Show first combo or custom as default
+  if(previousCombos.length > 0){
+    updateComboDisplay(previousCombos[0]);
+  } else {
+    selectCombo('custom');
+  }
+}
+
+function toggleComboList(btn){
+  const list = document.getElementById('comboList');
+  if(list.style.display !== 'none'){ list.style.display='none'; openCombo=false; return; }
+  const rect = btn.getBoundingClientRect();
+  list.style.top = (rect.bottom+4)+'px';
+  list.style.left = rect.left+'px';
+  list.style.width = Math.max(rect.width, 260)+'px';
+  list.style.display = '';
+  openCombo = true;
+}
+
+function selectCombo(idx){
+  document.getElementById('comboList').style.display='none';
+  openCombo=false;
+  if(idx === 'custom'){
+    document.getElementById('layerColoursList').style.display='flex';
+    document.getElementById('comboLabel').textContent='Custom';
+    document.getElementById('comboSwatches').innerHTML='<i class="ti ti-adjustments" style="font-size:13px;color:var(--muted)"></i>';
+    return;
+  }
+  const combo = previousCombos[idx];
+  if(!combo) return;
+  document.getElementById('layerColoursList').style.display='none';
+  // Apply colours to layerConfig
+  combo.colours.forEach((c,i)=>{
+    if(i < layerConfig.length){
+      layerConfig[i].colourHex = c.hex;
+      layerConfig[i].colourId = c.id;
+    }
+  });
+  updateComboDisplay(combo);
+  buildLayerUI();
+  scheduleRender();
+}
+
+function updateComboDisplay(combo){
+  document.getElementById('comboSwatches').innerHTML = combo.colours.map(c=>`<div class="combo-swatch" style="background:${c.hex}" title="${c.name}"></div>`).join('');
+  document.getElementById('comboLabel').textContent = combo.colours.map(c=>c.name).join(' · ');
+}
+
+// Close combo list on outside click
+document.addEventListener('click', e=>{
+  if(openCombo && !e.target.closest('#cpwCombo')){
+    document.getElementById('comboList').style.display='none';
+    openCombo=false;
+  }
+});
+
 
 function buildLayerUI(){
   const colList = document.getElementById('layerColoursList');
