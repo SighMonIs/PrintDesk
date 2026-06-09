@@ -172,9 +172,8 @@ canvas{display:block;}
     </div>
     <div class="status" id="status">Loading font…</div>
 
-    <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;display:flex;align-items:center;gap:6px">
-      <span id="statusDot" style="width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0"></span>
-      <span>Badge Generator v1.0.3</span>
+    <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
+      v1.0.4
     </div>
 
   </div>
@@ -286,8 +285,7 @@ function setStatus(msg, cls=''){
   const el = document.getElementById('status');
   el.textContent = msg;
   el.className = 'status' + (cls?' '+cls:'');
-  const dot = document.getElementById('statusDot');
-  if(dot) dot.style.background = cls==='ok' ? '#5cb87a' : cls==='err' ? '#e05c5c' : '#e8a93a';
+
 }
 
 opentype.load(FONT_PATH, (err, f)=>{
@@ -392,10 +390,22 @@ function otPathToThreeShapes(otPath, filled){
       case 'Z': shapePath.currentPath.closePath(); break;
     }
   }
-  // filled=true means backing layer — we want solid, no holes
-  // filled=false means white text layer — we want holes preserved
-  // THREE.ShapePath.toShapes(isCCW) — true keeps holes, false fills them
-  return shapePath.toShapes(filled ? false : true);
+  // Try both winding orders — LEGO font uses CW for outer contours
+  // toShapes(true)  = treats CCW as outer (standard)
+  // toShapes(false) = treats CW as outer (needed for some fonts like LEGO)
+  if(filled){
+    // Backing layer: solid fill, no holes — use false to get solid shapes
+    return shapePath.toShapes(false);
+  } else {
+    // White text layer: preserve holes — try true first (CCW=outer)
+    const shapes = shapePath.toShapes(true);
+    // If shapes have no holes, try false (CW=outer)
+    const hasHoles = shapes.some(s=>s.holes && s.holes.length > 0);
+    if(!hasHoles){
+      return shapePath.toShapes(false);
+    }
+    return shapes;
+  }
 }
 
 // ── Get shapes for entire text string ────────────────────────
