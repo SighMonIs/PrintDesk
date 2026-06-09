@@ -208,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.4.6
+        v1.4.7
       </div>
     </div>
 
@@ -235,7 +235,7 @@ canvas{display:block;}
       <!-- Zoom speed panel -->
       <div class="cam-panel" id="camZoomPanel" style="display:none">
         <div class="cam-panel-title">Scroll Zoom Speed</div>
-        <div class="cam-row"><label>Speed</label><input type="range" id="zoomSpd" min="0.001" max="0.1" step="0.001" value="0.01" oninput="syncNum('zoomSpd','zoomSpdN');saveZoomSpeed()"><input type="number" id="zoomSpdN" value="0.010" step="0.001" min="0.001" max="0.1" oninput="syncSlider('zoomSpd','zoomSpdN');saveZoomSpeed()"></div>
+        <div class="cam-row"><label>Speed</label><input type="range" id="zoomSpd" min="0.001" max="0.1" step="0.001" value="0.01" oninput="syncNum('zoomSpd','zoomSpdN');saveZoomSpeed()"><input type="number" id="zoomSpdN" value="0.010" min="0.001" max="0.1" step="0.001" oninput="syncSlider('zoomSpd','zoomSpdN');saveZoomSpeed()"></div>
         <div style="font-size:10px;color:var(--muted);margin-top:4px">Lower = slower. Default: 0.01</div>
       </div>
 
@@ -622,7 +622,12 @@ function applyCam(){
   zoom=parseFloat(document.getElementById('camZoom').value);
 }
 
-function syncNum(sId,nId){ document.getElementById(nId).value=parseFloat(document.getElementById(sId).value).toFixed(2); }
+function syncNum(sId,nId){ 
+  const v=parseFloat(document.getElementById(sId).value);
+  const step=parseFloat(document.getElementById(sId).step||'0.01');
+  const decimals=step.toString().includes('.')?step.toString().split('.')[1].length:2;
+  document.getElementById(nId).value=v.toFixed(decimals); 
+}
 function syncSlider(sId,nId){ const v=parseFloat(document.getElementById(nId).value); if(!isNaN(v)) document.getElementById(sId).value=v; }
 
 function syncSlidersFromView(){
