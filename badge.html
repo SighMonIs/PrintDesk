@@ -197,7 +197,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.2.6
+        v1.2.7
       </div>
     </div>
 
@@ -390,8 +390,15 @@ async function loadModel(){
 
 async function saveModelSettings(){
   const id = currentModel?.id; if(!id) return;
-  const s={model_id:id,letter_spacing:+document.getElementById('letterSpacing').value,file_prefix:document.getElementById('filePrefix').value,file_suffix:document.getElementById('fileSuffix').value};
-  await sbUpsert('badge_model_settings',s);
+  const existingSettings = await sbGet('badge_model_settings',`?model_id=eq.${id}`);
+  const settingsRow = {
+    ...(existingSettings[0] ? {id: existingSettings[0].id} : {}),
+    model_id: id,
+    letter_spacing: +document.getElementById('letterSpacing').value,
+    file_prefix: document.getElementById('filePrefix').value,
+    file_suffix: document.getElementById('fileSuffix').value
+  };
+  await sbUpsert('badge_model_settings', settingsRow);
   // Save layers
   for(const l of layerConfig){
     await sbUpsert('badge_model_layers',{id:l.id,model_id:l.model_id,layer_order:l.order,colour_id:l.colourId||null,colour_hex:l.colourHex,border_mm:l.border,thickness_mm:l.thick,filled:l.filled});
