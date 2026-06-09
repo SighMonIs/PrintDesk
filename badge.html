@@ -197,7 +197,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.2.5
+        v1.2.6
       </div>
     </div>
 
@@ -215,7 +215,7 @@ canvas{display:block;}
       </div>
 
       <!-- Camera angle panel -->
-      <div class="cam-panel" id="camAnglePanel">
+      <div class="cam-panel" id="camAnglePanel" style="display:none">
         <div class="cam-panel-title">Camera Angle</div>
         <div class="cam-row"><label>rotX</label><input type="range" id="camRotX" min="-1.57" max="1.57" step="0.01" value="-0.5" oninput="syncNum('camRotX','camRotXN');applyCam()"><input type="number" id="camRotXN" value="-0.50" step="0.01" oninput="syncSlider('camRotX','camRotXN');applyCam()"></div>
         <div class="cam-row"><label>rotY</label><input type="range" id="camRotY" min="-3.14" max="3.14" step="0.01" value="0.2" oninput="syncNum('camRotY','camRotYN');applyCam()"><input type="number" id="camRotYN" value="0.20" step="0.01" oninput="syncSlider('camRotY','camRotYN');applyCam()"></div>
@@ -224,7 +224,7 @@ canvas{display:block;}
       </div>
 
       <!-- Zoom speed panel -->
-      <div class="cam-panel" id="camZoomPanel">
+      <div class="cam-panel" id="camZoomPanel" style="display:none">
         <div class="cam-panel-title">Scroll Zoom Speed</div>
         <div class="cam-row"><label>Speed</label><input type="range" id="zoomSpd" min="0.01" max="0.5" step="0.01" value="0.1" oninput="syncNum('zoomSpd','zoomSpdN');saveZoomSpeed()"><input type="number" id="zoomSpdN" value="0.10" step="0.01" oninput="syncSlider('zoomSpd','zoomSpdN');saveZoomSpeed()"></div>
         <div style="font-size:10px;color:var(--muted);margin-top:4px">Lower = slower. Default: 0.10</div>
@@ -485,7 +485,7 @@ function toggleCamPanel(id){
   const panels=['camAnglePanel','camZoomPanel'];
   panels.forEach(p=>{ if(p!==id) document.getElementById(p).style.display='none'; });
   const el=document.getElementById(id);
-  el.style.display=el.style.display==='none'?'':'none';
+  el.style.display=el.style.display==='none'?'block':'none';
 }
 
 function applyCam(){
