@@ -254,8 +254,8 @@ canvas{display:block;}
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
 <script>
 // ── Supabase config ───────────────────────────────────────────
-const SB_URL = typeof getCfg==='function' ? getCfg('SUPABASE_URL') : '';
-const SB_KEY = typeof getCfg==='function' ? getCfg('SUPABASE_KEY') : '';
+const SB_URL = (window.CONFIG && window.CONFIG.SUPABASE_URL) || '';
+const SB_KEY = (window.CONFIG && window.CONFIG.SUPABASE_KEY) || '';
 let sbToken = null;
 let currentUser = null;
 
