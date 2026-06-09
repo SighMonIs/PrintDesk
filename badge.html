@@ -207,7 +207,7 @@ const scene  = new THREE.Scene();
 scene.background = new THREE.Color(0x18181b);
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
-camera.position.set(0, -80, 120);
+camera.position.set(0, -100, 200);
 camera.lookAt(0, 0, 0);
 
 // Lights
@@ -237,7 +237,7 @@ resize();
 
 // Orbit controls (manual)
 let isDragging = false, lastX = 0, lastY = 0;
-let rotX = -0.3, rotY = 0.3;
+let rotX = -0.5, rotY = 0.2;
 let zoom = 1;
 const badgeGroup = new THREE.Group();
 scene.add(badgeGroup);
@@ -270,7 +270,7 @@ function animate(){
   requestAnimationFrame(animate);
   badgeGroup.rotation.x = rotX;
   badgeGroup.rotation.y = rotY;
-  camera.position.set(0, -80*zoom, 120*zoom);
+  camera.position.set(0, -100*zoom, 200*zoom);
   camera.lookAt(0,0,0);
   renderer.render(scene, camera);
 }
@@ -509,25 +509,42 @@ function buildBadge(){
 }
 
 // ── Build offset shapes from contours ────────────────────────
+function pointInContour(pt, contour){
+  // Ray casting to check if point is inside contour
+  let inside = false;
+  for(let i=0,j=contour.length-1; i<contour.length; j=i++){
+    const xi=contour[i].x, yi=contour[i].y;
+    const xj=contour[j].x, yj=contour[j].y;
+    if(((yi>pt.y)!==(yj>pt.y))&&(pt.x<(xj-xi)*(pt.y-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+
+function contourCentre(c){ 
+  return {x:c.reduce((s,p)=>s+p.x,0)/c.length, y:c.reduce((s,p)=>s+p.y,0)/c.length};
+}
+
 function buildOffsetShapes(contours, border, fillHoles){
   const outers = contours.filter(c=>!isHole(c));
   const holes  = contours.filter(c=>isHole(c));
   const shapes = [];
 
   for(const outer of outers){
-    let pts = outer;
-    if(border > 0){
-      pts = offsetContour(outer, border);
-    }
+    let pts = border > 0 ? offsetContour(outer, border) : outer;
     const shape = new THREE.Shape(pts.map(p=>new THREE.Vector2(p.x,-p.y)));
 
     if(!fillHoles){
-      // Add holes that are inside this outer contour
+      // Only add holes that belong to this outer contour
+      const centre = contourCentre(outer);
       for(const hole of holes){
-        const hpath = new THREE.Path(hole.map(p=>new THREE.Vector2(p.x,-p.y)));
-        shape.holes.push(hpath);
+        const hc = contourCentre(hole);
+        if(pointInContour(hc, outer)){
+          const hpath = new THREE.Path(hole.map(p=>new THREE.Vector2(p.x,-p.y)));
+          shape.holes.push(hpath);
+        }
       }
     }
+    // fillHoles=true: no holes added — solid fill
     shapes.push(shape);
   }
   return shapes;
