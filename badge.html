@@ -197,7 +197,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.2.7
+        v1.2.8
       </div>
     </div>
 
@@ -226,8 +226,8 @@ canvas{display:block;}
       <!-- Zoom speed panel -->
       <div class="cam-panel" id="camZoomPanel" style="display:none">
         <div class="cam-panel-title">Scroll Zoom Speed</div>
-        <div class="cam-row"><label>Speed</label><input type="range" id="zoomSpd" min="0.01" max="0.5" step="0.01" value="0.1" oninput="syncNum('zoomSpd','zoomSpdN');saveZoomSpeed()"><input type="number" id="zoomSpdN" value="0.10" step="0.01" oninput="syncSlider('zoomSpd','zoomSpdN');saveZoomSpeed()"></div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">Lower = slower. Default: 0.10</div>
+        <div class="cam-row"><label>Speed</label><input type="range" id="zoomSpd" min="0.001" max="0.1" step="0.001" value="0.01" oninput="syncNum('zoomSpd','zoomSpdN');saveZoomSpeed()"><input type="number" id="zoomSpdN" value="0.010" step="0.001" min="0.001" max="0.1" oninput="syncSlider('zoomSpd','zoomSpdN');saveZoomSpeed()"></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Lower = slower. Default: 0.01</div>
       </div>
 
       <!-- Reset button above axes cube -->
@@ -484,7 +484,7 @@ function updateFileNamePreview(){
 // ── Camera ────────────────────────────────────────────────────
 let defRotX=-0.5, defRotY=0.2, defZoom=1;
 let rotX=defRotX, rotY=defRotY, zoom=defZoom;
-let scrollZoomSpeed=0.1;
+let scrollZoomSpeed=0.01;
 
 function resetView(){ rotX=defRotX; rotY=defRotY; zoom=defZoom; syncSlidersFromView(); }
 
