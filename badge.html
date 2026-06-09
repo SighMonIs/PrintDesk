@@ -208,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.4.1
+        v1.4.2
       </div>
     </div>
 
@@ -720,14 +720,43 @@ function otPathToShapes(otPath,filled){
 
 function getTextShapes(text,fsize,filled){
   const glyphs=font.stringToGlyphs(text);
-  let x=0; const all=[];
+  const spacing=parseFloat(document.getElementById('letterSpacing')?.value||0);
+  let x=0;
+
+  if(filled){
+    // For filled (backing) layers: combine ALL glyphs into one ShapePath
+    // so adjacent letters merge into a single unified outline
+    const combinedPath=new THREE.ShapePath();
+    for(let i=0;i<glyphs.length;i++){
+      const g=glyphs[i];
+      const path=g.getPath(x,0,fsize);
+      for(const cmd of path.commands){
+        switch(cmd.type){
+          case 'M':combinedPath.moveTo(cmd.x,-cmd.y);break;
+          case 'L':combinedPath.lineTo(cmd.x,-cmd.y);break;
+          case 'C':combinedPath.bezierCurveTo(cmd.x1,-cmd.y1,cmd.x2,-cmd.y2,cmd.x,-cmd.y);break;
+          case 'Q':combinedPath.quadraticCurveTo(cmd.x1,-cmd.y1,cmd.x,-cmd.y);break;
+          case 'Z':combinedPath.currentPath.closePath();break;
+        }
+      }
+      const adv=g.advanceWidth*(fsize/font.unitsPerEm);
+      const kern=i<glyphs.length-1?font.getKerningValue(g,glyphs[i+1])*(fsize/font.unitsPerEm):0;
+      x+=adv+kern+spacing;
+    }
+    // toShapes(false) on combined path fills holes and merges adjacent shapes
+    const shapes=combinedPath.toShapes(false);
+    shapes.forEach(s=>{s.holes=[];});
+    return shapes;
+  }
+
+  // White text layer: per-glyph to preserve holes correctly
+  const all=[];
   for(let i=0;i<glyphs.length;i++){
     const g=glyphs[i];
     const path=g.getPath(x,0,fsize);
-    all.push(...otPathToShapes(path,filled));
+    all.push(...otPathToShapes(path,false));
     const adv=g.advanceWidth*(fsize/font.unitsPerEm);
     const kern=i<glyphs.length-1?font.getKerningValue(g,glyphs[i+1])*(fsize/font.unitsPerEm):0;
-    const spacing=parseFloat(document.getElementById('letterSpacing')?.value||0);
     x+=adv+kern+spacing;
   }
   return all;
@@ -772,7 +801,17 @@ function buildBadge(){
     const shapes=getTextShapes(name,fsize,l.filled);
     if(!shapes.length){zOff+=l.thick;continue;}
     let finalShapes=shapes;
-    if(l.border>0){finalShapes=shapes.map(s=>{const pts=s.getPoints(12);const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));});}
+    if(l.border>0 && l.filled){
+      // For filled backing layers: expand each shape outward by border amount
+      // Use a larger expand-then-contract to merge gaps between close letters
+      finalShapes=shapes.map(s=>{
+        const pts=s.getPoints(24);
+        const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);
+        return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));
+      });
+    } else if(l.border>0){
+      finalShapes=shapes.map(s=>{const pts=s.getPoints(12);const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));});
+    }
     const geo=new THREE.ExtrudeGeometry(finalShapes,{depth:l.thick,bevelEnabled:false,curveSegments:24});
     const mat=new THREE.MeshPhongMaterial({color:parseInt(l.colourHex.replace('#',''),16),shininess:20});
     const mesh=new THREE.Mesh(geo,mat);
@@ -796,7 +835,17 @@ function exportTMF(){
   const objects=layerConfig.map((l,idx)=>{
     const shapes=getTextShapes(name,fsize,l.filled);
     let finalShapes=shapes;
-    if(l.border>0){finalShapes=shapes.map(s=>{const pts=s.getPoints(12);const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));});}
+    if(l.border>0 && l.filled){
+      // For filled backing layers: expand each shape outward by border amount
+      // Use a larger expand-then-contract to merge gaps between close letters
+      finalShapes=shapes.map(s=>{
+        const pts=s.getPoints(24);
+        const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);
+        return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));
+      });
+    } else if(l.border>0){
+      finalShapes=shapes.map(s=>{const pts=s.getPoints(12);const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border);return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y)));});
+    }
     const geo=new THREE.ExtrudeGeometry(finalShapes,{depth:l.thick,bevelEnabled:false,curveSegments:24});
     const merged=THREE.BufferGeometryUtils?THREE.BufferGeometryUtils.mergeVertices(geo):geo;
     merged.computeVertexNormals();
