@@ -198,7 +198,7 @@ canvas{display:block;}
     <div class="status" id="status">Loading font…</div>
 
     <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-      v1.1.3
+      v1.1.4
     </div>
 
   </div>
@@ -216,6 +216,40 @@ canvas{display:block;}
     </button>
     <canvas id="axesCanvas" style="position:absolute;bottom:40px;right:10px;width:80px;height:80px;pointer-events:none"></canvas>
     <div class="preview-label">Drag to rotate · Scroll to zoom</div>
+    <!-- Camera settings panel -->
+    <div id="cameraSettingsPanel" style="display:none;position:absolute;top:48px;right:10px;
+      background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);
+      padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:50">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Camera Angle</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <label style="font-size:12px;color:var(--muted);width:40px">rotX</label>
+          <input type="range" id="camRotX" min="-1.57" max="1.57" step="0.01" value="-0.5"
+            style="flex:1;accent-color:var(--accent)" oninput="applyCameraSettings()">
+          <span id="camRotXVal" style="font-size:11px;color:var(--muted);width:36px;text-align:right;font-family:ui-monospace,monospace">-0.50</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <label style="font-size:12px;color:var(--muted);width:40px">rotY</label>
+          <input type="range" id="camRotY" min="-3.14" max="3.14" step="0.01" value="0.2"
+            style="flex:1;accent-color:var(--accent)" oninput="applyCameraSettings()">
+          <span id="camRotYVal" style="font-size:11px;color:var(--muted);width:36px;text-align:right;font-family:ui-monospace,monospace">0.20</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <label style="font-size:12px;color:var(--muted);width:40px">Zoom</label>
+          <input type="range" id="camZoom" min="0.3" max="4" step="0.05" value="1"
+            style="flex:1;accent-color:var(--accent)" oninput="applyCameraSettings()">
+          <span id="camZoomVal" style="font-size:11px;color:var(--muted);width:36px;text-align:right;font-family:ui-monospace,monospace">1.00</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn" style="flex:1;height:28px;font-size:11px" onclick="syncSlidersFromView()">
+          <i class="ti ti-copy"></i> Sync from view
+        </button>
+        <button class="btn" style="flex:1;height:28px;font-size:11px" onclick="resetView()">
+          <i class="ti ti-rotate-2"></i> Reset
+        </button>
+      </div>
+    </div>
     <div id="angleDisplay" style="position:absolute;bottom:12px;left:12px;font-size:10px;color:var(--muted);background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;font-family:ui-monospace,monospace"></div>
     <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px">
       <button class="btn" id="toggleGridBtn" onclick="toggleGrid()" title="Toggle grid" style="height:32px;padding:0 10px;font-size:11px">
@@ -223,6 +257,9 @@ canvas{display:block;}
       </button>
       <button class="btn" id="toggleAxesBtn" onclick="toggleAxes()" title="Toggle orientation cube" style="height:32px;padding:0 10px;font-size:11px">
         <i class="ti ti-cube"></i> Axes
+      </button>
+      <button class="btn" onclick="toggleCameraSettings()" title="Camera settings" style="height:32px;padding:0 10px;font-size:11px">
+        <i class="ti ti-camera-cog"></i>
       </button>
     </div>
   </div>
@@ -450,6 +487,7 @@ window.addEventListener('mousemove', e=>{
   rotX += (e.clientY - lastY) * 0.01;
   rotX = Math.max(-Math.PI/2, Math.min(Math.PI/2, rotX));
   lastX=e.clientX; lastY=e.clientY;
+  syncSlidersFromView();
 });
 canvas.addEventListener('wheel', e=>{ zoom *= e.deltaY > 0 ? 1.1 : 0.9; zoom=Math.max(0.3,Math.min(4,zoom)); e.preventDefault(); }, {passive:false});
 
@@ -463,7 +501,38 @@ canvas.addEventListener('touchmove', e=>{
   e.preventDefault();
 },{passive:false});
 
-function resetView(){ rotX=-0.3; rotY=0.3; zoom=1; }
+function resetView(){ rotX=-0.5; rotY=0.2; zoom=1; syncSlidersFromView(); }
+
+function toggleCameraSettings(){
+  const p = document.getElementById('cameraSettingsPanel');
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+}
+
+function applyCameraSettings(){
+  rotX = parseFloat(document.getElementById('camRotX').value);
+  rotY = parseFloat(document.getElementById('camRotY').value);
+  zoom = parseFloat(document.getElementById('camZoom').value);
+  document.getElementById('camRotXVal').textContent = rotX.toFixed(2);
+  document.getElementById('camRotYVal').textContent = rotY.toFixed(2);
+  document.getElementById('camZoomVal').textContent = zoom.toFixed(2);
+}
+
+function syncSlidersFromView(){
+  const rx = document.getElementById('camRotX');
+  const ry = document.getElementById('camRotY');
+  const rz = document.getElementById('camZoom');
+  if(rx){ rx.value=rotX; document.getElementById('camRotXVal').textContent=rotX.toFixed(2); }
+  if(ry){ ry.value=rotY; document.getElementById('camRotYVal').textContent=rotY.toFixed(2); }
+  if(rz){ rz.value=zoom; document.getElementById('camZoomVal').textContent=zoom.toFixed(2); }
+}
+
+// Close camera panel on outside click
+document.addEventListener('click', e=>{
+  const panel = document.getElementById('cameraSettingsPanel');
+  if(panel && !e.target.closest('#cameraSettingsPanel') && !e.target.closest('[onclick*="toggleCameraSettings"]')){
+    panel.style.display='none';
+  }
+});
 
 // ── Orientation cube ─────────────────────────────────────────
 const axesCanvas = document.getElementById('axesCanvas');
