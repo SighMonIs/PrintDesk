@@ -85,6 +85,45 @@ canvas{display:block;}
   border-radius:var(--radius);padding:8px 10px;font-size:11px;color:#e8a93a;
 }
 .hole-warning i{font-size:14px;}
+
+.accordion{border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;}
+.accordion-btn{
+  width:100%;padding:10px 12px;background:var(--surface2);border:none;
+  color:var(--text);font-size:13px;font-family:inherit;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;
+  transition:background 0.12s;
+}
+.accordion-btn:hover{background:var(--surface);}
+.accordion-body{padding:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+.layer-colour-row{display:flex;align-items:center;gap:10px;}
+.layer-colour-label{font-size:12px;color:var(--muted);width:56px;flex-shrink:0;}
+.colour-picker-wrap{position:relative;flex:1;}
+.colour-picker-btn{
+  display:flex;align-items:center;gap:8px;
+  height:32px;padding:0 10px;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:var(--radius);cursor:pointer;font-size:12px;color:var(--text);
+  transition:border-color 0.12s;
+}
+.colour-picker-btn:hover{border-color:rgba(255,255,255,0.25);}
+.cp-swatch{width:16px;height:16px;border-radius:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.15);}
+.cp-label{flex:1;}
+.cp-arrow{font-size:11px;color:var(--muted);}
+.colour-picker-list{
+  position:fixed;background:var(--surface);border:1px solid var(--border2);
+  border-radius:var(--radius);z-index:9999;
+  max-height:200px;overflow-y:auto;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5);padding:4px 0;min-width:180px;
+}
+.cp-option{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;cursor:pointer;font-size:12px;
+  transition:background 0.1s;
+}
+.cp-option:hover{background:var(--surface2);}
+.layer-setting-row{display:flex;align-items:center;justify-content:space-between;}
+.layer-setting-row label{font-size:11px;color:var(--muted);}
+.layer-setting-row input{width:56px;height:26px;padding:0 6px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 </head>
@@ -181,14 +220,155 @@ canvas{display:block;}
   <!-- 3D Preview -->
   <div class="preview" id="previewPane">
     <canvas id="canvas"></canvas>
+    <canvas id="axesCanvas" style="position:absolute;bottom:40px;right:10px;width:80px;height:80px;pointer-events:none"></canvas>
     <div class="preview-label">Drag to rotate · Scroll to zoom</div>
+    <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px">
+      <button class="btn" id="toggleGridBtn" onclick="toggleGrid()" title="Toggle grid" style="height:32px;padding:0 10px;font-size:11px">
+        <i class="ti ti-grid-dots"></i> Grid
+      </button>
+      <button class="btn" id="toggleAxesBtn" onclick="toggleAxes()" title="Toggle orientation cube" style="height:32px;padding:0 10px;font-size:11px">
+        <i class="ti ti-cube"></i> Axes
+      </button>
+    </div>
   </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/utils/BufferGeometryUtils.js"></script>
 
 <script>
+
+// ── Filament colours ─────────────────────────────────────────
+const FILAMENT_COLOURS = [
+  {name:'Red',        code:'#FF0000'},
+  {name:'Dark Red',   code:'#8B0000'},
+  {name:'Yellow',     code:'#F4EE2A'},
+  {name:'Orange',     code:'#FF6600'},
+  {name:'Black',      code:'#1a1a1a'},
+  {name:'White',      code:'#FFFFFF'},
+  {name:'Blue',       code:'#0055AA'},
+  {name:'Light Blue', code:'#5B9CF6'},
+  {name:'Green',      code:'#00AA44'},
+  {name:'Light Green',code:'#5CB87A'},
+  {name:'Purple',     code:'#7B2FBE'},
+  {name:'Pink',       code:'#FF69B4'},
+  {name:'Gold',       code:'#E8D5A3'},
+  {name:'Silver',     code:'#C0C0C0'},
+  {name:'Brown',      code:'#8B4513'},
+  {name:'Jade',       code:'#00A86B'},
+  {name:'Beige',      code:'#F5F0DC'},
+  {name:'Gray',       code:'#808080'},
+];
+
+// Layer config
+const layerConfig = [
+  {id:1, label:'Layer 1', colour:'#FF0000', border:6, thick:3},
+  {id:2, label:'Layer 2', colour:'#F4EE2A', border:4, thick:1},
+  {id:3, label:'Layer 3', colour:'#1a1a1a', border:2, thick:1},
+  {id:4, label:'Layer 4', colour:'#FFFFFF', border:0, thick:1},
+];
+
+let openPickerId = null;
+
+function buildLayerUI(){
+  // Colour selectors
+  const colList = document.getElementById('layerColoursList');
+  colList.innerHTML = layerConfig.map(l=>`
+    <div class="layer-colour-row">
+      <span class="layer-colour-label">${l.label}</span>
+      <div class="colour-picker-wrap" id="cpw-${l.id}">
+        <div class="colour-picker-btn" onclick="toggleColourPicker(${l.id},this)">
+          <div class="cp-swatch" id="cps-${l.id}" style="background:${l.colour}"></div>
+          <span class="cp-label" id="cpl-${l.id}">${colourName(l.colour)}</span>
+          <i class="ti ti-chevron-down cp-arrow"></i>
+        </div>
+        <div class="colour-picker-list" id="cplist-${l.id}" style="display:none">
+          ${FILAMENT_COLOURS.map(c=>`
+            <div class="cp-option" onclick="selectLayerColour(${l.id},'${c.code}','${c.name}')">
+              <div class="cp-swatch" style="background:${c.code}"></div>
+              <span>${c.name}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`).join('');
+
+  // Layer settings in accordion
+  const settingsEl = document.getElementById('layerSettings');
+  settingsEl.innerHTML = layerConfig.map(l=>`
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px">
+        <div style="width:10px;height:10px;border-radius:2px;background:${l.colour};border:1px solid rgba(255,255,255,0.15)"></div>
+        ${l.label}
+      </div>
+      <div class="layer-setting-row"><label>Border (mm)</label><input type="number" id="b${l.id}" value="${l.border}" min="0" max="20" step="0.5" onchange="layerConfig[${l.id-1}].border=+this.value;scheduleRender()"></div>
+      <div class="layer-setting-row" style="margin-top:4px"><label>Thickness (mm)</label><input type="number" id="t${l.id}" value="${l.thick}" min="0.5" max="10" step="0.5" onchange="layerConfig[${l.id-1}].thick=+this.value;scheduleRender()"></div>
+    </div>`).join('');
+
+  updateFileNamePreview();
+}
+
+function colourName(hex){
+  const c = FILAMENT_COLOURS.find(c=>c.code.toLowerCase()===hex.toLowerCase());
+  return c ? c.name : hex;
+}
+
+function toggleColourPicker(id, btn){
+  // Close any open picker
+  if(openPickerId && openPickerId !== id){
+    document.getElementById('cplist-'+openPickerId).style.display='none';
+  }
+  const list = document.getElementById('cplist-'+id);
+  if(list.style.display !== 'none'){ list.style.display='none'; openPickerId=null; return; }
+  // Position
+  const rect = btn.getBoundingClientRect();
+  list.style.top  = (rect.bottom+4)+'px';
+  list.style.left = rect.left+'px';
+  list.style.width = rect.width+'px';
+  list.style.display='';
+  openPickerId = id;
+}
+
+function selectLayerColour(id, code, name){
+  layerConfig[id-1].colour = code;
+  document.getElementById('cps-'+id).style.background = code;
+  document.getElementById('cpl-'+id).textContent = name;
+  document.getElementById('cplist-'+id).style.display='none';
+  openPickerId=null;
+  // Update settings swatch
+  buildLayerUI();
+  scheduleRender();
+}
+
+document.addEventListener('click', e=>{
+  if(openPickerId && !e.target.closest('.colour-picker-wrap')){
+    document.getElementById('cplist-'+openPickerId).style.display='none';
+    openPickerId=null;
+  }
+});
+
+// Accordion
+function toggleAccordion(){
+  const body = document.getElementById('accordionBody');
+  const chev = document.getElementById('accordionChevron');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  chev.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+// File name preview
+function updateFileNamePreview(){
+  const prefix = document.getElementById('filePrefix')?.value||'';
+  const suffix = document.getElementById('fileSuffix')?.value||'';
+  const name   = document.getElementById('nameInput')?.value||'NAME';
+  const parts  = [prefix, name, suffix].filter(Boolean);
+  const preview = document.getElementById('fileNamePreview');
+  if(preview) preview.textContent = parts.join(' ') + '.3mf';
+}
+['filePrefix','fileSuffix'].forEach(id=>{
+  document.addEventListener('input', e=>{ if(e.target.id===id) updateFileNamePreview(); });
+});
+
 // ── State ────────────────────────────────────────────────────
 let font = null;
 let renderTimer = null;
@@ -269,6 +449,63 @@ canvas.addEventListener('touchmove', e=>{
 
 function resetView(){ rotX=-0.3; rotY=0.3; zoom=1; }
 
+// ── Orientation cube ─────────────────────────────────────────
+const axesCanvas = document.getElementById('axesCanvas');
+const axesRenderer = new THREE.WebGLRenderer({canvas:axesCanvas, antialias:true, alpha:true});
+axesRenderer.setSize(80, 80);
+axesRenderer.setPixelRatio(window.devicePixelRatio);
+
+const axesScene  = new THREE.Scene();
+const axesCamera = new THREE.OrthographicCamera(-1.5,1.5,1.5,-1.5,0.1,10);
+axesCamera.position.set(0,0,5);
+axesCamera.lookAt(0,0,0);
+
+// Cube with coloured faces
+const cubeGeo = new THREE.BoxGeometry(1,1,1);
+const cubeMats = [
+  new THREE.MeshBasicMaterial({color:0xe05c5c}),  // +X red
+  new THREE.MeshBasicMaterial({color:0x883333}),  // -X dark red
+  new THREE.MeshBasicMaterial({color:0x5cb87a}),  // +Y green
+  new THREE.MeshBasicMaterial({color:0x336644}),  // -Y dark green
+  new THREE.MeshBasicMaterial({color:0x5b9cf6}),  // +Z blue
+  new THREE.MeshBasicMaterial({color:0x334488}),  // -Z dark blue
+];
+const axesCube = new THREE.Mesh(cubeGeo, cubeMats);
+axesScene.add(axesCube);
+
+// Labels
+const labelData = [
+  {text:'X', pos:[0.8,0,0], col:'#e05c5c'},
+  {text:'Y', pos:[0,0.8,0], col:'#5cb87a'},
+  {text:'Z', pos:[0,0,0.8], col:'#5b9cf6'},
+];
+labelData.forEach(l=>{
+  const c = document.createElement('canvas'); c.width=32; c.height=32;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = l.col; ctx.font='bold 20px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(l.text, 16, 16);
+  const tex = new THREE.CanvasTexture(c);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false}));
+  sp.position.set(...l.pos); sp.scale.set(0.4,0.4,1);
+  axesScene.add(sp);
+});
+axesScene.add(new THREE.AmbientLight(0xffffff,1));
+
+let showGrid = true;
+let showAxes = true;
+
+function toggleGrid(){
+  showGrid = !showGrid;
+  grid.visible = showGrid;
+  document.getElementById('toggleGridBtn').style.opacity = showGrid ? '1' : '0.4';
+}
+function toggleAxes(){
+  showAxes = !showAxes;
+  axesCanvas.style.display = showAxes ? '' : 'none';
+  document.getElementById('toggleAxesBtn').style.opacity = showAxes ? '1' : '0.4';
+}
+
 // Animate
 function animate(){
   requestAnimationFrame(animate);
@@ -277,6 +514,9 @@ function animate(){
   camera.position.set(0, -100*zoom, 200*zoom);
   camera.lookAt(0,0,0);
   renderer.render(scene, camera);
+  // Sync orientation cube
+  axesCube.rotation.copy(badgeGroup.rotation);
+  axesRenderer.render(axesScene, axesCamera);
 }
 animate();
 
@@ -294,6 +534,7 @@ opentype.load(FONT_PATH, (err, f)=>{
     return;
   }
   font = f;
+  buildLayerUI();
   setStatus('Font loaded — ready.');
   buildBadge();
 });
@@ -422,7 +663,8 @@ function getTextShapes(text, fsize, filled){
     const kern = i < glyphs.length-1 
       ? font.getKerningValue(glyph, glyphs[i+1]) * (fsize / font.unitsPerEm)
       : 0;
-    x += adv + kern;
+    const spacing = parseFloat(document.getElementById('letterSpacing')?.value||0);
+    x += adv + kern + spacing;
   }
   return allShapes;
 }
@@ -515,13 +757,7 @@ function buildBadge(){
   if(!font){ return; }
   const name = document.getElementById('nameInput').value.toUpperCase()||'NAME';
   const fsize= parseFloat(document.getElementById('fontSize').value)||49;
-  const b1=parseFloat(document.getElementById('b1').value)||6;
-  const b2=parseFloat(document.getElementById('b2').value)||4;
-  const b3=parseFloat(document.getElementById('b3').value)||2;
-  const t1=parseFloat(document.getElementById('t1').value)||3;
-  const t2=parseFloat(document.getElementById('t2').value)||1;
-  const t3=parseFloat(document.getElementById('t3').value)||1;
-  const t4=parseFloat(document.getElementById('t4').value)||1;
+
 
   // Clear previous
   while(badgeGroup.children.length) badgeGroup.remove(badgeGroup.children[0]);
@@ -533,12 +769,11 @@ function buildBadge(){
   const cx = bounds.minX + bounds.w/2;
   const cy = -(bounds.minY + bounds.h/2);
 
-  const layers = [
-    {border:b1, thick:t1, z:0,        colour:0xFF0000, filled:true},
-    {border:b2, thick:t2, z:t1,       colour:0xF4EE2A, filled:true},
-    {border:b3, thick:t3, z:t1+t2,    colour:0x000000, filled:true},
-    {border:0,  thick:t4, z:t1+t2+t3, colour:0xFFFFFF, filled:false},
-  ];
+  let zOff=0;
+  const layers = layerConfig.map((l,i)=>{
+    const z=zOff; zOff+=l.thick;
+    return {border:l.border, thick:l.thick, z, colour:parseInt(l.colour.replace('#',''),16), filled:i<3};
+  });
 
   for(const layer of layers){
     // Get shapes using THREE.ShapePath — handles all letter/hole topology correctly
@@ -649,23 +884,16 @@ function exportTMF(){
   if(!font){ setStatus('Font not loaded.','err'); return; }
   const name = document.getElementById('nameInput').value.toUpperCase()||'NAME';
   const fsize= parseFloat(document.getElementById('fontSize').value)||49;
-  const b1=parseFloat(document.getElementById('b1').value)||6;
-  const b2=parseFloat(document.getElementById('b2').value)||4;
-  const b3=parseFloat(document.getElementById('b3').value)||2;
-  const t1=parseFloat(document.getElementById('t1').value)||3;
-  const t2=parseFloat(document.getElementById('t2').value)||1;
-  const t3=parseFloat(document.getElementById('t3').value)||1;
-  const t4=parseFloat(document.getElementById('t4').value)||1;
+
 
   setStatus('Generating 3MF…');
 
   const contours = getTextContours(name, fsize);
-  const layers = [
-    {border:b1, thick:t1, z:0,        colour:'#FF0000', name:'red',    extruder:1, filled:true},
-    {border:b2, thick:t2, z:t1,       colour:'#F4EE2A', name:'yellow', extruder:2, filled:true},
-    {border:b3, thick:t3, z:t1+t2,    colour:'#000000', name:'black',  extruder:3, filled:true},
-    {border:0,  thick:t4, z:t1+t2+t3, colour:'#FFFFFF', name:'white',  extruder:4, filled:false},
-  ];
+  let zOff2=0;
+  const layers = layerConfig.map((l,i)=>{
+    const z=zOff2; zOff2+=l.thick;
+    return {border:l.border, thick:l.thick, z, colour:l.colour, name:`layer${i+1}`, extruder:i+1, filled:i<3};
+  });
 
   // Generate mesh for each layer using same approach as preview
   const objects = layers.map((layer, idx) => {
@@ -685,10 +913,13 @@ function exportTMF(){
 
     const extrudeSettings = {depth:layer.thick, bevelEnabled:false, curveSegments:12};
     const geo = new THREE.ExtrudeGeometry(finalShapes, extrudeSettings);
-    // Convert to non-indexed for 3MF (easier to export)
-    const nonIndexed = geo.toNonIndexed();
-    nonIndexed.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, layer.z));
-    return {geo: nonIndexed, ...layer, id:idx+1};
+    // Merge duplicate vertices for watertight manifold mesh
+    const merged = THREE.BufferGeometryUtils 
+      ? THREE.BufferGeometryUtils.mergeVertices(geo)
+      : geo;
+    merged.computeVertexNormals();
+    merged.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, layer.z));
+    return {geo: merged, ...layer, id:idx+1};
   }).filter(Boolean);
 
   // Build 3MF XML
@@ -696,7 +927,11 @@ function exportTMF(){
 
   // Package as zip using JSZip-free approach (simple zip builder)
   const zip = buildZip(xml, name);
-  downloadBlob(zip, `badge_${name}.3mf`, 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
+  const prefix=(document.getElementById('filePrefix')?.value||'').trim();
+  const suffix=(document.getElementById('fileSuffix')?.value||'').trim();
+  const parts=[prefix,name,suffix].filter(Boolean);
+  const filename=parts.join(' ')+'.3mf';
+  downloadBlob(zip, filename, 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
   setStatus(`Exported badge_${name}.3mf`, 'ok');
 }
 
@@ -708,15 +943,23 @@ function build3MF(objects, name){
   objects.forEach(obj => {
     const {geo, id} = obj;
     const pos = geo.attributes.position;
+    const idx = geo.index;
 
     let vertices = '';
     for(let i=0; i<pos.count; i++){
       vertices += `   <vertex x="${pos.getX(i).toFixed(4)}" y="${pos.getY(i).toFixed(4)}" z="${pos.getZ(i).toFixed(4)}"/>\n`;
     }
     let triangles = '';
-    // Non-indexed: every 3 vertices = 1 triangle
-    for(let i=0; i<pos.count; i+=3){
-      triangles += `   <triangle v1="${i}" v2="${i+1}" v3="${i+2}"/>\n`;
+    if(idx){
+      // Indexed geometry — proper shared vertices = watertight mesh
+      for(let i=0; i<idx.count; i+=3){
+        triangles += `   <triangle v1="${idx.getX(i)}" v2="${idx.getX(i+1)}" v3="${idx.getX(i+2)}"/>\n`;
+      }
+    } else {
+      // Fallback non-indexed
+      for(let i=0; i<pos.count; i+=3){
+        triangles += `   <triangle v1="${i}" v2="${i+1}" v3="${i+2}"/>\n`;
+      }
     }
 
     objectsXml += `  <object id="${id}" type="model" name="${obj.name}">
