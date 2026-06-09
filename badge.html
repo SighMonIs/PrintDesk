@@ -208,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.3.5
+        v1.3.6
       </div>
     </div>
 
@@ -661,17 +661,7 @@ const dl=new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(50,-50,100); 
 const fl=new THREE.DirectionalLight(0xffffff,0.3); fl.position.set(-50,50,50); scene.add(fl);
 const grid=new THREE.GridHelper(300,30,0x333337,0x222225); scene.add(grid);
 
-// Axis arrows group
-const arrowLen=40;
-const arrowGroup = new THREE.Group();
-arrowGroup.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(0,0,0),arrowLen,0xe05c5c,6,4));
-arrowGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,0),arrowLen,0x5cb87a,6,4));
-arrowGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,0),arrowLen,0x5b9cf6,6,4));
-function makeLabel(text,col){const c=document.createElement('canvas');c.width=48;c.height=48;const ctx=c.getContext('2d');ctx.fillStyle=col;ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,24,24);const t=new THREE.CanvasTexture(c);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false}));s.scale.set(8,8,1);return s;}
-const lx=makeLabel('X','#e05c5c');lx.position.set(arrowLen+6,0,0);arrowGroup.add(lx);
-const ly=makeLabel('Y','#5cb87a');ly.position.set(0,arrowLen+6,0);arrowGroup.add(ly);
-const lz=makeLabel('Z','#5b9cf6');lz.position.set(0,0,arrowLen+6);arrowGroup.add(lz);
-scene.add(arrowGroup);
+// Axis arrows removed
 
 const badgeGroup=new THREE.Group(); scene.add(badgeGroup);
 
@@ -689,9 +679,8 @@ canvas.addEventListener('touchmove',e=>{rotY+=(e.touches[0].clientX-ltX)*0.01;ro
 
 // Orientation cube removed
 
-let showGrid=true,showAxes=true,showArrows=true;
+let showGrid=true,showAxes=true;
 function toggleGrid(){showGrid=!showGrid;grid.visible=showGrid;document.getElementById('toggleGridBtn').style.opacity=showGrid?'1':'0.4';}
-function toggleArrows(){showArrows=!showArrows;arrowGroup.visible=showArrows;document.getElementById('toggleArrowsBtn').style.opacity=showArrows?'1':'0.4';}
 function toggleAxes(){showAxes=!showAxes;document.getElementById('toggleAxesBtn').style.opacity=showAxes?'1':'0.4';}
 
 function animate(){
