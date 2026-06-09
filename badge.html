@@ -145,10 +145,6 @@ canvas{display:block;}
       <input type="text" id="nameInput" value="WADE" maxlength="20" placeholder="Enter name…"
         style="height:40px;padding:0 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:18px;font-family:ui-monospace,monospace;font-weight:600;letter-spacing:2px;text-transform:uppercase;outline:none;width:100%"
         oninput="onNameChange()">
-      <div class="hole-warning" id="holeWarning" style="display:none;margin-top:8px">
-        <i class="ti ti-alert-triangle"></i>
-        <span id="holeWarningText">Letters with holes detected — automatically filled on backing layers.</span>
-      </div>
     </div>
 
     <!-- Layer colours -->
@@ -204,7 +200,7 @@ canvas{display:block;}
     <div class="status" id="status">Loading font…</div>
 
     <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-      v1.1.1
+      v1.1.2
     </div>
 
   </div>
@@ -1089,6 +1085,7 @@ function downloadBlob(data, filename, type){
 
 // Initial state
 document.getElementById('exportBtn').disabled = true;
+buildLayerUI();
 </script>
 </body>
 </html>
