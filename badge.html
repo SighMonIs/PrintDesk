@@ -217,7 +217,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.5.1
+        v1.5.2
       </div>
     </div>
 
@@ -256,6 +256,17 @@ canvas{display:block;}
       </button>
 
       <div class="preview-label">Drag to rotate · Scroll to zoom</div>
+
+      <!-- Step viewer -->
+      <div id="stepViewer" style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+        display:flex;align-items:center;gap:8px;background:rgba(24,24,27,0.85);
+        border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;min-width:300px">
+        <button onclick="stepChange(-1)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&#8592;</button>
+        <input type="range" id="stepSlider" min="0" max="4" step="1" value="4"
+          style="flex:1;accent-color:var(--accent)" oninput="showStep(+this.value)">
+        <button onclick="stepChange(1)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&#8594;</button>
+        <span id="stepLabel" style="font-size:11px;color:var(--muted);white-space:nowrap;min-width:160px;text-align:center;font-family:ui-monospace,monospace"></span>
+      </div>
     </div>
   </main>
 </div>
@@ -965,6 +976,160 @@ function buildZip(xml){
 
 function crc32(data){let c=0xFFFFFFFF;for(let i=0;i<data.length;i++){c^=data[i];for(let j=0;j<8;j++)c=(c>>>1)^(c&1?0xEDB88320:0);}return(c^0xFFFFFFFF)>>>0;}
 function downloadBlob(data,filename,type){const b=new Blob([data],{type});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=filename;a.click();URL.revokeObjectURL(u);}
+
+
+// ── Step viewer ───────────────────────────────────────────────
+let stepData = []; // Each step: {label, shapes, zOff, colour, filled}
+let currentStep = 4;
+
+const STEP_LABELS = [
+  'Step 1: Raw glyph outlines',
+  'Step 2: Combined into single path',
+  'Step 3: Expanded by border offset',
+  'Step 4: Merged & holes removed',
+  'Step 5: Final all layers',
+];
+
+function stepChange(dir){
+  const slider = document.getElementById('stepSlider');
+  const next = Math.max(0, Math.min(4, currentStep + dir));
+  slider.value = next;
+  showStep(next);
+}
+
+function showStep(n){
+  currentStep = n;
+  document.getElementById('stepLabel').textContent = STEP_LABELS[n]||'';
+  if(!font || !layerConfig.length) return;
+
+  const name = document.getElementById('nameInput').value.toUpperCase()||'NAME';
+  const fsize = parseFloat(document.getElementById('fontSize').value)||49;
+
+  // Clear badge group (keep grid)
+  badgeGroup.children.filter(c=>c!==grid).forEach(c=>badgeGroup.remove(c));
+
+  const glyphs = font.stringToGlyphs(name);
+  const spacing = parseFloat(document.getElementById('letterSpacing')?.value||0);
+  let x = 0;
+
+  if(n === 0){
+    // Step 1: raw per-glyph outlines, flat, wireframe
+    for(let i=0;i<glyphs.length;i++){
+      const g=glyphs[i];
+      const path=g.getPath(x,0,fsize);
+      const shapes=otPathToShapes(path,false);
+      shapes.forEach(s=>{
+        const pts=s.getPoints(24);
+        const geo=new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p.x,p.y,0)));
+        geo.setIndex([...Array(pts.length).keys(), 0]);
+        badgeGroup.add(new THREE.LineLoop(geo, new THREE.LineBasicMaterial({color:0x5b9cf6})));
+      });
+      x+=glyphs[i].advanceWidth*(fsize/font.unitsPerEm)+spacing;
+    }
+  } else if(n === 1){
+    // Step 2: combined single path
+    const combinedPath=new THREE.ShapePath();
+    for(let i=0;i<glyphs.length;i++){
+      const g=glyphs[i]; const path=g.getPath(x,0,fsize);
+      for(const cmd of path.commands){
+        switch(cmd.type){
+          case 'M':combinedPath.moveTo(cmd.x,-cmd.y);break;
+          case 'L':combinedPath.lineTo(cmd.x,-cmd.y);break;
+          case 'C':combinedPath.bezierCurveTo(cmd.x1,-cmd.y1,cmd.x2,-cmd.y2,cmd.x,-cmd.y);break;
+          case 'Q':combinedPath.quadraticCurveTo(cmd.x1,-cmd.y1,cmd.x,-cmd.y);break;
+          case 'Z':combinedPath.currentPath.closePath();break;
+        }
+      }
+      x+=glyphs[i].advanceWidth*(fsize/font.unitsPerEm)+spacing;
+    }
+    const shapes=combinedPath.toShapes(false);
+    shapes.forEach((s,i)=>{
+      const pts=s.getPoints(24);
+      const geo=new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p.x,p.y,0)));
+      geo.setIndex([...Array(pts.length).keys(), 0]);
+      badgeGroup.add(new THREE.LineLoop(geo, new THREE.LineBasicMaterial({color:[0xff0000,0xf4ee2a,0x4488ff,0xffffff][i%4]})));
+    });
+  } else if(n === 2){
+    // Step 3: show each layer expanded by border, not yet merged
+    const combinedPath=new THREE.ShapePath();
+    for(let i=0;i<glyphs.length;i++){
+      const g=glyphs[i]; const path=g.getPath(x,0,fsize);
+      for(const cmd of path.commands){
+        switch(cmd.type){
+          case 'M':combinedPath.moveTo(cmd.x,-cmd.y);break;
+          case 'L':combinedPath.lineTo(cmd.x,-cmd.y);break;
+          case 'C':combinedPath.bezierCurveTo(cmd.x1,-cmd.y1,cmd.x2,-cmd.y2,cmd.x,-cmd.y);break;
+          case 'Q':combinedPath.quadraticCurveTo(cmd.x1,-cmd.y1,cmd.x,-cmd.y);break;
+          case 'Z':combinedPath.currentPath.closePath();break;
+        }
+      }
+      x+=glyphs[i].advanceWidth*(fsize/font.unitsPerEm)+spacing;
+    }
+    const shapes=combinedPath.toShapes(false);
+    shapes.forEach(s=>{ s.holes=[]; });
+    layerConfig.filter(l=>l.filled).forEach((l,li)=>{
+      const expanded=shapes.map(s=>{
+        const pts=s.getPoints(24);
+        return offsetContour(pts.map(p=>({x:p.x,y:p.y})), l.border>0?l.border:0.1);
+      });
+      expanded.forEach(pts=>{
+        const geo=new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p.x,p.y,li*5)));
+        geo.setIndex([...Array(pts.length).keys(), 0]);
+        badgeGroup.add(new THREE.LineLoop(geo, new THREE.LineBasicMaterial({color:parseInt(l.colourHex.replace('#',''),16)})));
+      });
+    });
+  } else if(n === 3){
+    // Step 4: merged and holes removed
+    const combinedPath=new THREE.ShapePath();
+    for(let i=0;i<glyphs.length;i++){
+      const g=glyphs[i]; const path=g.getPath(x,0,fsize);
+      for(const cmd of path.commands){
+        switch(cmd.type){
+          case 'M':combinedPath.moveTo(cmd.x,-cmd.y);break;
+          case 'L':combinedPath.lineTo(cmd.x,-cmd.y);break;
+          case 'C':combinedPath.bezierCurveTo(cmd.x1,-cmd.y1,cmd.x2,-cmd.y2,cmd.x,-cmd.y);break;
+          case 'Q':combinedPath.quadraticCurveTo(cmd.x1,-cmd.y1,cmd.x,-cmd.y);break;
+          case 'Z':combinedPath.currentPath.closePath();break;
+        }
+      }
+      x+=glyphs[i].advanceWidth*(fsize/font.unitsPerEm)+spacing;
+    }
+    const shapes=combinedPath.toShapes(false);
+    shapes.forEach(s=>{ s.holes=[]; });
+    layerConfig.filter(l=>l.filled).forEach((l,li)=>{
+      const expanded=shapes.map(s=>{
+        const pts=s.getPoints(24);
+        return offsetContour(pts.map(p=>({x:p.x,y:p.y})), l.border>0?l.border:0.1);
+      });
+      const mergePath=new THREE.ShapePath();
+      expanded.forEach(pts=>{ if(!pts.length)return; mergePath.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>mergePath.lineTo(p.x,p.y)); mergePath.currentPath.closePath(); });
+      const merged=mergePath.toShapes(false);
+      merged.forEach(s=>{ s.holes=[]; });
+      const clean=removeEnclosed(merged);
+      clean.forEach(s=>{
+        const pts=s.getPoints(24);
+        const geo=new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p.x,p.y,li*5)));
+        geo.setIndex([...Array(pts.length).keys(), 0]);
+        badgeGroup.add(new THREE.LineLoop(geo, new THREE.LineBasicMaterial({color:parseInt(l.colourHex.replace('#',''),16)})));
+      });
+    });
+  } else {
+    // Step 5: full render
+    buildBadge();
+    return;
+  }
+
+  // Centre
+  const bounds = getBounds(getTextContours(name,fsize));
+  const cx=bounds.minX+bounds.w/2, cy=-(bounds.minY+bounds.h/2);
+  badgeGroup.position.set(-cx, cy, 0);
+}
+
+// Init step viewer label
+document.addEventListener('DOMContentLoaded',()=>{
+  const sl=document.getElementById('stepSlider');
+  if(sl){ sl.max=4; sl.value=4; document.getElementById('stepLabel').textContent=STEP_LABELS[4]; }
+});
 
 // ── Boot ──────────────────────────────────────────────────────
 (async()=>{
