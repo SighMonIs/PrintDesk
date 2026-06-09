@@ -390,21 +390,18 @@ function otPathToThreeShapes(otPath, filled){
       case 'Z': shapePath.currentPath.closePath(); break;
     }
   }
-  // Try both winding orders — LEGO font uses CW for outer contours
-  // toShapes(true)  = treats CCW as outer (standard)
-  // toShapes(false) = treats CW as outer (needed for some fonts like LEGO)
+  // LEGO font uses CW winding for outer contours
+  // toShapes(false) = CW=outer, CCW=hole — correct for this font
+  // For filled (backing) layers: toShapes(false) but ignore holes
+  // For white layer: toShapes(false) to get letters with holes correct
   if(filled){
-    // Backing layer: solid fill, no holes — use false to get solid shapes
-    return shapePath.toShapes(false);
-  } else {
-    // White text layer: preserve holes — try true first (CCW=outer)
-    const shapes = shapePath.toShapes(true);
-    // If shapes have no holes, try false (CW=outer)
-    const hasHoles = shapes.some(s=>s.holes && s.holes.length > 0);
-    if(!hasHoles){
-      return shapePath.toShapes(false);
-    }
+    // Solid fill — get shapes then clear all holes
+    const shapes = shapePath.toShapes(false);
+    shapes.forEach(s=>{ s.holes = []; });
     return shapes;
+  } else {
+    // White text — keep holes as-is
+    return shapePath.toShapes(false);
   }
 }
 
@@ -561,7 +558,13 @@ function buildBadge(){
 
     const extrudeSettings = {depth:layer.thick, bevelEnabled:false, curveSegments:12};
     const geo = new THREE.ExtrudeGeometry(finalShapes, extrudeSettings);
-    const mat = new THREE.MeshPhongMaterial({color:layer.colour, shininess:layer.colour===0xFFFFFF?80:40});
+    const mat = new THREE.MeshPhongMaterial({
+      color: layer.colour,
+      shininess: layer.colour===0xFFFFFF ? 80 : 40,
+      polygonOffset: true,
+      polygonOffsetFactor: -layer.z,
+      polygonOffsetUnits: -1,
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(-cx, cy, layer.z);
     badgeGroup.add(mesh);
