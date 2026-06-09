@@ -37,8 +37,8 @@ header{padding:0.9rem 1.5rem;border-bottom:1px solid var(--border);display:flex;
 .header-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
 .user-chip{font-size:11px;color:var(--muted);padding:3px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:999px;}
 
-main{flex:1;display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 53px);overflow:hidden;min-height:0;}
-.panel{padding:1.25rem;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:1rem;overflow-y:scroll;overflow-x:hidden;min-height:0;max-height:100%;}
+main{flex:1;display:grid;grid-template-columns:300px 1fr;overflow:hidden;min-height:0;}
+.panel{padding:1.25rem;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:1rem;overflow-y:auto;overflow-x:hidden;min-height:0;height:calc(100vh - 53px);}
 .preview{position:relative;background:var(--surface);display:flex;align-items:center;justify-content:center;}
 canvas{display:block;}
 
@@ -73,7 +73,7 @@ canvas{display:block;}
 .combo-swatch{width:12px;height:12px;border-radius:2px;border:1px solid rgba(255,255,255,0.15);}
 
 /* ── Accordion ── */
-.accordion{border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;}
+.accordion{border:1px solid var(--border2);border-radius:var(--radius);}
 .accordion-btn{width:100%;padding:9px 12px;background:var(--surface2);border:none;color:var(--text);font-size:13px;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background 0.12s;}
 .accordion-btn:hover{background:var(--surface);}
 .accordion-body{padding:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
@@ -208,7 +208,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.4.2
+        v1.4.3
       </div>
     </div>
 
