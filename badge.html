@@ -198,7 +198,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.2.0
+        v1.2.1
       </div>
     </div>
 
@@ -211,6 +211,7 @@ canvas{display:block;}
         <button class="btn sm" id="toggleGridBtn" onclick="toggleGrid()"><i class="ti ti-grid-dots"></i> Grid</button>
         <button class="btn sm" id="toggleAxesBtn" onclick="toggleAxes()"><i class="ti ti-cube"></i> Axes</button>
         <button class="btn sm" onclick="toggleCamPanel('camAnglePanel')"><i class="ti ti-camera-cog"></i></button>
+        <button class="btn sm" id="toggleArrowsBtn" onclick="toggleArrows()" title="Toggle axis arrows"><i class="ti ti-arrow-up-right"></i> XYZ</button>
         <button class="btn sm" onclick="toggleCamPanel('camZoomPanel')"><i class="ti ti-zoom-in"></i></button>
       </div>
 
@@ -530,15 +531,17 @@ const dl=new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(50,-50,100); 
 const fl=new THREE.DirectionalLight(0xffffff,0.3); fl.position.set(-50,50,50); scene.add(fl);
 const grid=new THREE.GridHelper(300,30,0x333337,0x222225); scene.add(grid);
 
-// Axis arrows
+// Axis arrows group
 const arrowLen=40;
-scene.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(0,0,0),arrowLen,0xe05c5c,6,4));
-scene.add(new THREE.ArrowHelper(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,0),arrowLen,0x5cb87a,6,4));
-scene.add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,0),arrowLen,0x5b9cf6,6,4));
+const arrowGroup = new THREE.Group();
+arrowGroup.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(0,0,0),arrowLen,0xe05c5c,6,4));
+arrowGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,0),arrowLen,0x5cb87a,6,4));
+arrowGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,0),arrowLen,0x5b9cf6,6,4));
 function makeLabel(text,col){const c=document.createElement('canvas');c.width=48;c.height=48;const ctx=c.getContext('2d');ctx.fillStyle=col;ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,24,24);const t=new THREE.CanvasTexture(c);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false}));s.scale.set(8,8,1);return s;}
-const lx=makeLabel('X','#e05c5c');lx.position.set(arrowLen+6,0,0);scene.add(lx);
-const ly=makeLabel('Y','#5cb87a');ly.position.set(0,arrowLen+6,0);scene.add(ly);
-const lz=makeLabel('Z','#5b9cf6');lz.position.set(0,0,arrowLen+6);scene.add(lz);
+const lx=makeLabel('X','#e05c5c');lx.position.set(arrowLen+6,0,0);arrowGroup.add(lx);
+const ly=makeLabel('Y','#5cb87a');ly.position.set(0,arrowLen+6,0);arrowGroup.add(ly);
+const lz=makeLabel('Z','#5b9cf6');lz.position.set(0,0,arrowLen+6);arrowGroup.add(lz);
+scene.add(arrowGroup);
 
 const badgeGroup=new THREE.Group(); scene.add(badgeGroup);
 
@@ -566,10 +569,29 @@ const cubeGeo=new THREE.BoxGeometry(1,1,1);
 const cubeMats=[0xe05c5c,0x883333,0x5cb87a,0x336644,0x5b9cf6,0x334488].map(c=>new THREE.MeshBasicMaterial({color:c}));
 const axesCube=new THREE.Mesh(cubeGeo,cubeMats); axesScene.add(axesCube);
 axesScene.add(new THREE.AmbientLight(0xffffff,1));
-['X','Y','Z'].forEach((t,i)=>{const c=['#e05c5c','#5cb87a','#5b9cf6'][i];const cv=document.createElement('canvas');cv.width=32;cv.height=32;const ctx=cv.getContext('2d');ctx.fillStyle=c;ctx.font='bold 20px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,16,16);const tx=new THREE.CanvasTexture(cv);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false}));const pos=[[0.8,0,0],[0,0.8,0],[0,0,0.8]][i];sp.position.set(...pos);sp.scale.set(0.4,0.4,1);axesScene.add(sp);});
+// Axes cube face labels — added to cube so they rotate with it
+// Use text on each face via canvas texture on the cube material instead
+// Actually keep as sprites but attach to axesCube so they rotate with it
+const axesLabels = [];
+['X','Y','Z'].forEach((t,i)=>{
+  const c=['#e05c5c','#5cb87a','#5b9cf6'][i];
+  const cv=document.createElement('canvas');cv.width=64;cv.height=64;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle=c;ctx.font='bold 40px sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(t,32,32);
+  const tx=new THREE.CanvasTexture(cv);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,sizeAttenuation:false}));
+  const pos=[[0.6,0,0],[0,0.6,0],[0,0,0.6]][i];
+  sp.position.set(...pos);
+  sp.scale.set(0.08,0.08,1);
+  axesCube.add(sp);  // attach to cube so labels rotate with it
+  axesLabels.push(sp);
+});
 
-let showGrid=true,showAxes=true;
+let showGrid=true,showAxes=true,showArrows=true;
 function toggleGrid(){showGrid=!showGrid;grid.visible=showGrid;document.getElementById('toggleGridBtn').style.opacity=showGrid?'1':'0.4';}
+function toggleArrows(){showArrows=!showArrows;arrowGroup.visible=showArrows;document.getElementById('toggleArrowsBtn').style.opacity=showArrows?'1':'0.4';}
 function toggleAxes(){showAxes=!showAxes;axesCanvas.style.display=showAxes?'':'none';document.getElementById('toggleAxesBtn').style.opacity=showAxes?'1':'0.4';}
 
 function animate(){
