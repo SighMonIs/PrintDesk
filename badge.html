@@ -174,13 +174,12 @@ canvas{display:block;}
           <div class="section-title" style="margin-top:4px">Layer Settings</div>
           <div id="layerSettings" style="display:flex;flex-direction:column;gap:6px"></div>
           <div class="section-title" style="margin-top:4px">File Name</div>
-          <div style="display:flex;gap:6px;align-items:center">
+          <div style="display:flex;flex-direction:column;gap:6px">
             <input type="text" id="filePrefix" placeholder="Prefix"
-              style="flex:1;height:28px;padding:0 8px;font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none"
+              style="height:28px;padding:0 8px;font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;width:100%"
               oninput="updateFileNamePreview()">
-            <span style="font-size:11px;color:var(--muted);flex-shrink:0">NAME</span>
             <input type="text" id="fileSuffix" placeholder="Suffix"
-              style="flex:1;height:28px;padding:0 8px;font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none"
+              style="height:28px;padding:0 8px;font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;width:100%"
               oninput="updateFileNamePreview()">
           </div>
           <div style="font-size:10px;color:var(--muted)" id="fileNamePreview"></div>
@@ -198,7 +197,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.2.4
+        v1.2.5
       </div>
     </div>
 
