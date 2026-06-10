@@ -217,7 +217,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.5.8
+        v1.5.9
       </div>
     </div>
 
@@ -694,6 +694,139 @@ function setStatus(msg,cls=''){
   const el=document.getElementById('status'); el.textContent=msg; el.className='status'+(cls?' '+cls:'');
 }
 
+
+// ── Canvas-based clean shape generation ──────────────────────
+// Rasterizes glyphs onto a canvas with border blur, then traces
+// the outline using marching squares to get a clean outer contour
+function getFilledShapes(text, fsize, border, spacing){
+  if(!font) return [];
+  const glyphs = font.stringToGlyphs(text);
+  const SCALE = 2; // px per mm
+  const PAD = Math.ceil(border * SCALE) + 4;
+
+  // Calculate total width
+  let totalW = 0;
+  glyphs.forEach((g,i)=>{
+    totalW += g.advanceWidth*(fsize/font.unitsPerEm);
+    if(i<glyphs.length-1) totalW += font.getKerningValue(g,glyphs[i+1])*(fsize/font.unitsPerEm) + (spacing||0);
+  });
+
+  // Get text bounds
+  const contours = getTextContours(text, fsize);
+  const bounds = getBounds(contours);
+  const W = Math.ceil((bounds.w + border*2 + 8) * SCALE);
+  const H = Math.ceil((bounds.h + border*2 + 8) * SCALE);
+  const offX = (-bounds.minX + border + 4) * SCALE;
+  const offY = (-bounds.minY + border + 4) * SCALE;
+
+  // Draw glyphs onto canvas
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+
+  // Draw each glyph using its path
+  ctx.fillStyle = '#000';
+  let px = 0;
+  for(let i=0;i<glyphs.length;i++){
+    const g = glyphs[i];
+    const path = g.getPath(px, 0, fsize);
+    ctx.beginPath();
+    for(const cmd of path.commands){
+      switch(cmd.type){
+        case 'M': ctx.moveTo((cmd.x+offX/SCALE)*SCALE, (-cmd.y+offY/SCALE)*SCALE); break;
+        case 'L': ctx.lineTo((cmd.x+offX/SCALE)*SCALE, (-cmd.y+offY/SCALE)*SCALE); break;
+        case 'C': ctx.bezierCurveTo((cmd.x1+offX/SCALE)*SCALE,(-cmd.y1+offY/SCALE)*SCALE,(cmd.x2+offX/SCALE)*SCALE,(-cmd.y2+offY/SCALE)*SCALE,(cmd.x+offX/SCALE)*SCALE,(-cmd.y+offY/SCALE)*SCALE); break;
+        case 'Q': ctx.quadraticCurveTo((cmd.x1+offX/SCALE)*SCALE,(-cmd.y1+offY/SCALE)*SCALE,(cmd.x+offX/SCALE)*SCALE,(-cmd.y+offY/SCALE)*SCALE); break;
+        case 'Z': ctx.closePath(); break;
+      }
+    }
+    ctx.fill('evenodd');
+    const adv = g.advanceWidth*(fsize/font.unitsPerEm);
+    const kern = i<glyphs.length-1 ? font.getKerningValue(g,glyphs[i+1])*(fsize/font.unitsPerEm) : 0;
+    px += adv + kern + (spacing||0);
+  }
+
+  // Expand by border using shadowBlur trick
+  if(border > 0){
+    const cv2 = document.createElement('canvas');
+    cv2.width = W; cv2.height = H;
+    const ctx2 = cv2.getContext('2d');
+    const blurPx = border * SCALE;
+    ctx2.shadowColor = '#000';
+    ctx2.shadowBlur = blurPx;
+    ctx2.drawImage(cv, 0, 0);
+    // Threshold the blurred result
+    const cv3 = document.createElement('canvas');
+    cv3.width = W; cv3.height = H;
+    const ctx3 = cv3.getContext('2d');
+    ctx3.drawImage(cv2, 0, 0);
+    const imgData = ctx3.getImageData(0,0,W,H);
+    const d = imgData.data;
+    for(let i=0;i<d.length;i+=4){
+      const a = d[i+3];
+      const v = a > 30 ? 255 : 0;
+      d[i]=d[i+1]=d[i+2]=v; d[i+3]=255;
+    }
+    ctx3.putImageData(imgData,0,0);
+    // Use marching squares to trace outline
+    return traceCanvasOutline(ctx3, W, H, SCALE, offX, offY);
+  }
+
+  return traceCanvasOutline(ctx, W, H, SCALE, offX, offY);
+}
+
+// Marching squares contour tracing
+function traceCanvasOutline(ctx, W, H, SCALE, offX, offY){
+  const imgData = ctx.getImageData(0,0,W,H);
+  const d = imgData.data;
+  function px(x,y){ if(x<0||y<0||x>=W||y>=H) return 0; return d[(y*W+x)*4] > 128 ? 1 : 0; }
+
+  // Find all outer contours using simple boundary tracing
+  const visited = new Uint8Array(W*H);
+  const shapes = [];
+
+  for(let sy=1;sy<H-1;sy++){
+    for(let sx=1;sx<W-1;sx++){
+      if(visited[sy*W+sx]) continue;
+      if(px(sx,sy)===1 && px(sx-1,sy)===0){
+        // Found left edge of a filled region — trace boundary
+        const pts = [];
+        let x=sx,y=sy,dir=0; // dir: 0=right,1=down,2=left,3=up
+        const startX=sx,startY=sy;
+        let steps=0;
+        do {
+          visited[y*W+x]=1;
+          pts.push({
+            x: (x/SCALE - offX/SCALE),
+            y: (y/SCALE - offY/SCALE)
+          });
+          // Moore neighbourhood tracing
+          const right=[[1,0],[0,1],[-1,0],[0,-1]];
+          let turned=false;
+          for(let t=0;t<4;t++){
+            const nd=(dir+3+t)%4;
+            const nx=x+right[nd][0], ny=y+right[nd][1];
+            if(px(nx,ny)===1){
+              x=nx;y=ny;dir=nd;turned=true;break;
+            }
+          }
+          if(!turned) break;
+          steps++;
+        } while((x!==startX||y!==startY) && steps<10000);
+
+        if(pts.length > 10){
+          // Simplify — take every 3rd point
+          const simplified = pts.filter((_,i)=>i%3===0);
+          if(simplified.length > 4){
+            shapes.push(new THREE.Shape(simplified.map(p=>new THREE.Vector2(p.x, p.y))));
+          }
+        }
+      }
+    }
+  }
+  return removeEnclosed(shapes);
+}
+
 // ── Three.js ──────────────────────────────────────────────────
 const canvas   = document.getElementById('canvas');
 const pane     = document.getElementById('previewPane');
@@ -895,24 +1028,7 @@ function buildBadge(){
     if(!shapes.length){zOff+=l.thick;continue;}
     let finalShapes=shapes;
     if(l.filled){
-      // NEW PIPELINE: expand each source shape by border FIRST, then combine, then clean
-      // Step 1: expand each shape by border
-      const expanded = shapes.map(s=>{
-        const pts = s.getPoints(24);
-        return offsetContour(pts.map(p=>({x:p.x,y:p.y})), l.border > 0 ? l.border : 0.1);
-      });
-      // Step 2: combine all expanded shapes into one ShapePath
-      const mergePath = new THREE.ShapePath();
-      expanded.forEach(pts=>{
-        if(!pts.length) return;
-        mergePath.moveTo(pts[0].x, pts[0].y);
-        pts.slice(1).forEach(p=>mergePath.lineTo(p.x, p.y));
-        mergePath.currentPath.closePath();
-      });
-      // Step 3: get shapes, clear holes, remove enclosed inner geometry
-      const merged = mergePath.toShapes(false);
-      merged.forEach(s=>{ s.holes=[]; });
-      finalShapes = removeEnclosed(merged);
+      finalShapes = getFilledShapes(name, fsize, l.border, spacing);
     } else if(l.border > 0){
       finalShapes = shapes.map(s=>{ const pts=s.getPoints(12); const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border); return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y))); });
     }
