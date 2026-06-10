@@ -264,13 +264,16 @@ function buildBadge(){
     zOff+=l.thick; layerIdx++;
   }
 
-  // Add cutout visualisation (shown as dark inset on back face)
+  console.log('Badge bounds:', bounds, 'cx:', cx, 'cy:', cy);
+  // Add cutout visualisation on back face
+  // Position at (0,0,0) in group space since all meshes are already offset by (-cx,cy)
+  // and the group centre handles the rest
   const backing = getBackingConfig();
   if(backing){
     const geo = makeCutoutGeo(backing.w, backing.h, backing.d);
     const mat = new THREE.MeshPhongMaterial({color:0x111111, shininess:0});
     const mesh = new THREE.Mesh(geo, mat);
-    // Same centre offset as other layers, z=0 is the back face
+    // Use same offset as other layers so it centres with the badge
     mesh.position.set(-cx, cy, 0);
     badgeGroup.add(mesh);
   }
