@@ -141,114 +141,30 @@ function getTextContours(text,fsize){
 
 function getBounds(contours){ let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity; for(const c of contours)for(const p of c){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);} return{minX,maxX,minY,maxY,w:maxX-minX,h:maxY-minY}; }
 
-// ── Canvas-based filled shape generation ──────────────────────
-function buildCanvas2D(text, fsize, border, spacing){
-  if(!font) return null;
-  const glyphs=font.stringToGlyphs(text);
-  const SCALE=4;  // 4px per mm for accurate border dilation
-  const contours=getTextContours(text,fsize);
-  if(!contours.length) return null;
-  const bounds=getBounds(contours);
-  const W=Math.ceil((bounds.w+border*2+10)*SCALE);
-  const H=Math.ceil((bounds.h+border*2+10)*SCALE);
-  const PAD = border + 5;  // padding around text in mm
-  const offX = (-bounds.minX + PAD);
-  const offY = (bounds.maxY + PAD);  // maxY because canvas Y is flipped
+// ── Clipper-based clean polygon offset ───────────────────────
+// Uses integer coordinates (scale up then down) for precision
+const CLIPPER_SCALE = 1000;
 
-  // Draw glyphs filled
-  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
-  const ctx=cv.getContext('2d');
-  ctx.fillStyle='#000';
-  let px=0;
-  for(let i=0;i<glyphs.length;i++){
-    const g=glyphs[i];
-    const path=g.getPath(px,0,fsize);
-    ctx.beginPath();
-    for(const cmd of path.commands){
-      switch(cmd.type){
-        case 'M':ctx.moveTo((cmd.x+offX)*SCALE,(-cmd.y+offY)*SCALE);break;
-        case 'L':ctx.lineTo((cmd.x+offX)*SCALE,(-cmd.y+offY)*SCALE);break;
-        case 'C':ctx.bezierCurveTo((cmd.x1+offX)*SCALE,(-cmd.y1+offY)*SCALE,(cmd.x2+offX)*SCALE,(-cmd.y2+offY)*SCALE,(cmd.x+offX)*SCALE,(-cmd.y+offY)*SCALE);break;
-        case 'Q':ctx.quadraticCurveTo((cmd.x1+offX)*SCALE,(-cmd.y1+offY)*SCALE,(cmd.x+offX)*SCALE,(-cmd.y+offY)*SCALE);break;
-        case 'Z':ctx.closePath();break;
-      }
-    }
-    ctx.fill('nonzero');
-    px+=g.advanceWidth*(fsize/font.unitsPerEm)+(i<glyphs.length-1?font.getKerningValue(g,glyphs[i+1])*(fsize/font.unitsPerEm):0)+(spacing||0);
-  }
-
-  if(border<=0) return{cv,ctx,W,H,SCALE,offX,offY};
-
-  // Dilate by border
-  const cv2=document.createElement('canvas'); cv2.width=W; cv2.height=H;
-  const ctx2=cv2.getContext('2d');
-  const steps=Math.ceil(border*SCALE);
-  for(let dy=-steps;dy<=steps;dy++){
-    for(let dx=-steps;dx<=steps;dx++){
-      if(dx*dx+dy*dy<=steps*steps) ctx2.drawImage(cv,dx,dy);
-    }
-  }
-  return{cv:cv2,ctx:ctx2,W,H,SCALE,offX,offY};
+function pathToClipperPath(pts){
+  return pts.map(p=>({X:Math.round(p.x*CLIPPER_SCALE), Y:Math.round(p.y*CLIPPER_SCALE)}));
 }
 
-// Trace outer contour by sampling boundary at regular angular intervals from centroid
-// This approach is reliable and produces clean outlines
-function traceCanvasOutline(ctx,W,H,SCALE,offX,offY){
-  const imgData=ctx.getImageData(0,0,W,H);
-  const d=imgData.data;
-
-  // Check if pixel is filled - check both RGB and alpha
-  function isFilled(x,y){
-    if(x<0||y<0||x>=W||y>=H) return false;
-    const i=(y*W+x)*4;
-    return (d[i]<128&&d[i+3]>64)||(d[i]>128&&d[i+3]>64);
-  }
-
-  // Find centroid of filled pixels (sample every 4th pixel for speed)
-  let cx=0,cy=0,count=0;
-  for(let y=0;y<H;y+=4){
-    for(let x=0;x<W;x+=4){
-      if(isFilled(x,y)){cx+=x;cy+=y;count++;}
-    }
-  }
-  if(!count) return [];
-  cx/=count; cy/=count;
-
-  // Cast rays from centroid at N angles, find furthest filled pixel
-  const N=240;
-  const pts=[];
-  for(let i=0;i<N;i++){
-    const angle=(i/N)*Math.PI*2;
-    const dx=Math.cos(angle), dy=Math.sin(angle);
-    let lastX=-1, lastY=-1;
-    // Walk outward until empty
-    for(let r=2;r<Math.max(W,H);r+=1){
-      const px=Math.round(cx+dx*r);
-      const py=Math.round(cy+dy*r);
-      if(isFilled(px,py)){lastX=px;lastY=py;}
-      else if(lastX>=0) break;
-    }
-    if(lastX>=0){
-      pts.push(new THREE.Vector2(lastX/SCALE-offX, lastY/SCALE-offY));
-    }
-  }
-  if(pts.length<8) return [];
-  return [new THREE.Shape(pts)];
+function clipperPathToVec2(path){
+  return path.map(p=>new THREE.Vector2(p.X/CLIPPER_SCALE, p.Y/CLIPPER_SCALE));
 }
 
-function getFilledShapes(text,fsize,border,spacing){
-  const result=buildCanvas2D(text,fsize,border,spacing||0);
-  if(!result) return [];
-  const{ctx,W,H,SCALE,offX,offY}=result;
-  const traced=traceCanvasOutline(ctx,W,H,SCALE,offX,offY);
-  if(traced.length) return traced;
-  // Fallback: use vector offset if canvas trace fails
-  console.warn('Canvas trace failed, using vector fallback');
-  if(!font) return [];
-  const glyphs=font.stringToGlyphs(text);
-  const sp=new THREE.ShapePath(); let x=0;
+function getFilledShapes(text, fsize, border, spacing){
+  if(!font||!ClipperLib) return [];
+  const glyphs = font.stringToGlyphs(text);
+  let x = 0;
+
+  // Collect all glyph contours as clipper paths
+  const clipPaths = [];
   for(let i=0;i<glyphs.length;i++){
-    const path=glyphs[i].getPath(x,0,fsize);
+    const g = glyphs[i];
+    const path = g.getPath(x, 0, fsize);
+    // Convert to Three ShapePath first to get clean contours
+    const sp = new THREE.ShapePath();
     for(const cmd of path.commands){
       switch(cmd.type){
         case 'M':sp.moveTo(cmd.x,-cmd.y);break;
@@ -258,12 +174,46 @@ function getFilledShapes(text,fsize,border,spacing){
         case 'Z':sp.currentPath.closePath();break;
       }
     }
-    x+=glyphs[i].advanceWidth*(fsize/font.unitsPerEm)+(i<glyphs.length-1?font.getKerningValue(glyphs[i],glyphs[i+1])*(fsize/font.unitsPerEm):0)+(spacing||0);
+    // Get shapes and convert to clipper paths
+    const shapes = sp.toShapes(false);
+    shapes.forEach(s=>{
+      const pts = s.getPoints(32);
+      if(pts.length>2) clipPaths.push(pathToClipperPath(pts));
+    });
+    x += g.advanceWidth*(fsize/font.unitsPerEm)
+       + (i<glyphs.length-1?font.getKerningValue(g,glyphs[i+1])*(fsize/font.unitsPerEm):0)
+       + (spacing||0);
   }
-  const shapes=sp.toShapes(false);
-  shapes.forEach(s=>{s.holes=[];});
-  return shapes;
+
+  if(!clipPaths.length) return [];
+
+  // Union all paths first to merge overlapping letters
+  const cpr = new ClipperLib.Clipper();
+  clipPaths.forEach(p => cpr.AddPath(p, ClipperLib.PolyType.ptSubject, true));
+  const unionResult = new ClipperLib.Paths();
+  cpr.Execute(ClipperLib.ClipType.ctUnion, unionResult,
+    ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+
+  if(!unionResult.length) return [];
+
+  // Offset outward by border amount
+  if(border > 0){
+    const co = new ClipperLib.ClipperOffset(2, 0.25);
+    co.AddPaths(unionResult, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon);
+    const offsetResult = new ClipperLib.Paths();
+    co.Execute(offsetResult, border * CLIPPER_SCALE);
+
+    // Keep only outer paths (positive area = CCW in clipper coords)
+    const outerPaths = offsetResult.filter(p => ClipperLib.Clipper.Area(p) > 0);
+    if(!outerPaths.length) return [];
+    return outerPaths.map(p => new THREE.Shape(clipperPathToVec2(p)));
+  }
+
+  // No border — return union shapes
+  const outerPaths = unionResult.filter(p => ClipperLib.Clipper.Area(p) > 0);
+  return outerPaths.map(p => new THREE.Shape(clipperPathToVec2(p)));
 }
+
 
 function getTextShapes(text,fsize,filled,spacing){
   if(!font) return [];
