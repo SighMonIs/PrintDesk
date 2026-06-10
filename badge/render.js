@@ -151,8 +151,9 @@ function buildCanvas2D(text, fsize, border, spacing){
   const bounds=getBounds(contours);
   const W=Math.ceil((bounds.w+border*2+10)*SCALE);
   const H=Math.ceil((bounds.h+border*2+10)*SCALE);
-  const offX=(-bounds.minX+border+5);
-  const offY=(bounds.maxY+border+5);  // maxY because canvas Y is flipped
+  const PAD = border + 5;  // padding around text in mm
+  const offX = (-bounds.minX + PAD);
+  const offY = (bounds.maxY + PAD);  // maxY because canvas Y is flipped
 
   // Draw glyphs filled
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
