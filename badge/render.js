@@ -264,17 +264,16 @@ function buildBadge(){
     zOff+=l.thick; layerIdx++;
   }
 
-  // Add cutout on back face, centred on badge
+  // Add cutout on back face
+  // The badge layers place their shapes at (-cx, cy) which offsets the shape origin.
+  // The shapes themselves are centred at (cx, -cy) in their local space.
+  // Combined centre = (-cx + cx, cy + (-cy)) = (0, 0) in group space.
   const backing = getBackingConfig();
   if(backing){
-    const box = new THREE.Box3().setFromObject(badgeGroup);
-    const centre = box.getCenter(new THREE.Vector3());
     const geo = makeCutoutGeo(backing.w, backing.h, backing.d);
     const mat = new THREE.MeshPhongMaterial({color:0x111111, shininess:0});
     const mesh = new THREE.Mesh(geo, mat);
-    // centre is in world space, convert to group local space
-    const localCentre = badgeGroup.worldToLocal(centre.clone());
-    mesh.position.set(localCentre.x, localCentre.y, 0);
+    mesh.position.set(0, 0, 0);
     badgeGroup.add(mesh);
   }
 
