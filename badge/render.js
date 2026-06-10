@@ -338,11 +338,15 @@ function build3MF(objects,name){
 
   // Build project_settings.config with filament colours
   const filamentColours=objects.map(o=>o.colour);
+  const n=objects.length;
   const projectSettings=JSON.stringify({
     filament_colour: filamentColours,
-    filament_type: objects.map(()=>'PLA'),
-    filament_is_support: objects.map(()=>'0'),
-    filament_ids: objects.map(()=>''),
+    filament_type: Array(n).fill('PLA'),
+    filament_settings_id: Array(n).fill('Bambu PLA Basic @BBL A1M'),
+    filament_vendor: Array(n).fill('Bambu Lab'),
+    default_filament_colour: Array(n).fill(''),
+    filament_is_support: Array(n).fill('0'),
+    filament_ids: Array(n).fill('GFB00'),
   }, null, 2);
 
   return {modelXml, modelSettings, projectSettings};
