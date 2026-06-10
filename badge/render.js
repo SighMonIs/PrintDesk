@@ -264,7 +264,36 @@ function buildBadge(){
     zOff+=l.thick; layerIdx++;
   }
 
+  // Add cutout visualisation (shown as dark inset box)
+  const backing = getBackingConfig();
+  if(backing){
+    const geo = makeCutoutGeo(backing.w, backing.h, backing.d);
+    const mat = new THREE.MeshPhongMaterial({color:0x111111, shininess:0});
+    const mesh = new THREE.Mesh(geo, mat);
+    // Centre on badge, flush with bottom (z=0 → z=-d)
+    mesh.position.set(-cx, cy, -backing.d/2);
+    badgeGroup.add(mesh);
+  }
+
   setStatus(`${name} — ${bounds.w.toFixed(1)}×${bounds.h.toFixed(1)}mm`,'ok');
+}
+
+// ── Backing cutout ────────────────────────────────────────────
+function getBackingConfig(){
+  const val = document.getElementById('backingSelect')?.value||'Magnet';
+  if(val==='Pin')   return {w:32, h:7,  d:2, name:'pin'};
+  if(val==='Magnet') return {w:46, h:14, d:2, name:'magnet'};
+  return null;
+}
+
+// Create a rectangular cutout box geometry centred at origin
+function makeCutoutGeo(w, h, d){
+  // Simple box: w wide, h tall, d deep
+  // Positioned so it sits flush with the bottom face (z=0 to z=-d)
+  const geo = new THREE.BoxGeometry(w, h, d);
+  // Shift so bottom face is at z=0
+  geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, -d/2));
+  return geo;
 }
 
 function offsetContour(pts,dist){
@@ -302,6 +331,14 @@ function exportTMF(){
     return{geo,name:`layer${idx+1}`,colour:l.colourHex,extruder:idx+1,id:idx+1};
   }).filter(Boolean);
 
+  // Add backing cutout as negative part on layer 1
+  const backing=getBackingConfig();
+  if(backing && objects.length>0){
+    const cutGeo=makeCutoutGeo(backing.w, backing.h, backing.d);
+    cutGeo.computeVertexNormals();
+    objects.push({geo:cutGeo, name:`${backing.name}_cutout`, colour:'#000000', extruder:1, id:objects.length+1, negative:true});
+  }
+
   const tmfData=build3MF(objects,name);
   const zip=buildZip(tmfData);
   const prefix=(document.getElementById('filePrefix')?.value||'').trim();
@@ -329,7 +366,8 @@ function build3MF(objects,name){
   // Build model_settings.config with extruder assignments
   let parts='';
   objects.forEach((obj,i)=>{
-    parts+=`    <part id="${obj.id}" subtype="normal_part">\n`;
+    const subtype = obj.negative ? 'negative_part' : 'normal_part';
+    parts+=`    <part id="${obj.id}" subtype="${subtype}">\n`;
     parts+=`      <metadata key="name" value="${obj.name}"/>\n`;
     parts+=`      <metadata key="extruder" value="${obj.extruder}"/>\n`;
     parts+=`    </part>\n`;
@@ -337,8 +375,8 @@ function build3MF(objects,name){
   const modelSettings=`<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <object id="${wId}">\n    <metadata key="name" value="${name}"/>\n    <metadata key="extruder" value="1"/>\n${parts}  </object>\n</config>`;
 
   // Build project_settings.config with filament colours
-  const filamentColours=objects.map(o=>o.colour);
-  const n=objects.length;
+  const filamentColours=objects.filter(o=>!o.negative).map(o=>o.colour);
+  const n=filamentColours.length;
   const projectSettings=JSON.stringify({
     filament_colour: filamentColours,
     filament_type: Array(n).fill('PLA'),
