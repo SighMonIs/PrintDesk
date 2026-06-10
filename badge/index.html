@@ -53,6 +53,13 @@
           <option value="Pin">Pin</option>
         </select>
       </div>
+      <!-- Temporary cutout position debug -->
+      <div id="cutoutDebug" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px">
+        <div class="section-title" style="margin-bottom:8px">Cutout Position (Debug)</div>
+        <div class="adv-row"><label style="font-size:12px;color:var(--muted)">Offset X</label><input type="number" id="cutoutX" value="0" step="1" class="adv-input" oninput="scheduleRender()"></div>
+        <div class="adv-row" style="margin-top:6px"><label style="font-size:12px;color:var(--muted)">Offset Y</label><input type="number" id="cutoutY" value="0" step="1" class="adv-input" oninput="scheduleRender()"></div>
+        <div class="adv-row" style="margin-top:6px"><label style="font-size:12px;color:var(--muted)">Offset Z</label><input type="number" id="cutoutZ" value="0" step="1" class="adv-input" oninput="scheduleRender()"></div>
+      </div>
       <div>
         <div class="section-title">Layer Colours</div>
         <div class="colour-picker-wrap" id="cpwCombo">
