@@ -264,14 +264,14 @@ function buildBadge(){
     zOff+=l.thick; layerIdx++;
   }
 
-  // Add cutout visualisation (shown as dark inset box)
+  // Add cutout visualisation (shown as dark inset on back face)
   const backing = getBackingConfig();
   if(backing){
     const geo = makeCutoutGeo(backing.w, backing.h, backing.d);
     const mat = new THREE.MeshPhongMaterial({color:0x111111, shininess:0});
     const mesh = new THREE.Mesh(geo, mat);
-    // Centre on badge, flush with bottom (z=0 → z=-d)
-    mesh.position.set(-cx, cy, -backing.d/2);
+    // Same centre offset as other layers, z=0 is the back face
+    mesh.position.set(-cx, cy, 0);
     badgeGroup.add(mesh);
   }
 
@@ -287,11 +287,10 @@ function getBackingConfig(){
 }
 
 // Create a rectangular cutout box geometry centred at origin
+// Sits from z=0 going into negative Z (into the back face)
 function makeCutoutGeo(w, h, d){
-  // Simple box: w wide, h tall, d deep
-  // Positioned so it sits flush with the bottom face (z=0 to z=-d)
   const geo = new THREE.BoxGeometry(w, h, d);
-  // Shift so bottom face is at z=0
+  // Shift so top face is at z=0, box extends to z=-d
   geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, -d/2));
   return geo;
 }
