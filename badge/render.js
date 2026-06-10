@@ -145,7 +145,7 @@ function getBounds(contours){ let minX=Infinity,maxX=-Infinity,minY=Infinity,max
 function buildCanvas2D(text, fsize, border, spacing){
   if(!font) return null;
   const glyphs=font.stringToGlyphs(text);
-  const SCALE=2;
+  const SCALE=4;  // 4px per mm for accurate border dilation
   const contours=getTextContours(text,fsize);
   if(!contours.length) return null;
   const bounds=getBounds(contours);
@@ -191,60 +191,49 @@ function buildCanvas2D(text, fsize, border, spacing){
   return{cv:cv2,ctx:ctx2,W,H,SCALE,offX,offY};
 }
 
-// Trace outer contour using Moore neighbour boundary tracing
-// Starts at top-left filled pixel, follows the outer boundary only
+// Trace outer contour by sampling boundary at regular angular intervals from centroid
+// This approach is reliable and produces clean outlines
 function traceCanvasOutline(ctx,W,H,SCALE,offX,offY){
   const imgData=ctx.getImageData(0,0,W,H);
   const d=imgData.data;
-  function isFilled(x,y){ 
-    if(x<0||y<0||x>=W||y>=H)return false; 
+
+  // Check if pixel is filled - check both RGB and alpha
+  function isFilled(x,y){
+    if(x<0||y<0||x>=W||y>=H) return false;
     const i=(y*W+x)*4;
-    return d[i]>64||d[i+3]>64; 
+    return (d[i]<128&&d[i+3]>64)||(d[i]>128&&d[i+3]>64);
   }
 
-  // Find topmost-leftmost filled pixel
-  let startX=-1,startY=-1;
-  outer: for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(isFilled(x,y)){startX=x;startY=y;break outer;}
-  if(startX<0) return [];
-
-  // Moore neighbour tracing - direction lookup
-  // Directions: 0=E,1=SE,2=S,3=SW,4=W,5=NW,6=N,7=NE
-  const DX=[1,1,0,-1,-1,-1,0,1];
-  const DY=[0,1,1,1,0,-1,-1,-1];
-
-  const pts=[];
-  let x=startX,y=startY,dir=6; // start facing North
-  let steps=0;
-  const MAX=W*H*2;
-
-  do {
-    pts.push([x,y]);
-    // Backtrack and sweep clockwise to find next boundary pixel
-    const back=(dir+4)%8;
-    let moved=false;
-    for(let i=1;i<=8;i++){
-      const nd=(back+i)%8;
-      const nx=x+DX[nd],ny=y+DY[nd];
-      if(isFilled(nx,ny)){x=nx;y=ny;dir=nd;moved=true;break;}
+  // Find centroid of filled pixels (sample every 4th pixel for speed)
+  let cx=0,cy=0,count=0;
+  for(let y=0;y<H;y+=4){
+    for(let x=0;x<W;x+=4){
+      if(isFilled(x,y)){cx+=x;cy+=y;count++;}
     }
-    if(!moved) break;
-    steps++;
-  } while((x!==startX||y!==startY||pts.length<4)&&steps<MAX);
+  }
+  if(!count) return [];
+  cx/=count; cy/=count;
 
+  // Cast rays from centroid at N angles, find furthest filled pixel
+  const N=240;
+  const pts=[];
+  for(let i=0;i<N;i++){
+    const angle=(i/N)*Math.PI*2;
+    const dx=Math.cos(angle), dy=Math.sin(angle);
+    let lastX=-1, lastY=-1;
+    // Walk outward until empty
+    for(let r=2;r<Math.max(W,H);r+=1){
+      const px=Math.round(cx+dx*r);
+      const py=Math.round(cy+dy*r);
+      if(isFilled(px,py)){lastX=px;lastY=py;}
+      else if(lastX>=0) break;
+    }
+    if(lastX>=0){
+      pts.push(new THREE.Vector2(lastX/SCALE-offX, lastY/SCALE-offY));
+    }
+  }
   if(pts.length<8) return [];
-
-  // Simplify to ~200 points
-  const skip=Math.max(1,Math.floor(pts.length/200));
-  const simplified=pts.filter((_,i)=>i%skip===0);
-  // Canvas coords: px = (glyph_x + offX)*SCALE, py = (-glyph_y + offY)*SCALE
-  // Reverse: glyph_x = px/SCALE - offX, glyph_y = offY - py/SCALE
-  // Three.js Y = -glyph_y (because otPathToShapes uses -cmd.y)
-  // So Three Y = -(offY - py/SCALE) = py/SCALE - offY
-  const mmPts=simplified.map(([px,py])=>new THREE.Vector2(
-    px/SCALE - offX,
-    py/SCALE - offY
-  ));
-  return [new THREE.Shape(mmPts)];
+  return [new THREE.Shape(pts)];
 }
 
 function getFilledShapes(text,fsize,border,spacing){
