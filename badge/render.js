@@ -152,7 +152,7 @@ function buildCanvas2D(text, fsize, border, spacing){
   const W=Math.ceil((bounds.w+border*2+10)*SCALE);
   const H=Math.ceil((bounds.h+border*2+10)*SCALE);
   const offX=(-bounds.minX+border+5);
-  const offY=(bounds.maxY+border+5);
+  const offY=(bounds.maxY+border+5);  // maxY because canvas Y is flipped
 
   // Draw glyphs filled
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
@@ -235,7 +235,14 @@ function traceCanvasOutline(ctx,W,H,SCALE,offX,offY){
   // Simplify to ~200 points
   const skip=Math.max(1,Math.floor(pts.length/200));
   const simplified=pts.filter((_,i)=>i%skip===0);
-  const mmPts=simplified.map(([px,py])=>new THREE.Vector2(px/SCALE-offX,-(py/SCALE-offY)));
+  // Canvas coords: px = (glyph_x + offX)*SCALE, py = (-glyph_y + offY)*SCALE
+  // Reverse: glyph_x = px/SCALE - offX, glyph_y = offY - py/SCALE
+  // Three.js Y = -glyph_y (because otPathToShapes uses -cmd.y)
+  // So Three Y = -(offY - py/SCALE) = py/SCALE - offY
+  const mmPts=simplified.map(([px,py])=>new THREE.Vector2(
+    px/SCALE - offX,
+    py/SCALE - offY
+  ));
   return [new THREE.Shape(mmPts)];
 }
 
