@@ -264,18 +264,15 @@ function buildBadge(){
     zOff+=l.thick; layerIdx++;
   }
 
-  console.log('Badge bounds:', bounds, 'cx:', cx, 'cy:', cy);
-  // Add cutout visualisation on back face
-  // Calculate true visual centre from the rendered badge geometry
+  // Add cutout on back face, centred on badge
   const backing = getBackingConfig();
   if(backing){
+    // Get true visual centre from rendered geometry
+    const box = new THREE.Box3().setFromObject(badgeGroup);
+    const centre = box.getCenter(new THREE.Vector3());
     const geo = makeCutoutGeo(backing.w, backing.h, backing.d);
     const mat = new THREE.MeshPhongMaterial({color:0x111111, shininess:0});
     const mesh = new THREE.Mesh(geo, mat);
-    // Compute centre from actual badge group bounding box
-    const box = new THREE.Box3().setFromObject(badgeGroup);
-    const centre = box.getCenter(new THREE.Vector3());
-    console.log('Badge group centre:', centre);
     mesh.position.set(centre.x, centre.y, 0);
     badgeGroup.add(mesh);
   }
@@ -335,10 +332,16 @@ function exportTMF(){
     return{geo,name:`layer${idx+1}`,colour:l.colourHex,extruder:idx+1,id:idx+1};
   }).filter(Boolean);
 
-  // Add backing cutout as negative part on layer 1
+  // Add backing cutout as negative part, centred on badge
   const backing=getBackingConfig();
   if(backing && objects.length>0){
+    // Compute centre from all layer geometries
+    const tmpGroup=new THREE.Group();
+    objects.forEach(o=>{ const m=new THREE.Mesh(o.geo); tmpGroup.add(m); });
+    const box=new THREE.Box3().setFromObject(tmpGroup);
+    const centre=box.getCenter(new THREE.Vector3());
     const cutGeo=makeCutoutGeo(backing.w, backing.h, backing.d);
+    cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(centre.x, centre.y, 0));
     cutGeo.computeVertexNormals();
     objects.push({geo:cutGeo, name:`${backing.name}_cutout`, colour:'#000000', extruder:1, id:objects.length+1, negative:true});
   }
