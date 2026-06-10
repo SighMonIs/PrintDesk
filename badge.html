@@ -217,7 +217,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.5.7
+        v1.5.8
       </div>
     </div>
 
@@ -842,38 +842,35 @@ function shapeArea(shape){
   return Math.abs(area/2);
 }
 
-// Get signed area of a shape's points (positive = CCW, negative = CW)
-function signedArea(pts){
-  let area=0;
+// Use signed area winding to determine if a contour is outer (CCW) or inner (CW)
+// In Three.js coordinate system (Y flipped), outer contours have negative signed area
+function signedArea2(pts){
+  let a=0;
   for(let i=0,j=pts.length-1;i<pts.length;j=i++){
-    area+=(pts[j].x+pts[i].x)*(pts[j].y-pts[i].y);
+    a+=(pts[i].x-pts[j].x)*(pts[i].y+pts[j].y);
   }
-  return area/2;
+  return a;
 }
 
-// Remove enclosed shapes — keep only outer contours
-// Strategy: after toShapes, get all sub-paths from ShapePath directly
-// and only keep those with CCW winding (positive signed area = outer contour)
+// After combining paths into ShapePath and calling toShapes(false),
+// we get a mix of outer and inner contours as separate Shape objects.
+// Outer contours wind one way, inner (holes) wind the other.
+// We keep only shapes that wind as outer contours.
 function removeEnclosed(shapes){
   if(!shapes.length) return shapes;
-  // Keep only shapes with the largest areas — filter out small inner contours
-  // Use a threshold: keep shapes whose area is > 5% of the largest
-  const areas = shapes.map(s=>shapeArea(s));
-  const maxArea = Math.max(...areas);
-  const threshold = maxArea * 0.05;
-  const outer = shapes.filter((_,i)=>areas[i]>=threshold);
-  return outer.length ? outer : [shapes[0]];
-}
-
-// Point-in-polygon (kept for reference)
-function pointInShape(px,py,shape){
-  const pts=shape.getPoints(12);
-  let inside=false;
-  for(let i=0,j=pts.length-1;i<pts.length;j=i++){
-    const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;
-    if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;
-  }
-  return inside;
+  // Check winding of each shape — keep consistent outer winding
+  // First determine which winding the largest shape has (that's definitely outer)
+  const withArea = shapes.map(s=>{
+    const pts = s.getPoints(32);
+    return {shape:s, area:shapeArea(s), signed:signedArea2(pts)};
+  });
+  withArea.sort((a,b)=>b.area-a.area);
+  // The largest shape is definitely outer — use its winding as reference
+  const outerSign = Math.sign(withArea[0].signed);
+  // Keep all shapes that have the same winding as the largest (outer contours)
+  // and discard those with opposite winding (inner/hole contours)
+  const kept = withArea.filter(s=>Math.sign(s.signed)===outerSign).map(s=>s.shape);
+  return kept.length ? kept : [withArea[0].shape];
 }
 
 function offsetContour(pts,dist){const n=pts.length,r=[];for(let i=0;i<n;i++){const prev=pts[(i-1+n)%n],curr=pts[i],next=pts[(i+1)%n];const e1x=curr.x-prev.x,e1y=curr.y-prev.y;const e2x=next.x-curr.x,e2y=next.y-curr.y;const l1=Math.sqrt(e1x*e1x+e1y*e1y)||1,l2=Math.sqrt(e2x*e2x+e2y*e2y)||1;const n1=[-e1y/l1,e1x/l1],n2=[-e2y/l2,e2x/l2];const mx=n1[0]+n2[0],my=n1[1]+n2[1],mlen=Math.sqrt(mx*mx+my*my)||1;r.push({x:curr.x+mx/mlen*dist,y:curr.y+my/mlen*dist});}return r;}
