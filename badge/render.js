@@ -190,27 +190,49 @@ function buildCanvas2D(text, fsize, border, spacing){
   return{cv:cv2,ctx:ctx2,W,H,SCALE,offX,offY};
 }
 
-// Trace outer silhouette by scanning rows for leftmost/rightmost filled pixel
+// Trace outer contour using Moore neighbour boundary tracing
+// Starts at top-left filled pixel, follows the outer boundary only
 function traceCanvasOutline(ctx,W,H,SCALE,offX,offY){
   const imgData=ctx.getImageData(0,0,W,H);
   const d=imgData.data;
-  function isFilled(x,y){ if(x<0||y<0||x>=W||y>=H)return false; return d[(y*W+x)*4]>128||d[(y*W+x)*4+3]>64; }
+  function isFilled(x,y){ if(x<0||y<0||x>=W||y>=H)return false; return d[(y*W+x)*4+3]>64; }
 
-  const leftPts=[], rightPts=[];
-  for(let y=0;y<H;y++){
-    let left=-1,right=-1;
-    for(let x=0;x<W;x++){ if(isFilled(x,y)){if(left<0)left=x;right=x;} }
-    if(left>=0){ leftPts.push([left,y]); rightPts.push([right,y]); }
-  }
-  if(!leftPts.length) return [];
+  // Find topmost-leftmost filled pixel
+  let startX=-1,startY=-1;
+  outer: for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(isFilled(x,y)){startX=x;startY=y;break outer;}
+  if(startX<0) return [];
 
-  const skip=Math.max(1,Math.floor(leftPts.length/150));
-  const leftS=leftPts.filter((_,i)=>i%skip===0);
-  const rightS=rightPts.filter((_,i)=>i%skip===0);
-  const outline=[...leftS,...[...rightS].reverse()];
+  // Moore neighbour tracing - direction lookup
+  // Directions: 0=E,1=SE,2=S,3=SW,4=W,5=NW,6=N,7=NE
+  const DX=[1,1,0,-1,-1,-1,0,1];
+  const DY=[0,1,1,1,0,-1,-1,-1];
 
-  const mmPts=outline.map(([px,py])=>new THREE.Vector2(px/SCALE-offX,-(py/SCALE-offY)));
-  return[new THREE.Shape(mmPts)];
+  const pts=[];
+  let x=startX,y=startY,dir=6; // start facing North
+  let steps=0;
+  const MAX=W*H*2;
+
+  do {
+    pts.push([x,y]);
+    // Backtrack and sweep clockwise to find next boundary pixel
+    const back=(dir+4)%8;
+    let moved=false;
+    for(let i=1;i<=8;i++){
+      const nd=(back+i)%8;
+      const nx=x+DX[nd],ny=y+DY[nd];
+      if(isFilled(nx,ny)){x=nx;y=ny;dir=nd;moved=true;break;}
+    }
+    if(!moved) break;
+    steps++;
+  } while((x!==startX||y!==startY||pts.length<4)&&steps<MAX);
+
+  if(pts.length<8) return [];
+
+  // Simplify to ~200 points
+  const skip=Math.max(1,Math.floor(pts.length/200));
+  const simplified=pts.filter((_,i)=>i%skip===0);
+  const mmPts=simplified.map(([px,py])=>new THREE.Vector2(px/SCALE-offX,-(py/SCALE-offY)));
+  return [new THREE.Shape(mmPts)];
 }
 
 function getFilledShapes(text,fsize,border,spacing){
