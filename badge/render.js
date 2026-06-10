@@ -195,7 +195,11 @@ function buildCanvas2D(text, fsize, border, spacing){
 function traceCanvasOutline(ctx,W,H,SCALE,offX,offY){
   const imgData=ctx.getImageData(0,0,W,H);
   const d=imgData.data;
-  function isFilled(x,y){ if(x<0||y<0||x>=W||y>=H)return false; return d[(y*W+x)*4+3]>64; }
+  function isFilled(x,y){ 
+    if(x<0||y<0||x>=W||y>=H)return false; 
+    const i=(y*W+x)*4;
+    return d[i]>64||d[i+3]>64; 
+  }
 
   // Find topmost-leftmost filled pixel
   let startX=-1,startY=-1;
@@ -239,7 +243,29 @@ function getFilledShapes(text,fsize,border,spacing){
   const result=buildCanvas2D(text,fsize,border,spacing||0);
   if(!result) return [];
   const{ctx,W,H,SCALE,offX,offY}=result;
-  return traceCanvasOutline(ctx,W,H,SCALE,offX,offY);
+  const traced=traceCanvasOutline(ctx,W,H,SCALE,offX,offY);
+  if(traced.length) return traced;
+  // Fallback: use vector offset if canvas trace fails
+  console.warn('Canvas trace failed, using vector fallback');
+  if(!font) return [];
+  const glyphs=font.stringToGlyphs(text);
+  const sp=new THREE.ShapePath(); let x=0;
+  for(let i=0;i<glyphs.length;i++){
+    const path=glyphs[i].getPath(x,0,fsize);
+    for(const cmd of path.commands){
+      switch(cmd.type){
+        case 'M':sp.moveTo(cmd.x,-cmd.y);break;
+        case 'L':sp.lineTo(cmd.x,-cmd.y);break;
+        case 'C':sp.bezierCurveTo(cmd.x1,-cmd.y1,cmd.x2,-cmd.y2,cmd.x,-cmd.y);break;
+        case 'Q':sp.quadraticCurveTo(cmd.x1,-cmd.y1,cmd.x,-cmd.y);break;
+        case 'Z':sp.currentPath.closePath();break;
+      }
+    }
+    x+=glyphs[i].advanceWidth*(fsize/font.unitsPerEm)+(i<glyphs.length-1?font.getKerningValue(glyphs[i],glyphs[i+1])*(fsize/font.unitsPerEm):0)+(spacing||0);
+  }
+  const shapes=sp.toShapes(false);
+  shapes.forEach(s=>{s.holes=[];});
+  return shapes;
 }
 
 function getTextShapes(text,fsize,filled,spacing){
