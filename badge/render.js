@@ -265,15 +265,16 @@ function buildBadge(){
   }
 
   // Add cutout on back face
-  // The badge layers place their shapes at (-cx, cy) which offsets the shape origin.
-  // The shapes themselves are centred at (cx, -cy) in their local space.
-  // Combined centre = (-cx + cx, cy + (-cy)) = (0, 0) in group space.
   const backing = getBackingConfig();
   if(backing){
     const geo = makeCutoutGeo(backing.w, backing.h, backing.d);
     const mat = new THREE.MeshPhongMaterial({color:0x111111, shininess:0});
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(0, 0, 0);
+    mesh.userData.isCutout = true;
+    const ox = parseFloat(document.getElementById('cutoutX')?.value||0);
+    const oy = parseFloat(document.getElementById('cutoutY')?.value||0);
+    const oz = parseFloat(document.getElementById('cutoutZ')?.value||0);
+    mesh.position.set(ox, oy, oz);
     badgeGroup.add(mesh);
   }
 
@@ -296,6 +297,11 @@ function makeCutoutGeo(w, h, d){
   // We want it entirely behind z=0, so shift by -d/2
   geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, -d/2));
   return geo;
+}
+
+function updateCutoutDebug(){
+  // Just re-render to update cutout position
+  scheduleRender();
 }
 
 function offsetContour(pts,dist){
