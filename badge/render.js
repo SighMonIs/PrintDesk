@@ -299,11 +299,11 @@ function exportTMF(){
     geo.computeVertexNormals();
     geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0,0,zOff));
     zOff+=l.thick;
-    return{geo,name:`layer${idx+1}`,colour:l.colourHex,id:idx+1};
+    return{geo,name:`layer${idx+1}`,colour:l.colourHex,extruder:idx+1,id:idx+1};
   }).filter(Boolean);
 
-  const xml=build3MF(objects,name);
-  const zip=buildZip(xml);
+  const tmfData=build3MF(objects,name);
+  const zip=buildZip(tmfData);
   const prefix=(document.getElementById('filePrefix')?.value||'').trim();
   const suffix=(document.getElementById('fileSuffix')?.value||'').trim();
   const filename=[prefix,name,suffix].filter(Boolean).join(' ')+'.3mf';
@@ -324,15 +324,39 @@ function build3MF(objects,name){
   });
   const wId=objects.length+1;
   objXml+=`  <object id="${wId}" type="model" name="${name}">\n   <components>\n${comps}   </components>\n  </object>\n`;
-  return`<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n <resources>\n${objXml} </resources>\n <build>\n  <item objectid="${wId}"/>\n </build>\n</model>`;
+  const modelXml=`<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n <resources>\n${objXml} </resources>\n <build>\n  <item objectid="${wId}"/>\n </build>\n</model>`;
+
+  // Build model_settings.config with extruder assignments
+  let parts='';
+  objects.forEach((obj,i)=>{
+    parts+=`    <part id="${obj.id}" subtype="normal_part">\n`;
+    parts+=`      <metadata key="name" value="${obj.name}"/>\n`;
+    parts+=`      <metadata key="extruder" value="${obj.extruder}"/>\n`;
+    parts+=`    </part>\n`;
+  });
+  const modelSettings=`<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <object id="${wId}">\n    <metadata key="name" value="${name}"/>\n    <metadata key="extruder" value="1"/>\n${parts}  </object>\n</config>`;
+
+  // Build project_settings.config with filament colours
+  const filamentColours=objects.map(o=>o.colour);
+  const projectSettings=JSON.stringify({
+    filament_colour: filamentColours,
+    filament_type: objects.map(()=>'PLA'),
+    filament_is_support: objects.map(()=>'0'),
+    filament_ids: objects.map(()=>''),
+  }, null, 2);
+
+  return {modelXml, modelSettings, projectSettings};
 }
 
-function buildZip(xml){
+function buildZip(data){
+  const {modelXml, modelSettings, projectSettings} = data;
   const enc=new TextEncoder();
   const files=[
-    {name:'[Content_Types].xml',data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>`)},
+    {name:'[Content_Types].xml',data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="application/xml"/><Default Extension="json" ContentType="application/json"/></Types>`)},
     {name:'_rels/.rels',data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`)},
-    {name:'3D/3dmodel.model',data:enc.encode(xml)},
+    {name:'3D/3dmodel.model',data:enc.encode(modelXml)},
+    {name:'Metadata/model_settings.config',data:enc.encode(modelSettings)},
+    {name:'Metadata/project_settings.config',data:enc.encode(projectSettings)},
   ];
   const parts=[],cd=[];let off=0;
   for(const f of files){
