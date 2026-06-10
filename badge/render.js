@@ -266,15 +266,17 @@ function buildBadge(){
 
   console.log('Badge bounds:', bounds, 'cx:', cx, 'cy:', cy);
   // Add cutout visualisation on back face
-  // Position at (0,0,0) in group space since all meshes are already offset by (-cx,cy)
-  // and the group centre handles the rest
+  // Calculate true visual centre from the rendered badge geometry
   const backing = getBackingConfig();
   if(backing){
     const geo = makeCutoutGeo(backing.w, backing.h, backing.d);
     const mat = new THREE.MeshPhongMaterial({color:0x111111, shininess:0});
     const mesh = new THREE.Mesh(geo, mat);
-    // Use same offset as other layers so it centres with the badge
-    mesh.position.set(-cx, cy, 0);
+    // Compute centre from actual badge group bounding box
+    const box = new THREE.Box3().setFromObject(badgeGroup);
+    const centre = box.getCenter(new THREE.Vector3());
+    console.log('Badge group centre:', centre);
+    mesh.position.set(centre.x, centre.y, 0);
     badgeGroup.add(mesh);
   }
 
