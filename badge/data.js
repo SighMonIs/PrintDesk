@@ -1,0 +1,174 @@
+// ── Supabase ──────────────────────────────────────────────────
+const SB_URL=(window.CONFIG&&window.CONFIG.SUPABASE_URL)||'';
+const SB_KEY=(window.CONFIG&&window.CONFIG.SUPABASE_KEY)||'';
+let sbToken=null, currentUser=null;
+
+function sbHeaders(){ return{'apikey':SB_KEY,'Authorization':'Bearer '+(sbToken||SB_KEY),'Content-Type':'application/json','Prefer':'return=representation'}; }
+async function sbGet(table,q=''){ const r=await fetch(`${SB_URL}/rest/v1/${table}${q}`,{headers:sbHeaders()}); return r.json(); }
+async function sbUpsert(table,row){ const r=await fetch(`${SB_URL}/rest/v1/${table}`,{method:'POST',headers:{...sbHeaders(),'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(row)}); return r.json(); }
+
+// ── Auth ──────────────────────────────────────────────────────
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPassword').value;
+  const errEl=document.getElementById('loginError');
+  const btn=document.getElementById('loginBtn');
+  errEl.style.display='none';
+  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> Signing in…';
+  try{
+    const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+    const data=await res.json();
+    if(data.error) throw new Error(data.error_description||data.error);
+    sbToken=data.access_token; currentUser=data.user;
+    localStorage.setItem('badge_token',sbToken);
+    showApp();
+  }catch(e){
+    errEl.textContent=e.message; errEl.style.display='block';
+    btn.disabled=false; btn.innerHTML='<i class="ti ti-login"></i> Sign in';
+  }
+}
+async function restoreSession(){
+  const t=localStorage.getItem('badge_token'); if(!t) return false;
+  try{ const res=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+t}}); if(!res.ok) return false; sbToken=t; currentUser=await res.json(); return true; }catch(e){ return false; }
+}
+function doLogout(){ localStorage.removeItem('badge_token'); sbToken=null; currentUser=null; document.getElementById('appScreen').style.display='none'; document.getElementById('loginScreen').style.display='flex'; }
+
+async function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='flex';
+  document.getElementById('userChip').textContent=currentUser?.user_metadata?.display_name||currentUser?.email||'';
+  await loadColours();
+  await loadModels();
+}
+
+// ── Data ──────────────────────────────────────────────────────
+let colours=[], models=[], currentModel=null, layerConfig=[];
+let debugBlackOnly=false;
+
+function setStatus(msg,cls=''){const el=document.getElementById('status');el.textContent=msg;el.className='status'+(cls?' '+cls:'');}
+
+async function loadColours(){ colours=await sbGet('colours','?available=eq.true&order=id'); }
+
+async function loadModels(){
+  models=await sbGet('badge_models','?archived=eq.false&order=name');
+  const sel=document.getElementById('modelSelect');
+  sel.innerHTML=models.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  if(models.length) await loadModel();
+}
+
+async function loadModel(){
+  const id=document.getElementById('modelSelect').value;
+  currentModel=models.find(m=>m.id===id); if(!currentModel) return;
+  const [layers,settings,prefs]=await Promise.all([
+    sbGet('badge_model_layers',`?model_id=eq.${id}&order=layer_order`),
+    sbGet('badge_model_settings',`?model_id=eq.${id}`),
+    sbGet('badge_user_preferences',`?model_id=eq.${id}&user_id=eq.${currentUser.id}`)
+  ]);
+  layerConfig=layers.map(l=>({id:l.id,model_id:l.model_id,order:l.layer_order,colourHex:l.colour_hex,colourId:l.colour_id,border:l.border_mm,thick:l.thickness_mm,filled:l.filled}));
+  const s=settings[0]||{};
+  document.getElementById('fontSize').value=currentModel.font_size||49;
+  document.getElementById('letterSpacing').value=s.letter_spacing||0;
+  document.getElementById('filePrefix').value=s.file_prefix||'';
+  document.getElementById('fileSuffix').value=s.file_suffix||'';
+  const p=prefs[0]||{};
+  defRotX=parseFloat(p.def_rot_x??-0.5); defRotY=parseFloat(p.def_rot_y??0.2); defZoom=parseFloat(p.def_zoom??1);
+  scrollZoomSpeed=parseFloat(p.zoom_speed??0.01);
+  resetView();
+  const zs=document.getElementById('zoomSpd'),zsn=document.getElementById('zoomSpdN');
+  if(zs){zs.value=scrollZoomSpeed;zsn.value=scrollZoomSpeed.toFixed(3);}
+  buildLayerUI(); loadPreviousCombos(); updateFileNamePreview();
+  setStatus('');
+  const fontPath=currentModel.font_path||FONT_PATH;
+  if(!font){
+    setStatus('Loading font…');
+    opentype.load(fontPath,(err,f)=>{
+      if(err){setStatus('Could not load font: '+fontPath,'err');return;}
+      font=f; setStatus('Ready','ok');
+      document.getElementById('exportBtn').disabled=false;
+      buildBadge();
+    });
+  } else buildBadge();
+}
+
+async function saveModelSettings(){
+  const id=currentModel?.id; if(!id) return;
+  const existing=await sbGet('badge_model_settings',`?model_id=eq.${id}`);
+  const row={...(existing[0]?{id:existing[0].id}:{}),model_id:id,letter_spacing:+document.getElementById('letterSpacing').value,file_prefix:document.getElementById('filePrefix').value,file_suffix:document.getElementById('fileSuffix').value};
+  await sbUpsert('badge_model_settings',row);
+  for(const l of layerConfig) await sbUpsert('badge_model_layers',{id:l.id,model_id:l.model_id,layer_order:l.order,colour_id:l.colourId||null,colour_hex:l.colourHex,border_mm:l.border,thickness_mm:l.thick,filled:l.filled});
+  setStatus('Settings saved','ok'); setTimeout(()=>setStatus(''),2000);
+}
+
+// ── Layer UI ──────────────────────────────────────────────────
+let openPickerId=null, openCombo=false, previousCombos=[];
+
+function buildLayerUI(){
+  const colList=document.getElementById('layerColoursList');
+  colList.innerHTML=layerConfig.map((l,i)=>`
+    <div class="layer-colour-row">
+      <span class="layer-colour-label">Layer ${i+1}</span>
+      <div class="colour-picker-wrap" id="cpw-${i}">
+        <div class="colour-picker-btn" onclick="toggleCp(${i},this)">
+          <div class="cp-swatch" id="cps-${i}" style="background:${l.colourHex}"></div>
+          <span class="cp-label" id="cpl-${i}">${colourName(l.colourHex)}</span>
+          <i class="ti ti-chevron-down" style="font-size:11px;color:var(--muted);flex-shrink:0"></i>
+        </div>
+        <div class="colour-picker-list" id="cplist-${i}" style="display:none">
+          ${colours.map(c=>`<div class="cp-option" onclick="selectColour(${i},'${c.code}','${c.id}','${c.name}')"><div class="cp-swatch" style="background:${c.code}"></div><span>${c.name}</span></div>`).join('')}
+        </div>
+      </div>
+    </div>`).join('');
+
+  const settingsEl=document.getElementById('layerSettings');
+  settingsEl.innerHTML=layerConfig.map((l,i)=>`
+    <div class="layer-setting-block">
+      <div class="layer-setting-header"><div style="width:10px;height:10px;border-radius:2px;background:${l.colourHex};border:1px solid rgba(255,255,255,0.15)"></div>Layer ${i+1}</div>
+      <div class="layer-setting-row"><label>Border (mm)</label><input type="number" value="${l.border}" min="0" max="20" step="0.5" onchange="layerConfig[${i}].border=+this.value;scheduleRender()"></div>
+      <div class="layer-setting-row"><label>Thickness (mm)</label><input type="number" value="${l.thick}" min="0.5" max="10" step="0.5" onchange="layerConfig[${i}].thick=+this.value;scheduleRender()"></div>
+    </div>`).join('');
+}
+
+function colourName(hex){ const c=colours.find(c=>c.code?.toLowerCase()===hex?.toLowerCase()); return c?c.name:hex; }
+function toggleCp(i,btn){ if(openPickerId!==null&&openPickerId!==i){document.getElementById('cplist-'+openPickerId).style.display='none';} const list=document.getElementById('cplist-'+i); if(list.style.display!=='none'){list.style.display='none';openPickerId=null;return;} const rect=btn.getBoundingClientRect(); list.style.top=(rect.bottom+4)+'px';list.style.left=rect.left+'px';list.style.width=rect.width+'px';list.style.display='';openPickerId=i; }
+function selectColour(i,hex,colId,name){ layerConfig[i].colourHex=hex;layerConfig[i].colourId=colId; document.getElementById('cps-'+i).style.background=hex; document.getElementById('cpl-'+i).textContent=name; document.getElementById('cplist-'+i).style.display='none'; openPickerId=null; buildLayerUI(); scheduleRender(); }
+
+async function loadPreviousCombos(){
+  try{
+    const orders=await sbGet('orders','?select=options&options=not.is.null&order=id.desc&limit=200');
+    const seen=new Set(); previousCombos=[];
+    for(const o of orders){
+      if(!o.options) continue;
+      const parts=o.options.split('||');
+      const colourParts=parts.filter(p=>{const name=p.split(':')[0]?.toLowerCase()||'';return name.includes('colour')||name.includes('color');});
+      if(!colourParts.length) continue;
+      const colourNames=colourParts[0]?.split(':').slice(1).join(':').trim().split('|').map(s=>s.trim()).filter(Boolean)||[];
+      if(colourNames.length!==layerConfig.length) continue;
+      const key=colourNames.join('|'); if(seen.has(key)) continue; seen.add(key);
+      const hexCodes=colourNames.map(name=>{const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());return{name,hex:c?.code||'#888888',id:c?.id||null};});
+      previousCombos.push({key,colours:hexCodes});
+      if(previousCombos.length>=20) break;
+    }
+  }catch(e){console.warn('Could not load combos:',e);}
+  buildComboList();
+}
+
+function buildComboList(){
+  const list=document.getElementById('comboList'); if(!list) return;
+  list.innerHTML=[
+    `<div class="cp-option" onclick="selectCombo('custom')"><i class="ti ti-adjustments" style="font-size:13px;color:var(--muted)"></i><span>Custom</span></div>`,
+    previousCombos.length?'<div style="height:1px;background:var(--border);margin:4px 0"></div>':'',
+    ...previousCombos.map((combo,i)=>`<div class="cp-option" onclick="selectCombo(${i})"><div style="display:flex;gap:3px">${combo.colours.map(c=>`<div class="combo-swatch" style="background:${c.hex}" title="${c.name}"></div>`).join('')}</div><span style="font-size:11px">${combo.colours.map(c=>c.name).join(' · ')}</span></div>`)
+  ].join('');
+  if(previousCombos.length>0) updateComboDisplay(previousCombos[0]);
+  else selectCombo('custom');
+}
+
+function toggleComboList(btn){ const list=document.getElementById('comboList'); if(list.style.display!=='none'){list.style.display='none';openCombo=false;return;} const rect=btn.getBoundingClientRect(); list.style.top=(rect.bottom+4)+'px';list.style.left=rect.left+'px';list.style.width=Math.max(rect.width,260)+'px';list.style.display='';openCombo=true; }
+function selectCombo(idx){ document.getElementById('comboList').style.display='none'; openCombo=false; if(idx==='custom'){document.getElementById('layerColoursList').style.display='flex';document.getElementById('comboLabel').textContent='Custom';document.getElementById('comboSwatches').innerHTML='<i class="ti ti-adjustments" style="font-size:13px;color:var(--muted)"></i>';return;} const combo=previousCombos[idx]; if(!combo) return; document.getElementById('layerColoursList').style.display='none'; combo.colours.forEach((c,i)=>{if(i<layerConfig.length){layerConfig[i].colourHex=c.hex;layerConfig[i].colourId=c.id;}}); updateComboDisplay(combo); buildLayerUI(); scheduleRender(); }
+function updateComboDisplay(combo){ document.getElementById('comboSwatches').innerHTML=combo.colours.map(c=>`<div class="combo-swatch" style="background:${c.hex}" title="${c.name}"></div>`).join(''); document.getElementById('comboLabel').textContent=combo.colours.map(c=>c.name).join(' · '); }
+
+function toggleAccordion(){ const b=document.getElementById('accordionBody'),c=document.getElementById('accordionChevron'); const open=b.style.display!=='none'; b.style.display=open?'none':''; c.style.transform=open?'':'rotate(180deg)'; }
+function updateFileNamePreview(){ const p=document.getElementById('filePrefix')?.value||''; const s=document.getElementById('fileSuffix')?.value||''; const n=document.getElementById('nameInput')?.value||'NAME'; document.getElementById('fileNamePreview').textContent=[p,n,s].filter(Boolean).join(' ')+'.3mf'; }
+
+// ── Boot ──────────────────────────────────────────────────────
+(async()=>{ const ok=await restoreSession(); if(ok) showApp(); })();
