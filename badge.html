@@ -217,7 +217,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.5.5
+        v1.5.6
       </div>
     </div>
 
@@ -279,7 +279,7 @@ canvas{display:block;}
         display:flex;align-items:center;gap:8px;background:rgba(24,24,27,0.85);
         border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;min-width:300px">
         <button onclick="stepChange(-1)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&#8592;</button>
-        <input type="range" id="stepSlider" min="0" max="7" step="1" value="7"
+        <input type="range" id="stepSlider" min="0" max="5" step="1" value="5"
           style="flex:1;accent-color:var(--accent)" oninput="showStep(+this.value)">
         <button onclick="stepChange(1)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&#8594;</button>
         <span id="stepLabel" style="font-size:11px;color:var(--muted);white-space:nowrap;min-width:160px;text-align:center;font-family:ui-monospace,monospace"></span>
@@ -775,7 +775,9 @@ function getTextShapes(text,fsize,filled){
   let x=0;
 
   if(filled){
-    // Combine ALL glyphs into one ShapePath, then get points for offset
+    // NEW PIPELINE: expand each glyph first, then combine, then remove inner geometry
+    const allExpanded=[]; // will be filled below — needs border passed in
+    // We can't get border here, so return raw shapes and handle offset in buildBadge
     const combinedPath=new THREE.ShapePath();
     for(let i=0;i<glyphs.length;i++){
       const g=glyphs[i];
@@ -893,12 +895,13 @@ function buildBadge(){
     if(!shapes.length){zOff+=l.thick;continue;}
     let finalShapes=shapes;
     if(l.filled){
-      // Expand by this layer's border, then merge all shapes into one unified outline
-      // This closes gaps between letters at this border size
+      // NEW PIPELINE: expand each source shape by border FIRST, then combine, then clean
+      // Step 1: expand each shape by border
       const expanded = shapes.map(s=>{
         const pts = s.getPoints(24);
         return offsetContour(pts.map(p=>({x:p.x,y:p.y})), l.border > 0 ? l.border : 0.1);
       });
+      // Step 2: combine all expanded shapes into one ShapePath
       const mergePath = new THREE.ShapePath();
       expanded.forEach(pts=>{
         if(!pts.length) return;
@@ -906,9 +909,9 @@ function buildBadge(){
         pts.slice(1).forEach(p=>mergePath.lineTo(p.x, p.y));
         mergePath.currentPath.closePath();
       });
+      // Step 3: get shapes, clear holes, remove enclosed inner geometry
       const merged = mergePath.toShapes(false);
       merged.forEach(s=>{ s.holes=[]; });
-      // Remove any enclosed shapes (holes, gaps) — keep only outer outlines
       finalShapes = removeEnclosed(merged);
     } else if(l.border > 0){
       finalShapes = shapes.map(s=>{ const pts=s.getPoints(12); const op=offsetContour(pts.map(p=>({x:p.x,y:p.y})),l.border); return new THREE.Shape(op.map(p=>new THREE.Vector2(p.x,p.y))); });
@@ -1014,13 +1017,11 @@ let currentStep = 4;
 
 const STEP_LABELS = [
   'Step 1: Raw glyph outlines (per letter)',
-  'Step 2: All glyphs combined into one path',
-  'Step 3: toShapes() result (before offset)',
-  'Step 4: Expanded by black border (2mm)',
-  'Step 5: After ShapePath merge',
-  'Step 6: After removeEnclosed',
-  'Step 7: Black layer extruded',
-  'Step 8: All layers final',
+  'Step 2: Each glyph expanded by border (2mm)',
+  'Step 3: All expanded shapes combined',
+  'Step 4: Inner geometry removed (outer only)',
+  'Step 5: Black layer extruded solid',
+  'Step 6: All layers final',
 ];
 
 function stepChange(dir){
@@ -1041,51 +1042,29 @@ function showStep(n){
 
   badgeGroup.children.filter(c=>c!==grid).forEach(c=>badgeGroup.remove(c));
 
-  if(n === 7){ buildBadge(); return; }
+  if(n === 5){ buildBadge(); return; }
 
-  // Focus on black layer (index 2)
   const blackLayer = layerConfig[2];
   const border = blackLayer ? blackLayer.border : 2;
   const colour = blackLayer ? parseInt(blackLayer.colourHex.replace('#',''),16) : 0x333333;
   const glyphs = font.stringToGlyphs(name);
 
   function addWire(pts, z, col){
-    if(!pts || !pts.length) return;
-    const geo = new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p.x||p.x,p.y||p.y,z)));
-    const idx = [...Array(pts.length).keys()]; idx.push(0);
+    if(!pts||!pts.length) return;
+    const geo=new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(p.x,p.y,z)));
+    const idx=[...Array(pts.length).keys()]; idx.push(0);
     geo.setIndex(idx);
-    badgeGroup.add(new THREE.LineLoop(geo, new THREE.LineBasicMaterial({color:col})));
+    badgeGroup.add(new THREE.LineLoop(geo,new THREE.LineBasicMaterial({color:col})));
   }
 
-  function addSolid(shape, z, thick, col){
-    const geo = new THREE.ExtrudeGeometry([shape], {depth:thick,bevelEnabled:false,curveSegments:24});
-    const mat = new THREE.MeshPhongMaterial({color:col,shininess:20});
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.z = z;
-    badgeGroup.add(mesh);
+  function addSolid(shape,z,thick,col){
+    const geo=new THREE.ExtrudeGeometry([shape],{depth:thick,bevelEnabled:false,curveSegments:24});
+    const mesh=new THREE.Mesh(geo,new THREE.MeshPhongMaterial({color:col,shininess:20}));
+    mesh.position.z=z; badgeGroup.add(mesh);
   }
 
-  // Build combined path helper
-  function buildCombinedPath(){
-    const cp = new THREE.ShapePath(); let px=0;
-    for(let i=0;i<glyphs.length;i++){
-      const g=glyphs[i]; const path=g.getPath(px,0,fsize);
-      for(const cmd of path.commands){
-        switch(cmd.type){
-          case 'M':cp.moveTo(cmd.x,-cmd.y);break;
-          case 'L':cp.lineTo(cmd.x,-cmd.y);break;
-          case 'C':cp.bezierCurveTo(cmd.x1,-cmd.y1,cmd.x2,-cmd.y2,cmd.x,-cmd.y);break;
-          case 'Q':cp.quadraticCurveTo(cmd.x1,-cmd.y1,cmd.x,-cmd.y);break;
-          case 'Z':cp.currentPath.closePath();break;
-        }
-      }
-      px+=g.advanceWidth*(fsize/font.unitsPerEm)+spacing;
-    }
-    return cp;
-  }
-
-  if(n === 0){
-    // Raw per-glyph outlines
+  // Step 1: Raw glyph outlines per letter
+  function step1(){
     let px=0;
     for(let i=0;i<glyphs.length;i++){
       const path=glyphs[i].getPath(px,0,fsize);
@@ -1093,59 +1072,75 @@ function showStep(n){
       shapes.forEach(s=>addWire(s.getPoints(24).map(p=>({x:p.x,y:p.y})),0,0x5b9cf6));
       px+=glyphs[i].advanceWidth*(fsize/font.unitsPerEm)+spacing;
     }
-  } else if(n === 1){
-    // Combined into one ShapePath
-    const shapes = buildCombinedPath().toShapes(false);
-    shapes.forEach((s,i)=>addWire(s.getPoints(24).map(p=>({x:p.x,y:p.y})),0,[0xe05c5c,0xf4ee2a,0x5b9cf6,0xffffff][i%4]));
-  } else if(n === 2){
-    // toShapes result, holes cleared
-    const shapes = buildCombinedPath().toShapes(false);
-    shapes.forEach(s=>{ s.holes=[]; });
-    shapes.forEach((s,i)=>addWire(s.getPoints(24).map(p=>({x:p.x,y:p.y})),0,[0xe05c5c,0xf4ee2a,0x5b9cf6,0xffffff][i%4]));
-  } else if(n === 3){
-    // Each shape expanded by black border
-    const shapes = buildCombinedPath().toShapes(false);
-    shapes.forEach(s=>{ s.holes=[]; });
-    const expanded = shapes.map(s=>{
-      const pts=s.getPoints(24);
-      return offsetContour(pts.map(p=>({x:p.x,y:p.y})), border>0?border:0.1);
-    });
-    expanded.forEach((pts,i)=>addWire(pts,i*3,colour));
-  } else if(n === 4){
-    // After ShapePath merge
-    const shapes = buildCombinedPath().toShapes(false);
-    shapes.forEach(s=>{ s.holes=[]; });
-    const expanded = shapes.map(s=>offsetContour(s.getPoints(24).map(p=>({x:p.x,y:p.y})),border>0?border:0.1));
-    const mergePath=new THREE.ShapePath();
-    expanded.forEach(pts=>{ if(!pts.length)return; mergePath.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>mergePath.lineTo(p.x,p.y)); mergePath.currentPath.closePath(); });
-    const merged=mergePath.toShapes(false);
-    merged.forEach(s=>{ s.holes=[]; });
-    merged.forEach((s,i)=>addWire(s.getPoints(24).map(p=>({x:p.x,y:p.y})),i*3,colour));
-  } else if(n === 5){
-    // After removeEnclosed
-    const shapes = buildCombinedPath().toShapes(false);
-    shapes.forEach(s=>{ s.holes=[]; });
-    const expanded = shapes.map(s=>offsetContour(s.getPoints(24).map(p=>({x:p.x,y:p.y})),border>0?border:0.1));
-    const mergePath=new THREE.ShapePath();
-    expanded.forEach(pts=>{ if(!pts.length)return; mergePath.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>mergePath.lineTo(p.x,p.y)); mergePath.currentPath.closePath(); });
-    const merged=mergePath.toShapes(false);
-    merged.forEach(s=>{ s.holes=[]; });
-    const clean=removeEnclosed(merged);
-    clean.forEach((s,i)=>addWire(s.getPoints(24).map(p=>({x:p.x,y:p.y})),i*3,colour));
-  } else if(n === 6){
-    // Black layer extruded solid
-    const shapes = buildCombinedPath().toShapes(false);
-    shapes.forEach(s=>{ s.holes=[]; });
-    const expanded = shapes.map(s=>offsetContour(s.getPoints(24).map(p=>({x:p.x,y:p.y})),border>0?border:0.1));
-    const mergePath=new THREE.ShapePath();
-    expanded.forEach(pts=>{ if(!pts.length)return; mergePath.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>mergePath.lineTo(p.x,p.y)); mergePath.currentPath.closePath(); });
-    const merged=mergePath.toShapes(false);
-    merged.forEach(s=>{ s.holes=[]; });
-    const clean=removeEnclosed(merged);
-    clean.forEach(s=>addSolid(s, 0, 1, colour));
   }
 
-  const bounds = getBounds(getTextContours(name,fsize));
+  // Step 2: Each glyph expanded by border FIRST (before combining)
+  function step2(){
+    let px=0;
+    for(let i=0;i<glyphs.length;i++){
+      const path=glyphs[i].getPath(px,0,fsize);
+      const shapes=otPathToShapes(path,false);
+      shapes.forEach(s=>{s.holes=[];});
+      shapes.forEach(s=>{
+        const pts=s.getPoints(24);
+        const expanded=offsetContour(pts.map(p=>({x:p.x,y:p.y})),border>0?border:0.1);
+        addWire(expanded,0,colour);
+      });
+      px+=glyphs[i].advanceWidth*(fsize/font.unitsPerEm)+spacing;
+    }
+  }
+
+  // Get all per-glyph expanded contours
+  function getExpandedContours(){
+    let px=0; const all=[];
+    for(let i=0;i<glyphs.length;i++){
+      const path=glyphs[i].getPath(px,0,fsize);
+      const shapes=otPathToShapes(path,false);
+      shapes.forEach(s=>{s.holes=[];});
+      shapes.forEach(s=>{
+        const pts=s.getPoints(24);
+        all.push(offsetContour(pts.map(p=>({x:p.x,y:p.y})),border>0?border:0.1));
+      });
+      px+=glyphs[i].advanceWidth*(fsize/font.unitsPerEm)+spacing;
+    }
+    return all;
+  }
+
+  // Step 3: Combine all expanded shapes into one path
+  function step3combined(){
+    const contours=getExpandedContours();
+    const mergePath=new THREE.ShapePath();
+    contours.forEach(pts=>{
+      if(!pts.length) return;
+      mergePath.moveTo(pts[0].x,pts[0].y);
+      pts.slice(1).forEach(p=>mergePath.lineTo(p.x,p.y));
+      mergePath.currentPath.closePath();
+    });
+    return mergePath.toShapes(false);
+  }
+
+  if(n===0){ step1(); }
+  else if(n===1){ step2(); }
+  else if(n===2){
+    const shapes=step3combined();
+    shapes.forEach((s,i)=>addWire(s.getPoints(24).map(p=>({x:p.x,y:p.y})),0,[0xe05c5c,0xf4ee2a,colour,0xffffff][i%4]));
+  }
+  else if(n===3){
+    // Remove inner geometry — only keep outermost shapes
+    const shapes=step3combined();
+    shapes.forEach(s=>{s.holes=[];});
+    const clean=removeEnclosed(shapes);
+    clean.forEach((s,i)=>addWire(s.getPoints(24).map(p=>({x:p.x,y:p.y})),i*2,colour));
+  }
+  else if(n===4){
+    // Extruded solid
+    const shapes=step3combined();
+    shapes.forEach(s=>{s.holes=[];});
+    const clean=removeEnclosed(shapes);
+    clean.forEach(s=>addSolid(s,0,1,colour));
+  }
+
+  const bounds=getBounds(getTextContours(name,fsize));
   const cx=bounds.minX+bounds.w/2, cy=-(bounds.minY+bounds.h/2);
   badgeGroup.position.set(-cx, cy, 0);
 }
@@ -1153,7 +1148,7 @@ function showStep(n){
 // Init step viewer label
 document.addEventListener('DOMContentLoaded',()=>{
   const sl=document.getElementById('stepSlider');
-  if(sl){ sl.max=7; sl.value=7; document.getElementById('stepLabel').textContent=STEP_LABELS[7]; }
+  if(sl){ sl.max=5; sl.value=5; document.getElementById('stepLabel').textContent=STEP_LABELS[5]; }
 });
 
 // ── Boot ──────────────────────────────────────────────────────
