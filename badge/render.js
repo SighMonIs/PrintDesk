@@ -267,13 +267,14 @@ function buildBadge(){
   // Add cutout on back face, centred on badge
   const backing = getBackingConfig();
   if(backing){
-    // Get true visual centre from rendered geometry
     const box = new THREE.Box3().setFromObject(badgeGroup);
     const centre = box.getCenter(new THREE.Vector3());
     const geo = makeCutoutGeo(backing.w, backing.h, backing.d);
     const mat = new THREE.MeshPhongMaterial({color:0x111111, shininess:0});
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(centre.x, centre.y, 0);
+    // centre is in world space, convert to group local space
+    const localCentre = badgeGroup.worldToLocal(centre.clone());
+    mesh.position.set(localCentre.x, localCentre.y, 0);
     badgeGroup.add(mesh);
   }
 
@@ -289,10 +290,11 @@ function getBackingConfig(){
 }
 
 // Create a rectangular cutout box geometry centred at origin
-// Sits from z=0 going into negative Z (into the back face)
+// Sits from z=0 going into negative Z (into the back face of the badge)
 function makeCutoutGeo(w, h, d){
   const geo = new THREE.BoxGeometry(w, h, d);
-  // Shift so top face is at z=0, box extends to z=-d
+  // No translation needed - box is centred at origin, half above half below z=0
+  // We want it entirely behind z=0, so shift by -d/2
   geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, -d/2));
   return geo;
 }
