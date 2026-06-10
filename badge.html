@@ -217,7 +217,7 @@ canvas{display:block;}
       <div class="status" id="status">Signing in…</div>
 
       <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);font-size:10px;color:rgba(136,136,133,0.4);font-family:ui-monospace,monospace;text-align:center">
-        v1.6.0
+        v1.6.1
       </div>
     </div>
 
@@ -698,33 +698,21 @@ function setStatus(msg,cls=''){
 // ── Canvas-based clean shape generation ──────────────────────
 // Rasterizes glyphs onto a canvas with border blur, then traces
 // the outline using marching squares to get a clean outer contour
-function getFilledShapes(text, fsize, border, spacing){
-  if(!font) return [];
+function buildCanvas2D(text, fsize, border, spacing){
+  if(!font) return null;
   const glyphs = font.stringToGlyphs(text);
-  const SCALE = 2; // px per mm
-  const PAD = Math.ceil(border * SCALE) + 4;
-
-  // Calculate total width
-  let totalW = 0;
-  glyphs.forEach((g,i)=>{
-    totalW += g.advanceWidth*(fsize/font.unitsPerEm);
-    if(i<glyphs.length-1) totalW += font.getKerningValue(g,glyphs[i+1])*(fsize/font.unitsPerEm) + (spacing||0);
-  });
-
-  // Get text bounds
+  const SCALE = 2;
   const contours = getTextContours(text, fsize);
   const bounds = getBounds(contours);
-  const W = Math.ceil((bounds.w + border*2 + 8) * SCALE);
-  const H = Math.ceil((bounds.h + border*2 + 8) * SCALE);
-  const offX = (-bounds.minX + border + 4) * SCALE;
-  const offY = (-bounds.minY + border + 4) * SCALE;
+  const W = Math.ceil((bounds.w + border*2 + 10) * SCALE);
+  const H = Math.ceil((bounds.h + border*2 + 10) * SCALE);
+  const offX = (-bounds.minX + border + 5);
+  const offY = (bounds.maxY + border + 5); // flip Y
 
-  // Draw glyphs onto canvas
+  // Draw glyphs filled
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-
-  // Draw each glyph using its path
   ctx.fillStyle = '#000';
   let px = 0;
   for(let i=0;i<glyphs.length;i++){
@@ -733,45 +721,36 @@ function getFilledShapes(text, fsize, border, spacing){
     ctx.beginPath();
     for(const cmd of path.commands){
       switch(cmd.type){
-        case 'M': ctx.moveTo((cmd.x+offX/SCALE)*SCALE, (-cmd.y+offY/SCALE)*SCALE); break;
-        case 'L': ctx.lineTo((cmd.x+offX/SCALE)*SCALE, (-cmd.y+offY/SCALE)*SCALE); break;
-        case 'C': ctx.bezierCurveTo((cmd.x1+offX/SCALE)*SCALE,(-cmd.y1+offY/SCALE)*SCALE,(cmd.x2+offX/SCALE)*SCALE,(-cmd.y2+offY/SCALE)*SCALE,(cmd.x+offX/SCALE)*SCALE,(-cmd.y+offY/SCALE)*SCALE); break;
-        case 'Q': ctx.quadraticCurveTo((cmd.x1+offX/SCALE)*SCALE,(-cmd.y1+offY/SCALE)*SCALE,(cmd.x+offX/SCALE)*SCALE,(-cmd.y+offY/SCALE)*SCALE); break;
+        case 'M': ctx.moveTo((cmd.x+offX)*SCALE, (-cmd.y+offY)*SCALE); break;
+        case 'L': ctx.lineTo((cmd.x+offX)*SCALE, (-cmd.y+offY)*SCALE); break;
+        case 'C': ctx.bezierCurveTo((cmd.x1+offX)*SCALE,(-cmd.y1+offY)*SCALE,(cmd.x2+offX)*SCALE,(-cmd.y2+offY)*SCALE,(cmd.x+offX)*SCALE,(-cmd.y+offY)*SCALE); break;
+        case 'Q': ctx.quadraticCurveTo((cmd.x1+offX)*SCALE,(-cmd.y1+offY)*SCALE,(cmd.x+offX)*SCALE,(-cmd.y+offY)*SCALE); break;
         case 'Z': ctx.closePath(); break;
       }
     }
-    ctx.fill('evenodd');
-    const adv = g.advanceWidth*(fsize/font.unitsPerEm);
-    const kern = i<glyphs.length-1 ? font.getKerningValue(g,glyphs[i+1])*(fsize/font.unitsPerEm) : 0;
-    px += adv + kern + (spacing||0);
+    ctx.fill('nonzero');
+    px += g.advanceWidth*(fsize/font.unitsPerEm) + (i<glyphs.length-1?font.getKerningValue(g,glyphs[i+1])*(fsize/font.unitsPerEm):0) + (spacing||0);
   }
 
-  // Expand by border using shadowBlur trick
-  if(border > 0){
-    const cv2 = document.createElement('canvas');
-    cv2.width = W; cv2.height = H;
-    const ctx2 = cv2.getContext('2d');
-    const blurPx = border * SCALE;
-    ctx2.shadowColor = '#000';
-    ctx2.shadowBlur = blurPx;
-    ctx2.drawImage(cv, 0, 0);
-    // Threshold the blurred result
-    const cv3 = document.createElement('canvas');
-    cv3.width = W; cv3.height = H;
-    const ctx3 = cv3.getContext('2d');
-    ctx3.drawImage(cv2, 0, 0);
-    const imgData = ctx3.getImageData(0,0,W,H);
-    const d = imgData.data;
-    for(let i=0;i<d.length;i+=4){
-      const a = d[i+3];
-      const v = a > 30 ? 255 : 0;
-      d[i]=d[i+1]=d[i+2]=v; d[i+3]=255;
+  if(border <= 0) return {cv, ctx, W, H, SCALE, offX, offY};
+
+  // Expand using dilate: draw multiple times with small offsets
+  const cv2 = document.createElement('canvas');
+  cv2.width = W; cv2.height = H;
+  const ctx2 = cv2.getContext('2d');
+  const steps = Math.ceil(border * SCALE);
+  for(let dy=-steps;dy<=steps;dy++){
+    for(let dx=-steps;dx<=steps;dx++){
+      if(dx*dx+dy*dy<=steps*steps){
+        ctx2.drawImage(cv,dx,dy);
+      }
     }
-    ctx3.putImageData(imgData,0,0);
-    // Use marching squares to trace outline
-    return traceCanvasOutline(ctx3, W, H, SCALE, offX, offY);
   }
+  return {cv:cv2, ctx:ctx2, W, H, SCALE, offX, offY};
+}
 
+function getFilledShapes(text, fsize, border, spacing){
+  const {cv, ctx, W, H, SCALE, offX, offY} = buildCanvas2D(text, fsize, border, spacing||0);
   return traceCanvasOutline(ctx, W, H, SCALE, offX, offY);
 }
 
@@ -1152,6 +1131,7 @@ let debugBlackOnly = true; // Show only black layer for debugging
 let currentStep = 4;
 
 const STEP_LABELS = [
+  'Step 0.5: Canvas 2D debug (click ← from step 1)',
   'Step 1: Raw glyph outlines (per letter)',
   'Step 2: Each glyph expanded by border (2mm)',
   'Step 3: All expanded shapes combined',
@@ -1256,6 +1236,16 @@ function showStep(n){
   }
 
   if(n===0){ step1(); }
+  else if(n==-1){
+    // Debug: show the canvas as an image in the preview
+    const canvas2d = buildCanvas2D(name, fsize, border, spacing||0);
+    const img = document.createElement('img');
+    img.src = canvas2d.toDataURL();
+    img.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;background:white';
+    img.id='debugCanvas';
+    document.getElementById('previewPane').appendChild(img);
+    return;
+  }
   else if(n===1){ step2(); }
   else if(n===2){
     const shapes=step3combined();
