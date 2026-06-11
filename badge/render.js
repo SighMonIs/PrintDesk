@@ -271,10 +271,8 @@ function buildBadge(){
     const mat = new THREE.MeshPhongMaterial({color:0x111111, shininess:0});
     const mesh = new THREE.Mesh(geo, mat);
     mesh.userData.isCutout = true;
-    const ox = parseFloat(document.getElementById('cutoutX')?.value||0);
-    const oy = parseFloat(document.getElementById('cutoutY')?.value||0);
-    const oz = parseFloat(document.getElementById('cutoutZ')?.value||0);
-    mesh.position.set(ox, oy, oz);
+    // Centre = double cy offset (shapes are offset by cy, and their own centre is at cy)
+    mesh.position.set(0, cy * 2, backing.d);
     badgeGroup.add(mesh);
   }
 
@@ -297,11 +295,6 @@ function makeCutoutGeo(w, h, d){
   // We want it entirely behind z=0, so shift by -d/2
   geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, -d/2));
   return geo;
-}
-
-function updateCutoutDebug(){
-  // Just re-render to update cutout position
-  scheduleRender();
 }
 
 function offsetContour(pts,dist){
@@ -348,7 +341,10 @@ function exportTMF(){
     const box=new THREE.Box3().setFromObject(tmpGroup);
     const centre=box.getCenter(new THREE.Vector3());
     const cutGeo=makeCutoutGeo(backing.w, backing.h, backing.d);
-    cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(centre.x, centre.y, 0));
+    // Compute badge Y centre same way as preview (cy*2)
+    const exportBounds=getBounds(getTextContours(name,fsize));
+    const exportCy=-(exportBounds.minY+exportBounds.h/2);
+    cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, exportCy*2, backing.d));
     cutGeo.computeVertexNormals();
     objects.push({geo:cutGeo, name:`${backing.name}_cutout`, colour:'#000000', extruder:1, id:objects.length+1, negative:true});
   }
