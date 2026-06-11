@@ -385,14 +385,18 @@ function build3MF(objects,name){
   const modelSettings=`<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <object id="${wId}">\n    <metadata key="name" value="${name}"/>\n    <metadata key="extruder" value="1"/>\n${parts}  </object>\n</config>`;
 
   // Build project_settings.config with filament colours
-  const filamentColours=objects.filter(o=>!o.negative).map(o=>o.colour);
+  // BambuStudio requires #RRGGBBFF (8-char with alpha channel)
+  const filamentColours=objects.filter(o=>!o.negative).map(o=>{
+    const hex=o.colour.replace('#','');
+    return '#'+(hex.length===6?hex+'FF':hex);
+  });
   const n=filamentColours.length;
   const projectSettings=JSON.stringify({
     filament_colour: filamentColours,
+    filament_colour_new: filamentColours,
     filament_type: Array(n).fill('PLA'),
     filament_settings_id: Array(n).fill('Bambu PLA Basic @BBL A1M'),
     filament_vendor: Array(n).fill('Bambu Lab'),
-    default_filament_colour: Array(n).fill(''),
     filament_is_support: Array(n).fill('0'),
     filament_ids: Array(n).fill('GFB00'),
   }, null, 2);
