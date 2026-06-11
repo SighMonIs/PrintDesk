@@ -1,3 +1,7 @@
+// ── Project settings template for 3MF export ─────────────────
+let projectSettingsTemplate = null;
+fetch('project_settings_template.json').then(r=>r.json()).then(t=>{projectSettingsTemplate=t;}).catch(()=>{});
+
 // ── Three.js setup ────────────────────────────────────────────
 const canvas   = document.getElementById('canvas');
 const pane     = document.getElementById('previewPane');
@@ -384,22 +388,20 @@ function build3MF(objects,name){
   });
   const modelSettings=`<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <object id="${wId}">\n    <metadata key="name" value="${name}"/>\n    <metadata key="extruder" value="1"/>\n${parts}  </object>\n</config>`;
 
-  // Build project_settings.config with filament colours
-  // BambuStudio requires #RRGGBBFF (8-char with alpha channel)
-  const filamentColours=objects.filter(o=>!o.negative).map(o=>{
-    const hex=o.colour.replace('#','');
-    return '#'+(hex.length===6?hex+'FF':hex);
-  });
-  const n=filamentColours.length;
-  const projectSettings=JSON.stringify({
-    filament_colour: filamentColours,
-    filament_colour_new: filamentColours,
-    filament_type: Array(n).fill('PLA'),
-    filament_settings_id: Array(n).fill('Bambu PLA Basic @BBL A1M'),
-    filament_vendor: Array(n).fill('Bambu Lab'),
-    filament_is_support: Array(n).fill('0'),
-    filament_ids: Array(n).fill('GFB00'),
-  }, null, 2);
+  // Build project_settings.config — use full template so BambuStudio
+  // recognises it as a project file and applies the filament colours
+  const filamentColours=objects.filter(o=>!o.negative).map(o=>o.colour);
+  let projectSettings;
+  if(projectSettingsTemplate){
+    const tmpl=JSON.parse(JSON.stringify(projectSettingsTemplate));
+    tmpl.filament_colour=filamentColours;
+    tmpl.filament_multi_colour=filamentColours;
+    projectSettings=JSON.stringify(tmpl);
+  } else {
+    // minimal fallback if template hasn't loaded yet
+    const n=filamentColours.length;
+    projectSettings=JSON.stringify({from:'project',name:'project_settings',version:'02.04.00.70',printer_model:'Bambu Lab H2C',printer_settings_id:'Bambu Lab H2C 0.4 nozzle',filament_colour:filamentColours,filament_multi_colour:filamentColours,filament_type:Array(n).fill('PLA'),filament_settings_id:Array(n).fill('Bambu PLA Basic @BBL H2C'),filament_vendor:Array(n).fill('Bambu Lab'),filament_is_support:Array(n).fill('0'),filament_ids:Array(n).fill('GFA00')});
+  }
 
   return {modelXml, modelSettings, projectSettings};
 }
