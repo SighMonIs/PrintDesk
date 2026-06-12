@@ -3,13 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Badge Generator 2</title>
+<title>Badge2 — Border Exploration</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<input type="text" id="nameInput" value="NAME" maxlength="20" oninput="this.value=this.value.toUpperCase();scheduleRender()">
-<canvas id="canvas"></canvas>
+
+<div class="controls">
+  <input type="text" id="nameInput" value="NAME" maxlength="20"
+    oninput="this.value=this.value.toUpperCase();scheduleRender()">
+  <div class="slider-row">
+    <label>Border</label>
+    <input type="range" id="borderRange" min="2" max="40" value="10"
+      oninput="document.getElementById('borderVal').textContent=this.value;scheduleRender()">
+    <span id="borderVal">10</span>px
+  </div>
+</div>
+
+<div class="options">
+
+  <div class="option">
+    <div class="option-header">
+      <span class="tag">1</span>
+      <div>
+        <div class="option-title">Centered stroke</div>
+        <div class="option-desc">Canvas stroke — half the border bleeds inside the letter, half outside</div>
+      </div>
+    </div>
+    <canvas id="c1"></canvas>
+  </div>
+
+  <div class="option">
+    <div class="option-header">
+      <span class="tag">2</span>
+      <div>
+        <div class="option-title">Outside stroke</div>
+        <div class="option-desc">Double-width stroke, fill on top — border only appears outside the letter</div>
+      </div>
+    </div>
+    <canvas id="c2"></canvas>
+  </div>
+
+  <div class="option">
+    <div class="option-header">
+      <span class="tag">3</span>
+      <div>
+        <div class="option-title">Clipper polygon offset</div>
+        <div class="option-desc">True geometric expansion — the same algorithm Affinity Designer uses for path offset</div>
+      </div>
+    </div>
+    <canvas id="c3"></canvas>
+  </div>
+
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js"></script>
 <script src="render.js"></script>
 </body>
 </html>
