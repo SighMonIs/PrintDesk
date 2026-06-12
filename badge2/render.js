@@ -32,8 +32,7 @@ function render() {
   const text   = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
   const border = parseFloat(document.getElementById('borderRange').value) || 0;
 
-  ctx.fillStyle = '#27272a';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const probe = font.getPath(text, 0, 0, FONT_SIZE);
   const bb    = probe.getBoundingBox();
