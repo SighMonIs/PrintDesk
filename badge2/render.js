@@ -56,6 +56,43 @@ function animate() {
 }
 animate();
 
+// ── Layer defaults ────────────────────────────────────────────
+const defaultLayers = [
+  { hex: '#ef4444', border: 6, depth: 3, hasSlot: true  },
+  { hex: '#f4ee2a', border: 4, depth: 1, hasSlot: false },
+  { hex: '#1a1a1a', border: 2, depth: 1, hasSlot: false },
+];
+
+// ── Layer UI ──────────────────────────────────────────────────
+function buildLayerUI() {
+  document.getElementById('layerList').innerHTML = defaultLayers.map((l, i) => `
+    <div class="layer-item" data-index="${i}">
+      <input type="color" class="layer-colour" value="${l.hex}" oninput="scheduleRender()">
+      <div class="layer-fields">
+        <div class="field-row">
+          <label>Border</label>
+          <input type="number" class="layer-border" value="${l.border}" min="0" max="30" step="0.5" oninput="scheduleRender()">
+          <span>mm</span>
+        </div>
+        <div class="field-row">
+          <label>Depth</label>
+          <input type="number" class="layer-depth" value="${l.depth}" min="0.5" max="10" step="0.5" oninput="scheduleRender()">
+          <span>mm</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getLayerConfig() {
+  return Array.from(document.querySelectorAll('.layer-item')).map((el, i) => ({
+    hex:      el.querySelector('.layer-colour').value,
+    border:   parseFloat(el.querySelector('.layer-border').value) || 0,
+    depth:    parseFloat(el.querySelector('.layer-depth').value)  || 1,
+    hasSlot:  i === 0,
+  }));
+}
+
 // ── Constants ─────────────────────────────────────────────────
 const FONT_SIZE_MM = 49;
 const HOLE_W       = 46;
@@ -63,6 +100,8 @@ const HOLE_H       = 14;
 const SCALE        = 1000;
 
 let font = null, timer = null;
+
+buildLayerUI();
 
 opentype.load('LEGO.TTF', (err, f) => {
   if (err) { console.error('Font load failed:', err); return; }
@@ -75,8 +114,7 @@ function scheduleRender() { clearTimeout(timer); timer = setTimeout(buildBadge, 
 // ── Build ─────────────────────────────────────────────────────
 function buildBadge() {
   if (!font) return;
-  const text      = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
-  const redBorder = parseFloat(document.getElementById('borderRange').value) || 0;
+  const text = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
 
   while (badgeGroup.children.length) badgeGroup.remove(badgeGroup.children[0]);
 
@@ -84,25 +122,26 @@ function buildBadge() {
   if (!polys.length) return;
 
   const unioned = clipperUnion(polys);
-
-  // Centre is the same for all layers (border expands symmetrically).
-  // Compute once from the un-offset union so layers always align.
   const { offX, offY } = bboxCentre(unioned);
 
-  // Red — 2mm with magnet slot + 1mm solid cap
-  addLayer(unioned, redBorder,                  offX, offY, 0xef4444, 2, 0, true);
-  addLayer(unioned, redBorder,                  offX, offY, 0xef4444, 1, 2, false);
+  let z = 0;
+  for (const layer of getLayerConfig()) {
+    const colour = parseInt(layer.hex.slice(1), 16);
 
-  // Yellow — 1mm solid, border 2mm smaller than red so red ring shows
-  addLayer(unioned, Math.max(0, redBorder - 2), offX, offY, 0xf4ee2a, 1, 3, false);
+    if (layer.hasSlot && layer.depth > 1) {
+      // Slot cuts through all but the last 1mm
+      addLayer(unioned, layer.border, offX, offY, colour, layer.depth - 1, z, true);
+      addLayer(unioned, layer.border, offX, offY, colour, 1, z + layer.depth - 1, false);
+    } else {
+      addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z, layer.hasSlot);
+    }
 
-  // Black — 1mm solid, border 2mm smaller than yellow so yellow ring shows
-  addLayer(unioned, Math.max(0, redBorder - 4), offX, offY, 0x1a1a1a, 1, 4, false);
+    z += layer.depth;
+  }
 }
 
 // ── Layer builder ─────────────────────────────────────────────
 function addLayer(unioned, borderMM, offX, offY, colour, depth, zPos, includeSlot) {
-  // Offset the union by this layer's border
   let working = unioned;
   if (borderMM > 0) {
     const co = new ClipperLib.ClipperOffset();

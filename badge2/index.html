@@ -8,15 +8,13 @@
 </head>
 <body>
 
-<div class="controls">
-  <input type="text" id="nameInput" value="NAME" maxlength="20"
+<div class="panel">
+  <div class="section-title">Name</div>
+  <input type="text" id="nameInput" value="NAME" maxlength="20" class="name-input"
     oninput="this.value=this.value.toUpperCase();scheduleRender()">
-  <div class="slider-row">
-    <label>Border</label>
-    <input type="range" id="borderRange" min="0" max="15" step="0.5" value="5"
-      oninput="document.getElementById('borderVal').textContent=this.value;scheduleRender()">
-    <span id="borderVal">5</span>mm
-  </div>
+
+  <div class="section-title" style="margin-top:20px">Layers</div>
+  <div id="layerList" class="layer-list"></div>
 </div>
 
 <div id="previewPane">
