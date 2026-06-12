@@ -1,71 +1,193 @@
-const canvas = document.getElementById('canvas');
-const ctx    = canvas.getContext('2d');
-let font = null, timer = null;
+// ── Three.js setup ────────────────────────────────────────────
+const canvas   = document.getElementById('canvas');
+const pane     = document.getElementById('previewPane');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(window.devicePixelRatio);
 
-const FONT_SIZE  = 72;
-const COLOUR     = '#ef4444';
-const PX_PER_MM  = FONT_SIZE / 49; // 49mm = badge default font size
-const HOLE_W_MM  = 46;
-const HOLE_H_MM  = 14;
+const scene  = new THREE.Scene();
+scene.background = new THREE.Color(0x18181b);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+camera.position.set(0, -80, 160);
+camera.lookAt(0, 0, 0);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(50, -50, 100); scene.add(dl);
+const fl = new THREE.DirectionalLight(0xffffff, 0.3); fl.position.set(-50, 50, 50);  scene.add(fl);
+
+const badgeGroup = new THREE.Group();
+scene.add(badgeGroup);
 
 function resize() {
-  canvas.width  = Math.floor(window.innerWidth * 0.9);
-  canvas.height = 160;
-  render();
+  const w = pane.clientWidth, h = pane.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
 }
-window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(pane);
 resize();
+
+// ── Camera controls ───────────────────────────────────────────
+let rotX = -0.4, rotY = 0.2, zoom = 1;
+let isDragging = false, lastX = 0, lastY = 0;
+
+canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+window.addEventListener('mouseup', () => isDragging = false);
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  rotY += (e.clientX - lastX) * 0.01;
+  rotX += (e.clientY - lastY) * 0.01;
+  rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotX));
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('wheel', e => {
+  zoom *= e.deltaY > 0 ? 1.05 : 0.95;
+  zoom = Math.max(0.3, Math.min(4, zoom));
+  e.preventDefault();
+}, { passive: false });
+
+function animate() {
+  requestAnimationFrame(animate);
+  badgeGroup.rotation.x = rotX;
+  badgeGroup.rotation.y = rotY;
+  camera.position.set(0, -80 * zoom, 160 * zoom);
+  camera.lookAt(0, 0, 0);
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── Constants ─────────────────────────────────────────────────
+const FONT_SIZE_MM  = 49;   // font rendered in mm
+const EXTRUDE_DEPTH = 2;    // mm
+const HOLE_W        = 46;   // magnet slot mm
+const HOLE_H        = 14;
+const SCALE         = 1000; // Clipper integer precision
+const COLOUR        = 0xef4444;
+
+let font = null, timer = null;
 
 opentype.load('LEGO.TTF', (err, f) => {
   if (err) { console.error('Font load failed:', err); return; }
   font = f;
-  render();
+  buildBadge();
 });
 
-function scheduleRender() {
-  clearTimeout(timer);
-  timer = setTimeout(render, 150);
+function scheduleRender() { clearTimeout(timer); timer = setTimeout(buildBadge, 300); }
+
+// ── Build ─────────────────────────────────────────────────────
+function buildBadge() {
+  if (!font) return;
+  const text     = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
+  const borderMM = parseFloat(document.getElementById('borderRange').value) || 0;
+
+  while (badgeGroup.children.length) badgeGroup.remove(badgeGroup.children[0]);
+
+  // 1. Opentype → Clipper polygons
+  const polys = commandsToClipper(font.getPath(text, 0, 0, FONT_SIZE_MM).commands);
+  if (!polys.length) return;
+
+  // 2. Union all letter polygons
+  const clipper = new ClipperLib.Clipper();
+  clipper.AddPaths(polys, ClipperLib.PolyType.ptSubject, true);
+  const unioned = new ClipperLib.Paths();
+  clipper.Execute(ClipperLib.ClipType.ctUnion, unioned,
+    ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+
+  // 3. Offset by border (round joins)
+  let working = unioned;
+  if (borderMM > 0) {
+    const co = new ClipperLib.ClipperOffset();
+    co.AddPaths(unioned, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon);
+    const expanded = new ClipperLib.Paths();
+    co.Execute(expanded, borderMM * SCALE);
+    working = expanded;
+  }
+
+  // 4. Bounding box → centre offset for Three.js
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const path of working) {
+    for (const pt of path) {
+      if (pt.X < minX) minX = pt.X; if (pt.X > maxX) maxX = pt.X;
+      if (pt.Y < minY) minY = pt.Y; if (pt.Y > maxY) maxY = pt.Y;
+    }
+  }
+  const offX = (minX + maxX) / 2 / SCALE;
+  const offY = (minY + maxY) / 2 / SCALE;
+
+  // 5. Split into outers and holes
+  // Clipper Orientation=true → CW in screen → CCW in Three.js (Y flipped) → outer
+  const outers = [], innerHoles = [];
+  for (const path of working) {
+    (ClipperLib.Clipper.Orientation(path) ? outers : innerHoles).push(path);
+  }
+
+  // 6. Magnet slot — centred at origin (same centre as the shape)
+  const hw = HOLE_W / 2, hh = HOLE_H / 2;
+
+  // 7. Build THREE.Shape per outer, add inner holes + magnet slot
+  const shapes = outers.map(outer => {
+    const shape = new THREE.Shape(
+      outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
+    );
+
+    for (const h of innerHoles) {
+      shape.holes.push(new THREE.Path(
+        h.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
+      ));
+    }
+
+    const slot = new THREE.Path();
+    slot.moveTo(-hw, -hh);
+    slot.lineTo( hw, -hh);
+    slot.lineTo( hw,  hh);
+    slot.lineTo(-hw,  hh);
+    slot.closePath();
+    shape.holes.push(slot);
+
+    return shape;
+  });
+
+  // 8. Extrude
+  const geo = new THREE.ExtrudeGeometry(shapes, { depth: EXTRUDE_DEPTH, bevelEnabled: false });
+  const mat = new THREE.MeshPhongMaterial({ color: COLOUR, shininess: 40 });
+  badgeGroup.add(new THREE.Mesh(geo, mat));
 }
 
-function render() {
-  if (!font) return;
-  const text   = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
-  const border = parseFloat(document.getElementById('borderRange').value) || 0;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const probe = font.getPath(text, 0, 0, FONT_SIZE);
-  const bb    = probe.getBoundingBox();
-  const x     = (canvas.width  - (bb.x2 - bb.x1)) / 2 - bb.x1;
-  const y     = (canvas.height - (bb.y2 - bb.y1)) / 2 - bb.y1;
-
-  const path2d = new Path2D(font.getPath(text, x, y, FONT_SIZE).toPathData(3));
-
-  // Outside stroke + fill, same colour → merges into one solid shape
-  ctx.strokeStyle = COLOUR;
-  ctx.lineWidth   = border * 2;
-  ctx.lineJoin    = 'round';
-  ctx.stroke(path2d);
-  ctx.fillStyle = COLOUR;
-  ctx.fill(path2d);
-
-  // ── Magnet cutout ─────────────────────────────────────────────
-  // Centre of the shape = canvas centre (text is centred there already).
-  // Convert mm → px using the same scale as the font.
-  const cx    = canvas.width  / 2;
-  const cy    = canvas.height / 2;
-  const holeW = HOLE_W_MM * PX_PER_MM;
-  const holeH = HOLE_H_MM * PX_PER_MM;
-  const holeX = cx - holeW / 2;
-  const holeY = cy - holeH / 2;
-
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.fillStyle = 'black';
-  ctx.fillRect(holeX, holeY, holeW, holeH);
-  ctx.globalCompositeOperation = 'source-over';
-
-  // Faint outline so the slot is visible against any background
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-  ctx.lineWidth   = 1;
-  ctx.strokeRect(holeX, holeY, holeW, holeH);
+// ── Clipper helpers ───────────────────────────────────────────
+function commandsToClipper(cmds) {
+  const polys = [];
+  let cur = null, lx = 0, ly = 0;
+  for (const c of cmds) {
+    if (c.type === 'M') {
+      if (cur?.length > 2) polys.push(cur);
+      cur = [{ X: Math.round(c.x * SCALE), Y: Math.round(c.y * SCALE) }];
+      lx = c.x; ly = c.y;
+    } else if (c.type === 'L') {
+      cur?.push({ X: Math.round(c.x * SCALE), Y: Math.round(c.y * SCALE) });
+      lx = c.x; ly = c.y;
+    } else if (c.type === 'C') {
+      for (let t = 0.1; t <= 1.001; t += 0.1) {
+        const u = 1 - t;
+        cur?.push({
+          X: Math.round((u*u*u*lx + 3*u*u*t*c.x1 + 3*u*t*t*c.x2 + t*t*t*c.x) * SCALE),
+          Y: Math.round((u*u*u*ly + 3*u*u*t*c.y1 + 3*u*t*t*c.y2 + t*t*t*c.y) * SCALE),
+        });
+      }
+      lx = c.x; ly = c.y;
+    } else if (c.type === 'Q') {
+      for (let t = 0.1; t <= 1.001; t += 0.1) {
+        const u = 1 - t;
+        cur?.push({
+          X: Math.round((u*u*lx + 2*u*t*c.x1 + t*t*c.x) * SCALE),
+          Y: Math.round((u*u*ly + 2*u*t*c.y1 + t*t*c.y) * SCALE),
+        });
+      }
+      lx = c.x; ly = c.y;
+    } else if (c.type === 'Z') {
+      if (cur?.length > 2) polys.push(cur);
+      cur = null;
+    }
+  }
+  if (cur?.length > 2) polys.push(cur);
+  return polys;
 }
