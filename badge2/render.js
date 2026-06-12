@@ -57,11 +57,10 @@ function animate() {
 animate();
 
 // ── Constants ─────────────────────────────────────────────────
-const FONT_SIZE_MM  = 49;   // font rendered in mm
-const HOLE_W        = 46;   // magnet slot mm
-const HOLE_H        = 14;
-const SCALE         = 1000; // Clipper integer precision
-const COLOUR        = 0xef4444;
+const FONT_SIZE_MM = 49;
+const HOLE_W       = 46;
+const HOLE_H       = 14;
+const SCALE        = 1000;
 
 let font = null, timer = null;
 
@@ -76,23 +75,31 @@ function scheduleRender() { clearTimeout(timer); timer = setTimeout(buildBadge, 
 // ── Build ─────────────────────────────────────────────────────
 function buildBadge() {
   if (!font) return;
-  const text     = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
-  const borderMM = parseFloat(document.getElementById('borderRange').value) || 0;
+  const text      = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
+  const redBorder = parseFloat(document.getElementById('borderRange').value) || 0;
 
   while (badgeGroup.children.length) badgeGroup.remove(badgeGroup.children[0]);
 
-  // 1. Opentype → Clipper polygons
   const polys = commandsToClipper(font.getPath(text, 0, 0, FONT_SIZE_MM).commands);
   if (!polys.length) return;
 
-  // 2. Union all letter polygons
-  const clipper = new ClipperLib.Clipper();
-  clipper.AddPaths(polys, ClipperLib.PolyType.ptSubject, true);
-  const unioned = new ClipperLib.Paths();
-  clipper.Execute(ClipperLib.ClipType.ctUnion, unioned,
-    ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+  const unioned = clipperUnion(polys);
 
-  // 3. Offset by border (round joins)
+  // Centre is the same for all layers (border expands symmetrically).
+  // Compute once from the un-offset union so layers always align.
+  const { offX, offY } = bboxCentre(unioned);
+
+  // Red — 2mm with magnet slot + 1mm solid cap
+  addLayer(unioned, redBorder,                  offX, offY, 0xef4444, 2, 0, true);
+  addLayer(unioned, redBorder,                  offX, offY, 0xef4444, 1, 2, false);
+
+  // Yellow — 1mm solid, border 2mm smaller than red so red ring shows
+  addLayer(unioned, Math.max(0, redBorder - 2), offX, offY, 0xf4ee2a, 1, 3, false);
+}
+
+// ── Layer builder ─────────────────────────────────────────────
+function addLayer(unioned, borderMM, offX, offY, colour, depth, zPos, includeSlot) {
+  // Offset the union by this layer's border
   let working = unioned;
   if (borderMM > 0) {
     const co = new ClipperLib.ClipperOffset();
@@ -102,62 +109,60 @@ function buildBadge() {
     working = expanded;
   }
 
-  // 4. Bounding box → centre offset for Three.js
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const path of working) {
-    for (const pt of path) {
-      if (pt.X < minX) minX = pt.X; if (pt.X > maxX) maxX = pt.X;
-      if (pt.Y < minY) minY = pt.Y; if (pt.Y > maxY) maxY = pt.Y;
-    }
-  }
-  const offX = (minX + maxX) / 2 / SCALE;
-  const offY = (minY + maxY) / 2 / SCALE;
-
-  // 5. Split into outers and holes
-  // Clipper Orientation=true → CW in screen → CCW in Three.js (Y flipped) → outer
   const outers = [], innerHoles = [];
   for (const path of working) {
     (ClipperLib.Clipper.Orientation(path) ? outers : innerHoles).push(path);
   }
 
-  // 6. Helper — build THREE.Shape list from the Clipper paths
   const hw = HOLE_W / 2, hh = HOLE_H / 2;
 
-  function buildShapes(includeSlot) {
-    return outers.map(outer => {
-      const shape = new THREE.Shape(
-        outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
-      );
-      for (const h of innerHoles) {
-        shape.holes.push(new THREE.Path(
-          h.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
-        ));
-      }
-      if (includeSlot) {
-        const slot = new THREE.Path();
-        slot.moveTo(-hw, -hh); slot.lineTo(hw, -hh);
-        slot.lineTo(hw, hh);   slot.lineTo(-hw, hh);
-        slot.closePath();
-        shape.holes.push(slot);
-      }
-      return shape;
-    });
-  }
+  const shapes = outers.map(outer => {
+    const shape = new THREE.Shape(
+      outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
+    );
+    for (const h of innerHoles) {
+      shape.holes.push(new THREE.Path(
+        h.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
+      ));
+    }
+    if (includeSlot) {
+      const slot = new THREE.Path();
+      slot.moveTo(-hw, -hh); slot.lineTo(hw, -hh);
+      slot.lineTo(hw,   hh); slot.lineTo(-hw, hh);
+      slot.closePath();
+      shape.holes.push(slot);
+    }
+    return shape;
+  });
 
-  const mat = new THREE.MeshPhongMaterial({ color: COLOUR, shininess: 40 });
-
-  // 7. Bottom 2mm — slot cut all the way through
-  const geoBottom = new THREE.ExtrudeGeometry(buildShapes(true),  { depth: 2, bevelEnabled: false });
-  badgeGroup.add(new THREE.Mesh(geoBottom, mat));
-
-  // 8. Top 1mm — solid cap, no slot
-  const geoTop = new THREE.ExtrudeGeometry(buildShapes(false), { depth: 1, bevelEnabled: false });
-  const meshTop = new THREE.Mesh(geoTop, mat);
-  meshTop.position.z = 2;
-  badgeGroup.add(meshTop);
+  const geo  = new THREE.ExtrudeGeometry(shapes, { depth, bevelEnabled: false });
+  const mat  = new THREE.MeshPhongMaterial({ color: colour, shininess: 40 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.z = zPos;
+  badgeGroup.add(mesh);
 }
 
 // ── Clipper helpers ───────────────────────────────────────────
+function clipperUnion(polys) {
+  const c = new ClipperLib.Clipper();
+  c.AddPaths(polys, ClipperLib.PolyType.ptSubject, true);
+  const result = new ClipperLib.Paths();
+  c.Execute(ClipperLib.ClipType.ctUnion, result,
+    ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+  return result;
+}
+
+function bboxCentre(paths) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const path of paths) {
+    for (const pt of path) {
+      if (pt.X < minX) minX = pt.X; if (pt.X > maxX) maxX = pt.X;
+      if (pt.Y < minY) minY = pt.Y; if (pt.Y > maxY) maxY = pt.Y;
+    }
+  }
+  return { offX: (minX + maxX) / 2 / SCALE, offY: (minY + maxY) / 2 / SCALE };
+}
+
 function commandsToClipper(cmds) {
   const polys = [];
   let cur = null, lx = 0, ly = 0;
