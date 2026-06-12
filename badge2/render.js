@@ -122,18 +122,24 @@ function buildBadge() {
   if (!polys.length) return;
 
   const unioned = clipperUnion(polys);
-  const { offX, offY } = bboxCentre(unioned);
+
+  // Morphological close: expand far enough to bridge all inter-letter gaps,
+  // then contract back to 0. Result is the letter shapes with gaps filled.
+  const MERGE_MM   = FONT_SIZE_MM * 0.35; // ~17mm — safely larger than any gap
+  const merged     = clipperOffset(unioned, MERGE_MM);
+  const filledBase = clipperOffset(merged, -MERGE_MM);
+
+  const { offX, offY } = bboxCentre(filledBase);
 
   let z = 0;
   for (const layer of getLayerConfig()) {
     const colour = parseInt(layer.hex.slice(1), 16);
 
     if (layer.hasSlot && layer.depth > 1) {
-      // Slot cuts through all but the last 1mm
-      addLayer(unioned, layer.border, offX, offY, colour, layer.depth - 1, z, true);
-      addLayer(unioned, layer.border, offX, offY, colour, 1, z + layer.depth - 1, false);
+      addLayer(filledBase, layer.border, offX, offY, colour, layer.depth - 1, z, true);
+      addLayer(filledBase, layer.border, offX, offY, colour, 1, z + layer.depth - 1, false);
     } else {
-      addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z, layer.hasSlot);
+      addLayer(filledBase, layer.border, offX, offY, colour, layer.depth, z, layer.hasSlot);
     }
 
     z += layer.depth;
@@ -141,15 +147,8 @@ function buildBadge() {
 }
 
 // ── Layer builder ─────────────────────────────────────────────
-function addLayer(unioned, borderMM, offX, offY, colour, depth, zPos, includeSlot) {
-  let working = unioned;
-  if (borderMM > 0) {
-    const co = new ClipperLib.ClipperOffset();
-    co.AddPaths(unioned, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon);
-    const expanded = new ClipperLib.Paths();
-    co.Execute(expanded, borderMM * SCALE);
-    working = expanded;
-  }
+function addLayer(filledBase, borderMM, offX, offY, colour, depth, zPos, includeSlot) {
+  const working = borderMM > 0 ? clipperOffset(filledBase, borderMM) : filledBase;
 
   const outers = [], innerHoles = [];
   for (const path of working) {
@@ -185,6 +184,14 @@ function addLayer(unioned, borderMM, offX, offY, colour, depth, zPos, includeSlo
 }
 
 // ── Clipper helpers ───────────────────────────────────────────
+function clipperOffset(paths, deltaMM) {
+  const co = new ClipperLib.ClipperOffset();
+  co.AddPaths(paths, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon);
+  const result = new ClipperLib.Paths();
+  co.Execute(result, deltaMM * SCALE);
+  return result;
+}
+
 function clipperUnion(polys) {
   const c = new ClipperLib.Clipper();
   c.AddPaths(polys, ClipperLib.PolyType.ptSubject, true);
