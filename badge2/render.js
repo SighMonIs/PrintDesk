@@ -132,8 +132,8 @@ function buildBadge() {
     const isLast = i === layerConfig.length - 1;
 
     if (isLast) {
-      // Top layer: 2D vector outlines of the letter paths
-      addLineLayer(polys, offX, offY, colour, z);
+      // Top layer: outside stroke ring around letters
+      addStrokeLayer(polys, layer.border, offX, offY, colour, z);
     } else if (layer.hasSlot && layer.depth > 1) {
       addLayer(unioned, layer.border, offX, offY, colour, layer.depth - 1, z, true);
       addLayer(unioned, layer.border, offX, offY, colour, 1, z + layer.depth - 1, false);
@@ -146,13 +146,32 @@ function buildBadge() {
 }
 
 // ── Layer builders ────────────────────────────────────────────
-function addLineLayer(polys, offX, offY, colour, zPos) {
-  const mat = new THREE.LineBasicMaterial({ color: colour });
-  for (const poly of polys) {
-    const pts = poly.map(p => new THREE.Vector3(p.X / SCALE - offX, -(p.Y / SCALE - offY), zPos));
-    pts.push(pts[0].clone()); // close the loop
-    badgeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+function addStrokeLayer(polys, strokeMM, offX, offY, colour, zPos) {
+  const unioned  = clipperUnion(polys);
+  const expanded = clipperOffset(unioned, strokeMM);
+
+  const expOuters = [], expHoles = [];
+  for (const p of expanded) {
+    (ClipperLib.Clipper.Orientation(p) ? expOuters : expHoles).push(p);
   }
+
+  // Original letter outers become holes — reverse winding so they are CW in Three.js
+  const letterOuters = unioned.filter(p => ClipperLib.Clipper.Orientation(p));
+
+  const toVec2 = p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY));
+
+  const shapes = expOuters.map(outer => {
+    const shape = new THREE.Shape(outer.map(toVec2));
+    for (const h of expHoles)    shape.holes.push(new THREE.Path(h.map(toVec2)));
+    for (const h of letterOuters) shape.holes.push(new THREE.Path([...h].reverse().map(toVec2)));
+    return shape;
+  });
+
+  const geo  = new THREE.ShapeGeometry(shapes);
+  const mat  = new THREE.MeshBasicMaterial({ color: colour, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.z = zPos;
+  badgeGroup.add(mesh);
 }
 
 function addLayer(filledBase, borderMM, offX, offY, colour, depth, zPos, includeSlot) {
