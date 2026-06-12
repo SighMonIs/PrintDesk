@@ -95,6 +95,9 @@ function buildBadge() {
 
   // Yellow — 1mm solid, border 2mm smaller than red so red ring shows
   addLayer(unioned, Math.max(0, redBorder - 2), offX, offY, 0xf4ee2a, 1, 3, false);
+
+  // Black — 1mm solid, border 2mm smaller than yellow so yellow ring shows
+  addLayer(unioned, Math.max(0, redBorder - 4), offX, offY, 0x1a1a1a, 1, 4, false);
 }
 
 // ── Layer builder ─────────────────────────────────────────────
