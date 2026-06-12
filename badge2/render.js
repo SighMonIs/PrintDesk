@@ -122,31 +122,39 @@ function buildBadge() {
   if (!polys.length) return;
 
   const unioned = clipperUnion(polys);
+  const { offX, offY } = bboxCentre(unioned);
 
-  // Morphological close: expand far enough to bridge all inter-letter gaps,
-  // then contract back to 0. Result is the letter shapes with gaps filled.
-  const MERGE_MM   = FONT_SIZE_MM * 0.35; // ~17mm — safely larger than any gap
-  const merged     = clipperOffset(unioned, MERGE_MM);
-  const filledBase = clipperOffset(merged, -MERGE_MM);
-
-  const { offX, offY } = bboxCentre(filledBase);
-
+  const layerConfig = getLayerConfig();
   let z = 0;
-  for (const layer of getLayerConfig()) {
+  for (let i = 0; i < layerConfig.length; i++) {
+    const layer  = layerConfig[i];
     const colour = parseInt(layer.hex.slice(1), 16);
+    const isLast = i === layerConfig.length - 1;
 
-    if (layer.hasSlot && layer.depth > 1) {
-      addLayer(filledBase, layer.border, offX, offY, colour, layer.depth - 1, z, true);
-      addLayer(filledBase, layer.border, offX, offY, colour, 1, z + layer.depth - 1, false);
+    if (isLast) {
+      // Top layer: 2D vector outlines of the letter paths
+      addLineLayer(polys, offX, offY, colour, z);
+    } else if (layer.hasSlot && layer.depth > 1) {
+      addLayer(unioned, layer.border, offX, offY, colour, layer.depth - 1, z, true);
+      addLayer(unioned, layer.border, offX, offY, colour, 1, z + layer.depth - 1, false);
     } else {
-      addLayer(filledBase, layer.border, offX, offY, colour, layer.depth, z, layer.hasSlot);
+      addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z, layer.hasSlot);
     }
 
     z += layer.depth;
   }
 }
 
-// ── Layer builder ─────────────────────────────────────────────
+// ── Layer builders ────────────────────────────────────────────
+function addLineLayer(polys, offX, offY, colour, zPos) {
+  const mat = new THREE.LineBasicMaterial({ color: colour });
+  for (const poly of polys) {
+    const pts = poly.map(p => new THREE.Vector3(p.X / SCALE - offX, -(p.Y / SCALE - offY), zPos));
+    pts.push(pts[0].clone()); // close the loop
+    badgeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+  }
+}
+
 function addLayer(filledBase, borderMM, offX, offY, colour, depth, zPos, includeSlot) {
   const working = borderMM > 0 ? clipperOffset(filledBase, borderMM) : filledBase;
 
