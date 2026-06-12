@@ -58,7 +58,6 @@ animate();
 
 // ── Constants ─────────────────────────────────────────────────
 const FONT_SIZE_MM  = 49;   // font rendered in mm
-const EXTRUDE_DEPTH = 2;    // mm
 const HOLE_W        = 46;   // magnet slot mm
 const HOLE_H        = 14;
 const SCALE         = 1000; // Clipper integer precision
@@ -121,36 +120,41 @@ function buildBadge() {
     (ClipperLib.Clipper.Orientation(path) ? outers : innerHoles).push(path);
   }
 
-  // 6. Magnet slot — centred at origin (same centre as the shape)
+  // 6. Helper — build THREE.Shape list from the Clipper paths
   const hw = HOLE_W / 2, hh = HOLE_H / 2;
 
-  // 7. Build THREE.Shape per outer, add inner holes + magnet slot
-  const shapes = outers.map(outer => {
-    const shape = new THREE.Shape(
-      outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
-    );
+  function buildShapes(includeSlot) {
+    return outers.map(outer => {
+      const shape = new THREE.Shape(
+        outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
+      );
+      for (const h of innerHoles) {
+        shape.holes.push(new THREE.Path(
+          h.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
+        ));
+      }
+      if (includeSlot) {
+        const slot = new THREE.Path();
+        slot.moveTo(-hw, -hh); slot.lineTo(hw, -hh);
+        slot.lineTo(hw, hh);   slot.lineTo(-hw, hh);
+        slot.closePath();
+        shape.holes.push(slot);
+      }
+      return shape;
+    });
+  }
 
-    for (const h of innerHoles) {
-      shape.holes.push(new THREE.Path(
-        h.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
-      ));
-    }
-
-    const slot = new THREE.Path();
-    slot.moveTo(-hw, -hh);
-    slot.lineTo( hw, -hh);
-    slot.lineTo( hw,  hh);
-    slot.lineTo(-hw,  hh);
-    slot.closePath();
-    shape.holes.push(slot);
-
-    return shape;
-  });
-
-  // 8. Extrude
-  const geo = new THREE.ExtrudeGeometry(shapes, { depth: EXTRUDE_DEPTH, bevelEnabled: false });
   const mat = new THREE.MeshPhongMaterial({ color: COLOUR, shininess: 40 });
-  badgeGroup.add(new THREE.Mesh(geo, mat));
+
+  // 7. Bottom 2mm — slot cut all the way through
+  const geoBottom = new THREE.ExtrudeGeometry(buildShapes(true),  { depth: 2, bevelEnabled: false });
+  badgeGroup.add(new THREE.Mesh(geoBottom, mat));
+
+  // 8. Top 1mm — solid cap, no slot
+  const geoTop = new THREE.ExtrudeGeometry(buildShapes(false), { depth: 1, bevelEnabled: false });
+  const meshTop = new THREE.Mesh(geoTop, mat);
+  meshTop.position.z = 2;
+  badgeGroup.add(meshTop);
 }
 
 // ── Clipper helpers ───────────────────────────────────────────
