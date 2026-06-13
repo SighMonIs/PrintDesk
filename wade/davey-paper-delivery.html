@@ -10,717 +10,404 @@
 
     :root {
       --navy: #1a2744;
-      --navy-light: #243459;
       --gold: #f5a623;
       --gold-dark: #d98e0f;
-      --cream: #faf7f2;
-      --grey: #f4f4f6;
-      --text: #1a2744;
+      --cream: #faf7f0;
+      --white: #ffffff;
       --muted: #6b7280;
+      --page-width: 1200px;
     }
 
     body {
       font-family: 'Poppins', sans-serif;
-      color: var(--text);
+      background: #e8e8e8;
+    }
+
+    /* ── PAGE WRAPPER ── */
+    .page {
+      width: var(--page-width);
+      margin: 0 auto;
       background: #fff;
+      box-shadow: 0 0 60px rgba(0,0,0,0.18);
+      min-height: 100vh;
     }
-
-    /* ── NAV ── */
-    nav {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.5rem 4rem;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      color: #fff;
-      text-decoration: none;
-    }
-
-    .logo-icon {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
-    .logo-icon span {
-      display: block;
-      background: var(--gold);
-      border-radius: 2px;
-    }
-
-    .logo-icon span:nth-child(1) { width: 22px; height: 3px; }
-    .logo-icon span:nth-child(2) { width: 16px; height: 3px; }
-    .logo-icon span:nth-child(3) { width: 22px; height: 3px; }
-
-    .logo-text {
-      font-size: 1.05rem;
-      font-weight: 700;
-      line-height: 1.2;
-    }
-
-    .logo-text em {
-      display: block;
-      font-style: normal;
-      color: var(--gold);
-    }
-
-    nav ul {
-      list-style: none;
-      display: flex;
-      gap: 2.5rem;
-    }
-
-    nav ul a {
-      color: rgba(255,255,255,0.85);
-      text-decoration: none;
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-
-    nav ul a:hover { color: var(--gold); }
-
-    .nav-cta {
-      background: var(--gold);
-      color: var(--navy) !important;
-      padding: 0.5rem 1.2rem;
-      border-radius: 6px;
-      font-weight: 600 !important;
-    }
-
-    .nav-cta:hover { background: var(--gold-dark); color: var(--navy) !important; }
 
     /* ── HERO ── */
     .hero {
       position: relative;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      overflow: hidden;
       background: var(--navy);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 520px;
     }
 
-    .hero-bg {
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(
-          105deg,
-          rgba(26,39,68,0.97) 0%,
-          rgba(26,39,68,0.85) 45%,
-          rgba(26,39,68,0.3) 100%
-        ),
-        url('https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1600&auto=format&fit=crop') center/cover no-repeat;
-    }
-
-    /* warm golden glow top-right */
-    .hero-bg::after {
-      content: '';
-      position: absolute;
-      top: -10%;
-      right: -5%;
-      width: 55%;
-      height: 80%;
-      background: radial-gradient(ellipse at center, rgba(245,166,35,0.18) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .hero-content {
+    /* Left column — text */
+    .hero-left {
       position: relative;
-      z-index: 1;
-      max-width: 680px;
-      padding: 10rem 4rem 6rem;
+      z-index: 2;
+      padding: 3rem 3rem 3rem 3.5rem;
+      display: flex;
+      flex-direction: column;
     }
 
-    .hero-eyebrow {
-      display: inline-block;
-      background: rgba(245,166,35,0.15);
-      border: 1px solid rgba(245,166,35,0.4);
-      color: var(--gold);
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      padding: 0.35rem 0.9rem;
-      border-radius: 100px;
-      margin-bottom: 1.5rem;
+    /* Logo */
+    .logo {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      color: #fff;
+      text-decoration: none;
+      margin-bottom: 3rem;
     }
 
-    .hero h1 {
-      font-size: clamp(2.8rem, 5vw, 4.2rem);
+    .logo-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 5px;
+    }
+
+    .logo-lines span {
+      display: block;
+      background: var(--gold);
+      border-radius: 2px;
+      height: 3px;
+    }
+
+    .logo-lines span:nth-child(1) { width: 20px; }
+    .logo-lines span:nth-child(2) { width: 14px; }
+    .logo-lines span:nth-child(3) { width: 20px; }
+
+    .logo-text {
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.25;
+      color: #fff;
+    }
+
+    .hero-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .hero-body h1 {
+      font-size: 3.8rem;
       font-weight: 800;
       color: #fff;
-      line-height: 1.1;
-      margin-bottom: 1.25rem;
+      line-height: 1.05;
       letter-spacing: -0.02em;
+      margin-bottom: 1.1rem;
     }
 
-    .hero h1 span { color: var(--gold); }
-
-    .hero p {
-      font-size: 1.15rem;
-      color: rgba(255,255,255,0.75);
-      line-height: 1.7;
-      margin-bottom: 2.5rem;
-      max-width: 480px;
+    .hero-body p {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.65;
+      margin-bottom: 2rem;
+      max-width: 360px;
     }
 
-    .btn-primary {
+    .btn-hero {
       display: inline-block;
+      border: 2px solid var(--gold);
       background: var(--gold);
       color: var(--navy);
       font-family: 'Poppins', sans-serif;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 700;
-      padding: 0.9rem 2.2rem;
-      border-radius: 8px;
+      padding: 0.75rem 1.8rem;
+      border-radius: 6px;
       text-decoration: none;
-      transition: background 0.2s, transform 0.15s;
-      border: none;
-      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      align-self: flex-start;
     }
 
-    .btn-primary:hover {
+    .btn-hero:hover {
       background: var(--gold-dark);
-      transform: translateY(-1px);
+      border-color: var(--gold-dark);
     }
 
-    .btn-outline {
-      display: inline-block;
-      border: 2px solid rgba(255,255,255,0.35);
-      color: #fff;
-      font-family: 'Poppins', sans-serif;
-      font-size: 1rem;
-      font-weight: 600;
-      padding: 0.9rem 2rem;
-      border-radius: 8px;
-      text-decoration: none;
-      margin-left: 1rem;
-      transition: border-color 0.2s, background 0.2s;
-    }
-
-    .btn-outline:hover {
-      border-color: #fff;
-      background: rgba(255,255,255,0.08);
-    }
-
-    .hero-stats {
+    /* Right column — photo */
+    .hero-right {
       position: relative;
-      z-index: 1;
-      display: flex;
-      gap: 3rem;
-      padding: 0 4rem 3.5rem;
-      margin-top: -1rem;
     }
 
-    .stat {
-      color: rgba(255,255,255,0.6);
-      font-size: 0.85rem;
-    }
-
-    .stat strong {
-      display: block;
-      font-size: 2rem;
-      font-weight: 800;
-      color: #fff;
-      line-height: 1;
-      margin-bottom: 0.25rem;
-    }
-
-    .stat strong em {
-      font-style: normal;
-      color: var(--gold);
-    }
-
-    /* ── FEATURES ── */
-    .features {
-      padding: 5rem 4rem;
-      background: #fff;
-    }
-
-    .section-label {
-      text-align: center;
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--gold);
-      margin-bottom: 0.75rem;
-    }
-
-    .section-title {
-      text-align: center;
-      font-size: clamp(1.6rem, 3vw, 2.2rem);
-      font-weight: 700;
-      color: var(--navy);
-      margin-bottom: 0.75rem;
-      letter-spacing: -0.01em;
-    }
-
-    .section-sub {
-      text-align: center;
-      color: var(--muted);
-      font-size: 1rem;
-      max-width: 520px;
-      margin: 0 auto 3.5rem;
-      line-height: 1.7;
-    }
-
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.5rem;
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .card {
-      background: var(--grey);
-      border-radius: 16px;
-      padding: 2.5rem 2rem;
-      transition: box-shadow 0.2s, transform 0.2s;
-    }
-
-    .card:hover {
-      box-shadow: 0 12px 40px rgba(26,39,68,0.12);
-      transform: translateY(-4px);
-    }
-
-    .card-icon {
-      width: 56px;
-      height: 56px;
-      background: rgba(245,166,35,0.12);
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-    }
-
-    .card-icon svg {
-      width: 28px;
-      height: 28px;
-      stroke: var(--gold);
-      fill: none;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .card h3 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: var(--navy);
-      margin-bottom: 0.6rem;
-    }
-
-    .card p {
-      font-size: 0.92rem;
-      color: var(--muted);
-      line-height: 1.65;
-    }
-
-    /* ── QUOTE / HOW IT WORKS ── */
-    .quote-section {
-      background: var(--cream);
-      padding: 6rem 4rem;
-    }
-
-    .quote-inner {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 5rem;
-      align-items: center;
-    }
-
-    .quote-img {
-      border-radius: 20px;
-      overflow: hidden;
-      aspect-ratio: 4/3;
-      background: var(--navy);
-    }
-
-    .quote-img img {
+    .hero-right img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
     }
 
-    .quote-text blockquote {
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(1.5rem, 2.5vw, 2rem);
-      font-style: italic;
-      color: var(--navy);
-      line-height: 1.45;
-      margin-bottom: 2rem;
+    /* Gradient fade from navy into photo */
+    .hero-right::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to right, var(--navy) 0%, transparent 45%);
+      z-index: 1;
+      pointer-events: none;
     }
 
-    .quote-text blockquote::before {
-      content: '\201C';
-      font-size: 4rem;
-      color: var(--gold);
-      line-height: 0;
-      vertical-align: -0.55em;
-      margin-right: 0.1em;
+    /* ── CARDS ── */
+    .cards-section {
+      background: #fff;
+      padding: 2.5rem 3.5rem 3.5rem;
     }
 
-    .quote-text p {
-      color: var(--muted);
-      font-size: 0.95rem;
-      line-height: 1.7;
-      margin-bottom: 2rem;
-    }
-
-    /* ── STEPS ── */
-    .steps {
-      padding: 5rem 4rem;
-      background: var(--navy);
-    }
-
-    .steps .section-label { color: var(--gold); }
-    .steps .section-title { color: #fff; }
-    .steps .section-sub { color: rgba(255,255,255,0.6); }
-
-    .steps-grid {
+    .cards-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 2rem;
-      max-width: 1100px;
-      margin: 0 auto;
-      counter-reset: steps;
+      gap: 1.25rem;
     }
 
-    .step {
-      counter-increment: steps;
-      padding: 2rem;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      background: rgba(255,255,255,0.04);
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 1.75rem 1.5rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      transition: box-shadow 0.2s, transform 0.2s;
     }
 
-    .step-num {
-      font-size: 3rem;
-      font-weight: 800;
-      color: rgba(245,166,35,0.25);
-      line-height: 1;
+    .card:hover {
+      box-shadow: 0 8px 28px rgba(26,39,68,0.12);
+      transform: translateY(-3px);
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
       margin-bottom: 1rem;
-      font-variant-numeric: tabular-nums;
     }
 
-    .step-num::before { content: counter(steps, decimal-leading-zero); }
+    .card-icon svg {
+      width: 100%;
+      height: 100%;
+      stroke: var(--gold);
+      fill: none;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
 
-    .step h3 {
-      font-size: 1.05rem;
+    .card h3 {
+      font-size: 1rem;
       font-weight: 700;
-      color: #fff;
+      color: var(--navy);
       margin-bottom: 0.5rem;
     }
 
-    .step p {
-      font-size: 0.9rem;
-      color: rgba(255,255,255,0.55);
-      line-height: 1.65;
+    .card p {
+      font-size: 0.83rem;
+      color: var(--muted);
+      line-height: 1.6;
     }
 
-    /* ── CTA BANNER ── */
-    .cta-banner {
-      padding: 5rem 4rem;
-      background: var(--gold);
-      text-align: center;
+    /* ── QUOTE SECTION ── */
+    .quote-section {
+      background: var(--cream);
+      padding: 5rem 3.5rem;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 4rem;
+      align-items: center;
     }
 
-    .cta-banner h2 {
-      font-size: clamp(1.8rem, 3vw, 2.5rem);
-      font-weight: 800;
+    .quote-left blockquote {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.2rem;
+      font-style: italic;
       color: var(--navy);
-      margin-bottom: 0.75rem;
-      letter-spacing: -0.02em;
-    }
-
-    .cta-banner p {
-      color: rgba(26,39,68,0.7);
-      font-size: 1.05rem;
+      line-height: 1.4;
       margin-bottom: 2rem;
     }
 
-    .btn-dark {
+    .btn-gold {
       display: inline-block;
-      background: var(--navy);
-      color: #fff;
+      background: var(--gold);
+      color: var(--navy);
       font-family: 'Poppins', sans-serif;
-      font-size: 1rem;
+      font-size: 0.88rem;
       font-weight: 700;
-      padding: 0.9rem 2.2rem;
-      border-radius: 8px;
+      padding: 0.65rem 1.5rem;
+      border-radius: 6px;
       text-decoration: none;
-      transition: background 0.2s, transform 0.15s;
+      transition: background 0.2s;
     }
 
-    .btn-dark:hover {
-      background: var(--navy-light);
-      transform: translateY(-1px);
+    .btn-gold:hover { background: var(--gold-dark); }
+
+    .quote-photo {
+      width: 320px;
+      height: 320px;
+      border-radius: 14px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .quote-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     /* ── FOOTER ── */
     footer {
       background: var(--navy);
-      color: rgba(255,255,255,0.55);
-      padding: 4rem;
-    }
-
-    .footer-inner {
-      max-width: 1100px;
-      margin: 0 auto;
+      padding: 3rem 3.5rem;
       display: grid;
-      grid-template-columns: 1.5fr 1fr 1fr 1fr;
-      gap: 3rem;
-      padding-bottom: 3rem;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      grid-template-columns: 1.4fr 1fr 1fr;
+      gap: 2.5rem;
+      align-items: start;
     }
 
-    .footer-brand .logo { margin-bottom: 1rem; }
+    .footer-brand .logo { margin-bottom: 0.75rem; }
 
     .footer-brand p {
-      font-size: 0.88rem;
-      line-height: 1.7;
-      max-width: 240px;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.6;
     }
 
-    .footer-col h4 {
-      font-size: 0.82rem;
+    footer h4 {
+      font-size: 0.72rem;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: rgba(255,255,255,0.35);
-      margin-bottom: 1rem;
+      margin-bottom: 0.85rem;
     }
 
-    .footer-col ul { list-style: none; }
+    footer ul { list-style: none; }
 
-    .footer-col ul li { margin-bottom: 0.6rem; }
+    footer ul li { margin-bottom: 0.5rem; }
 
-    .footer-col ul a {
+    footer ul a {
       color: rgba(255,255,255,0.6);
       text-decoration: none;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       transition: color 0.2s;
     }
 
-    .footer-col ul a:hover { color: var(--gold); }
-
-    .footer-bottom {
-      max-width: 1100px;
-      margin: 2rem auto 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.82rem;
-    }
-
-    @media (max-width: 900px) {
-      nav { padding: 1.25rem 1.5rem; }
-      nav ul { display: none; }
-      .hero-content { padding: 8rem 1.5rem 4rem; }
-      .hero-stats { padding: 0 1.5rem 2.5rem; gap: 2rem; }
-      .features, .quote-section, .steps, .cta-banner { padding: 4rem 1.5rem; }
-      .cards, .steps-grid { grid-template-columns: 1fr; }
-      .quote-inner { grid-template-columns: 1fr; gap: 2.5rem; }
-      .footer-inner { grid-template-columns: 1fr 1fr; gap: 2rem; }
-      footer { padding: 3rem 1.5rem; }
-    }
+    footer ul a:hover { color: var(--gold); }
   </style>
 </head>
 <body>
+  <div class="page">
 
-  <!-- NAV -->
-  <nav>
-    <a href="#" class="logo">
-      <div class="logo-icon">
-        <span></span><span></span><span></span>
-      </div>
-      <div class="logo-text">Davey Paper<em>Delivery</em></div>
-    </a>
-    <ul>
-      <li><a href="#services">Services</a></li>
-      <li><a href="#how">How It Works</a></li>
-      <li><a href="#area">Delivery Area</a></li>
-      <li><a href="#contact" class="nav-cta">Get Started</a></li>
-    </ul>
-  </nav>
-
-  <!-- HERO -->
-  <section class="hero">
-    <div class="hero-bg"></div>
-    <div class="hero-content">
-      <span class="hero-eyebrow">Australian Paper Delivery</span>
-      <h1>Your Morning,<br /><span>Delivered.</span></h1>
-      <p>Fresh newspapers and magazines delivered to your driveway before you wake up — so your day starts exactly the way you like it.</p>
-      <a href="#contact" class="btn-primary">Start Your Delivery</a>
-      <a href="#how" class="btn-outline">How It Works</a>
-    </div>
-    <div class="hero-stats">
-      <div class="stat"><strong>6<em>am</em></strong>Daily delivery</div>
-      <div class="stat"><strong>7</strong>Days a week</div>
-      <div class="stat"><strong>100<em>+</em></strong>Titles available</div>
-    </div>
-  </section>
-
-  <!-- FEATURES -->
-  <section class="features" id="services">
-    <p class="section-label">Why choose us</p>
-    <h2 class="section-title">Everything you need, delivered</h2>
-    <p class="section-sub">We make it simple to get your favourite reading material without leaving the house.</p>
-
-    <div class="cards">
-      <div class="card">
-        <div class="card-icon">
-          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
-        </div>
-        <h3>Same-Day Delivery</h3>
-        <p>Get today's paper today. We deliver the latest issue of your newspaper or magazine the morning it's published.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-        </div>
-        <h3>Local Area Service</h3>
-        <p>We deliver to houses and shops within our service area. Check if we cover your street and start your subscription today.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">
-          <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 4v16M4 8h4M4 12h4M4 16h4"/><line x1="11" y1="8" x2="17" y2="8"/><line x1="11" y1="12" x2="17" y2="12"/><line x1="11" y1="16" x2="17" y2="16"/></svg>
-        </div>
-        <h3>All Your Favourites</h3>
-        <p>From major metro dailies to local papers and glossy magazines — we carry over 100 titles to suit every reader.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">
-          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        </div>
-        <h3>Home &amp; Shop Delivery</h3>
-        <p>Whether you're a household or a local business, we deliver directly to your door or your shop front.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <h3>Reliable &amp; On Time</h3>
-        <p>We pride ourselves on punctuality. Your paper will be there every morning, rain or shine, before you step outside.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        <h3>Trusted &amp; Local</h3>
-        <p>A family-run delivery service you can count on. We've been serving our community for years with a personal touch.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- QUOTE SECTION -->
-  <section class="quote-section">
-    <div class="quote-inner">
-      <div class="quote-img">
-        <img
-          src="https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop"
-          alt="Newspaper on a doorstep"
-          onerror="this.style.background='linear-gradient(135deg,#1a2744,#243459)';this.style.display='block'"
-        />
-      </div>
-      <div class="quote-text">
-        <blockquote>Wake up with your favourite newspapers and magazines delivered to your driveway.</blockquote>
-        <p>There's nothing quite like starting the morning with a physical newspaper and a cup of tea. We make sure that simple pleasure is waiting for you every single day.</p>
-        <a href="#contact" class="btn-primary">Start Your Delivery</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- HOW IT WORKS -->
-  <section class="steps" id="how">
-    <p class="section-label">Getting started</p>
-    <h2 class="section-title">How It Works</h2>
-    <p class="section-sub">Up and running in three simple steps.</p>
-
-    <div class="steps-grid">
-      <div class="step">
-        <div class="step-num"></div>
-        <h3>Check Your Area</h3>
-        <p>Enter your address to confirm you're within our delivery zone. We cover houses and shops across our local service area.</p>
-      </div>
-      <div class="step">
-        <div class="step-num"></div>
-        <h3>Choose Your Titles</h3>
-        <p>Pick from over 100 newspapers and magazines. Mix and match dailies, weeklies, and monthlies to suit your reading habits.</p>
-      </div>
-      <div class="step">
-        <div class="step-num"></div>
-        <h3>Wake Up &amp; Read</h3>
-        <p>That's it. Your papers will be on your driveway each morning before 6am, ready and waiting when you step outside.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- CTA BANNER -->
-  <section class="cta-banner" id="contact">
-    <h2>Ready to start your delivery?</h2>
-    <p>Get in touch and we'll have your first paper delivered tomorrow morning.</p>
-    <a href="mailto:hello@daveypaperdelivery.com.au" class="btn-dark">Contact Us Today</a>
-  </section>
-
-  <!-- FOOTER -->
-  <footer>
-    <div class="footer-inner">
-      <div class="footer-brand">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-left">
         <a href="#" class="logo">
-          <div class="logo-icon">
+          <div class="logo-lines">
             <span></span><span></span><span></span>
           </div>
-          <div class="logo-text">Davey Paper<em>Delivery</em></div>
+          <div class="logo-text">Davey Paper<br/>Delivery</div>
         </a>
-        <p>Delivering your favourite newspapers and magazines to your door, every morning.</p>
+        <div class="hero-body">
+          <h1>Your Morning,<br/>Delivered.</h1>
+          <p>Fresh newspapers and magazines delivered to your driveway before you wake up.</p>
+          <a href="#contact" class="btn-hero">Start Your Delivery</a>
+        </div>
       </div>
-      <div class="footer-col">
+      <div class="hero-right">
+        <img
+          src="https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop&q=80"
+          alt="Newspaper on a doorstep at dawn"
+        />
+      </div>
+    </section>
+
+    <!-- CARDS -->
+    <section class="cards-section">
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="7" y1="8" x2="17" y2="8"/>
+              <line x1="7" y1="12" x2="14" y2="12"/>
+              <line x1="7" y1="16" x2="11" y2="16"/>
+            </svg>
+          </div>
+          <h3>Same-Day Delivery</h3>
+          <p>Australian newspaper and magazine home delivery service.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              <circle cx="12" cy="9" r="2.5"/>
+            </svg>
+          </div>
+          <h3>Local Area Service</h3>
+          <p>Australian newspaper and magazine home delivery service.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="8" y1="3" x2="8" y2="21"/>
+              <line x1="11" y1="8" x2="18" y2="8"/>
+              <line x1="11" y1="12" x2="18" y2="12"/>
+              <line x1="11" y1="16" x2="18" y2="16"/>
+            </svg>
+          </div>
+          <h3>All Your Favourites</h3>
+          <p>Australian newspaper and magazine home delivery service.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUOTE -->
+    <section class="quote-section">
+      <div class="quote-left">
+        <blockquote>"Wake up with your favourite newspapers and magazines delivered to your driveway."</blockquote>
+        <a href="#contact" class="btn-gold">Start Your Delivery</a>
+      </div>
+      <div class="quote-photo">
+        <img
+          src="https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80"
+          alt="Newspapers on a front porch"
+        />
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer id="contact">
+      <div class="footer-brand">
+        <a href="#" class="logo">
+          <div class="logo-lines">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="logo-text">Davey Paper<br/>Delivery</div>
+        </a>
+        <p>Delivering since day one.</p>
+      </div>
+      <div>
         <h4>Services</h4>
         <ul>
           <li><a href="#">Newspaper Delivery</a></li>
           <li><a href="#">Magazine Delivery</a></li>
           <li><a href="#">Business Delivery</a></li>
-          <li><a href="#">Delivery Area</a></li>
         </ul>
       </div>
-      <div class="footer-col">
-        <h4>Company</h4>
+      <div>
+        <h4>Contact us</h4>
         <ul>
-          <li><a href="#">About Us</a></li>
-          <li><a href="#">How It Works</a></li>
-          <li><a href="#">Contact</a></li>
-          <li><a href="#">FAQ</a></li>
+          <li><a href="#">123 Some Home</a></li>
+          <li><a href="#">01 257 8800</a></li>
+          <li><a href="#">website.com</a></li>
+          <li><a href="#">delivery.com</a></li>
         </ul>
       </div>
-      <div class="footer-col">
-        <h4>Contact</h4>
-        <ul>
-          <li><a href="mailto:hello@daveypaperdelivery.com.au">hello@daveypaperdelivery.com.au</a></li>
-          <li><a href="#">daveypaperdelivery.com.au</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <span>© 2026 Davey Paper Delivery. All rights reserved.</span>
-      <span>Delivering since day one.</span>
-    </div>
-  </footer>
+    </footer>
 
+  </div>
 </body>
 </html>
