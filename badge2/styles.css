@@ -93,6 +93,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
   gap: 6px;
 }
 .field-row label { font-size: 11px; color: var(--muted); width: 40px; flex-shrink: 0; }
+.field-row label.type-tag { color: var(--text); width: auto; font-style: italic; }
 .field-row input[type="number"] {
   width: 58px;
   height: 26px;

@@ -58,9 +58,10 @@ animate();
 
 // ── Layer defaults ────────────────────────────────────────────
 const defaultLayers = [
-  { hex: '#ef4444', border: 7.5, depth: 3, hasSlot: true  },
-  { hex: '#f4ee2a', border: 5,   depth: 1, hasSlot: false },
-  { hex: '#1a1a1a', border: 2.5, depth: 1, hasSlot: false },
+  { hex: '#ef4444', border: 7.5, depth: 3,   hasSlot: true,  isText: false },
+  { hex: '#f4ee2a', border: 5,   depth: 1,   hasSlot: false, isText: false },
+  { hex: '#1a1a1a', border: 2.5, depth: 1,   hasSlot: false, isText: false },
+  { hex: '#ffffff', border: 0,   depth: 0.5, hasSlot: false, isText: true  },
 ];
 
 // ── Layer UI ──────────────────────────────────────────────────
@@ -69,11 +70,13 @@ function buildLayerUI() {
     <div class="layer-item" data-index="${i}">
       <input type="color" class="layer-colour" value="${l.hex}" oninput="scheduleRender()">
       <div class="layer-fields">
-        <div class="field-row">
-          <label>Border</label>
-          <input type="number" class="layer-border" value="${l.border}" min="0" max="30" step="0.5" oninput="scheduleRender()">
-          <span>mm</span>
-        </div>
+        ${l.isText
+          ? `<div class="field-row"><label class="type-tag">Text</label></div>`
+          : `<div class="field-row">
+               <label>Border</label>
+               <input type="number" class="layer-border" value="${l.border}" min="0" max="30" step="0.5" oninput="scheduleRender()">
+               <span>mm</span>
+             </div>`}
         <div class="field-row">
           <label>Depth</label>
           <input type="number" class="layer-depth" value="${l.depth}" min="0.5" max="10" step="0.5" oninput="scheduleRender()">
@@ -86,10 +89,11 @@ function buildLayerUI() {
 
 function getLayerConfig() {
   return Array.from(document.querySelectorAll('.layer-item')).map((el, i) => ({
-    hex:      el.querySelector('.layer-colour').value,
-    border:   parseFloat(el.querySelector('.layer-border').value) || 0,
-    depth:    parseFloat(el.querySelector('.layer-depth').value)  || 1,
-    hasSlot:  i === 0,
+    hex:     el.querySelector('.layer-colour').value,
+    border:  parseFloat(el.querySelector('.layer-border')?.value) || 0,
+    depth:   parseFloat(el.querySelector('.layer-depth').value)   || 1,
+    hasSlot: i === 0,
+    isText:  defaultLayers[i]?.isText || false,
   }));
 }
 
@@ -130,7 +134,9 @@ function buildBadge() {
     const layer  = layerConfig[i];
     const colour = parseInt(layer.hex.slice(1), 16);
 
-    if (layer.hasSlot && layer.depth > 1) {
+    if (layer.isText) {
+      addTextLayer(font.getPath(text, 0, 0, FONT_SIZE_MM).commands, offX, offY, colour, layer.depth, z);
+    } else if (layer.hasSlot && layer.depth > 1) {
       addLayer(unioned, layer.border, offX, offY, colour, layer.depth - 1, z, true);
       addLayer(unioned, layer.border, offX, offY, colour, 1, z + layer.depth - 1, false);
     } else {
@@ -165,6 +171,23 @@ function addStrokeLayer(polys, strokeMM, offX, offY, colour, zPos) {
 
   const geo  = new THREE.ShapeGeometry(shapes);
   const mat  = new THREE.MeshBasicMaterial({ color: colour, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.z = zPos;
+  badgeGroup.add(mesh);
+}
+
+function addTextLayer(cmds, offX, offY, colour, depth, zPos) {
+  const shapePath = new THREE.ShapePath();
+  for (const c of cmds) {
+    if      (c.type === 'M') { shapePath.moveTo(c.x - offX, offY - c.y); }
+    else if (c.type === 'L') { shapePath.lineTo(c.x - offX, offY - c.y); }
+    else if (c.type === 'C') { shapePath.bezierCurveTo(c.x1-offX, offY-c.y1, c.x2-offX, offY-c.y2, c.x-offX, offY-c.y); }
+    else if (c.type === 'Q') { shapePath.quadraticCurveTo(c.x1-offX, offY-c.y1, c.x-offX, offY-c.y); }
+    else if (c.type === 'Z') { shapePath.currentPath.closePath(); }
+  }
+  const shapes = shapePath.toShapes(false);
+  const geo  = new THREE.ExtrudeGeometry(shapes, { depth, bevelEnabled: false });
+  const mat  = new THREE.MeshPhongMaterial({ color: colour, shininess: 40 });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.z = zPos;
   badgeGroup.add(mesh);
