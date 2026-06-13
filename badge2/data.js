@@ -57,6 +57,29 @@ async function showApp(){
   await loadModels();
 }
 
+// ── URL param pre-fill (from PrintDesk Generate Badge link) ───
+let _urlParamsApplied=false;
+function applyUrlParams(){
+  if(_urlParamsApplied) return; _urlParamsApplied=true;
+  const p=new URLSearchParams(location.search);
+  const name=p.get('name'), backing=p.get('backing'), colourStr=p.get('colours');
+  if(!name&&!backing&&!colourStr) return;
+  if(name){
+    const el=document.getElementById('nameInput');
+    el.value=name; localStorage.setItem('badge2_lastName',name); updateNameClear(el);
+  }
+  if(backing){ const sel=document.getElementById('backingSelect'); if(sel) sel.value=backing; }
+  if(colourStr){
+    colourStr.split('|').map(s=>s.trim()).forEach((n,i)=>{
+      if(i>=layerConfig.length) return;
+      const c=colours.find(c=>c.name.toLowerCase()===n.toLowerCase());
+      if(c){ layerConfig[i].hex=c.code; layerConfig[i].colourId=c.id; }
+    });
+    buildLayerUI();
+  }
+  scheduleRender();
+}
+
 function onNameInput(){
   const el=document.getElementById('nameInput');
   localStorage.setItem('badge2_lastName',el.value);
@@ -124,6 +147,7 @@ async function loadModel(){
   if(zs){zs.value=scrollZoomSpeed;zsn.value=scrollZoomSpeed.toFixed(3);}
 
   buildLayerUI();
+  applyUrlParams();
   loadPreviousCombos();
   setStatus('');
 
