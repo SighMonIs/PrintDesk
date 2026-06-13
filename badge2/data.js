@@ -151,7 +151,7 @@ function buildLayerUI(){
   const colList=document.getElementById('layerColoursList');
   colList.innerHTML=layerConfig.map((l,i)=>`
     <div class="layer-colour-row">
-      <span class="layer-colour-label">Layer ${i+1}</span>
+      <span class="layer-colour-label">${LAYER_NAMES[i] || 'Layer '+(i+1)}</span>
       <div class="colour-picker-wrap" id="cpw-${i}">
         <div class="colour-picker-btn" onclick="toggleCp(${i},this)">
           <div class="cp-swatch" id="cps-${i}" style="background:${l.hex}"></div>
@@ -169,7 +169,7 @@ function buildLayerUI(){
     <div class="layer-setting-block">
       <div class="layer-setting-header">
         <div style="width:10px;height:10px;border-radius:2px;background:${l.hex};border:1px solid rgba(255,255,255,0.15)"></div>
-        Layer ${i+1}${l.isText?' (Text)':''}
+        ${LAYER_NAMES[i] || 'Layer '+(i+1)}${l.isText?' (Text)':''}
       </div>
       ${l.isText
         ? `<div class="layer-setting-row"><label>Type</label><span style="font-size:11px;color:var(--muted)">Text layer</span></div>`

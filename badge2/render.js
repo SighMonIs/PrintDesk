@@ -116,6 +116,7 @@ const HOLE_W       = 46;
 const HOLE_H       = 14;
 const SCALE        = 1000;
 const FONT_PATH    = 'LEGO.TTF';
+const LAYER_NAMES  = ['Red', 'Yellow', 'Black', 'Jade White'];
 
 let font = null, timer = null;
 
@@ -144,13 +145,16 @@ function buildBadge() {
 
     if (layer.isText) {
       addTextLayer(font.getPath(text, 0, 0, fsize, opts).commands, offX, offY, colour, layer.depth, z);
-    } else if (layer.hasSlot && layer.depth > 1) {
-      addLayer(unioned, layer.border, offX, offY, colour, layer.depth - 1, z, true);
-      addLayer(unioned, layer.border, offX, offY, colour, 1, z + layer.depth - 1, false);
+      z += layer.depth;
+    } else if (layer.hasSlot) {
+      const slotD = getBackingConfig()?.d ?? 2;
+      addLayer(unioned, layer.border, offX, offY, colour, slotD, z, true);
+      addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z + slotD, false);
+      z += slotD + layer.depth;
     } else {
-      addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z, layer.hasSlot);
+      addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z, false);
+      z += layer.depth;
     }
-    z += layer.depth;
   }
 }
 
@@ -314,10 +318,12 @@ function exportTMF() {
 
   let zOff = 0;
   const objects = [];
+  const backing = getBackingConfig();
 
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
     let geo;
+    const slotD = layer.hasSlot ? (backing?.d ?? 2) : 0;
 
     if (layer.isText) {
       const shapePath = new THREE.ShapePath();
@@ -336,16 +342,15 @@ function exportTMF() {
       const shapes  = outers.map(outer => new THREE.Shape(
         outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
       ));
-      geo = new THREE.ExtrudeGeometry(shapes, { depth: layer.depth, bevelEnabled: false });
+      geo = new THREE.ExtrudeGeometry(shapes, { depth: slotD + layer.depth, bevelEnabled: false });
     }
 
     geo.computeVertexNormals();
     geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, zOff));
-    objects.push({ geo, name: `layer${i+1}`, colour: layer.hex, extruder: i+1, id: objects.length+1 });
-    zOff += layer.depth;
+    objects.push({ geo, name: LAYER_NAMES[i] || `layer${i+1}`, colour: layer.hex, extruder: i+1, id: objects.length+1 });
+    zOff += slotD + layer.depth;
   }
 
-  const backing = getBackingConfig();
   if (backing && objects.length > 0) {
     const cutGeo = makeCutoutGeo(backing.w, backing.h, backing.d);
     cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, backing.d));
@@ -370,7 +375,7 @@ function build3MF(objects, name) {
     for (let i = 0; i < pos.count; i++) verts += `   <vertex x="${pos.getX(i).toFixed(4)}" y="${pos.getY(i).toFixed(4)}" z="${pos.getZ(i).toFixed(4)}"/>\n`;
     if (idx) { for (let i = 0; i < idx.count; i += 3) tris += `   <triangle v1="${idx.getX(i)}" v2="${idx.getX(i+1)}" v3="${idx.getX(i+2)}"/>\n`; }
     else     { for (let i = 0; i < pos.count; i += 3) tris += `   <triangle v1="${i}" v2="${i+1}" v3="${i+2}"/>\n`; }
-    objXml += `  <object id="${obj.id}" type="model" name="${obj.name}">\n   <mesh>\n    <vertices>\n${verts}    </vertices>\n    <triangles>\n${tris}    </triangles>\n   </mesh>\n  </object>\n`;
+    objXml += `  <object id="${obj.id}" type="${obj.negative ? 'other' : 'model'}" name="${obj.name}">\n   <mesh>\n    <vertices>\n${verts}    </vertices>\n    <triangles>\n${tris}    </triangles>\n   </mesh>\n  </object>\n`;
     comps  += `    <component objectid="${obj.id}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n`;
   });
   const wId = objects.length + 1;
