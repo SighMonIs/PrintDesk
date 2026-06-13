@@ -303,6 +303,29 @@ function commandsToClipper(cmds) {
   return polys;
 }
 
+// ── Geometry helpers ───────────────────────────────────────────
+function mergeVerticesForExport(geo) {
+  const nonIdx = geo.toNonIndexed();
+  const pos = nonIdx.attributes.position;
+  const map = new Map();
+  const newPos = [], newIdx = [];
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const key = `${x.toFixed(5)},${y.toFixed(5)},${z.toFixed(5)}`;
+    if (!map.has(key)) { map.set(key, newPos.length / 3); newPos.push(x, y, z); }
+    newIdx.push(map.get(key));
+  }
+  const filteredIdx = [];
+  for (let i = 0; i < newIdx.length; i += 3) {
+    if (newIdx[i] !== newIdx[i+1] && newIdx[i+1] !== newIdx[i+2] && newIdx[i] !== newIdx[i+2])
+      filteredIdx.push(newIdx[i], newIdx[i+1], newIdx[i+2]);
+  }
+  const result = new THREE.BufferGeometry();
+  result.setAttribute('position', new THREE.BufferAttribute(new Float32Array(newPos), 3));
+  result.setIndex(new THREE.BufferAttribute(new Uint32Array(filteredIdx), 1));
+  return result;
+}
+
 // ── 3MF Export ─────────────────────────────────────────────────
 function exportTMF() {
   if (!font || !layerConfig.length) return;
@@ -345,16 +368,16 @@ function exportTMF() {
       geo = new THREE.ExtrudeGeometry(shapes, { depth: slotD + layer.depth, bevelEnabled: false });
     }
 
-    geo.computeVertexNormals();
+    geo = mergeVerticesForExport(geo);
     geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, zOff));
     objects.push({ geo, name: LAYER_NAMES[i] || `layer${i+1}`, colour: layer.hex, extruder: i+1, id: objects.length+1 });
     zOff += slotD + layer.depth;
   }
 
   if (backing && objects.length > 0) {
-    const cutGeo = makeCutoutGeo(backing.w, backing.h, backing.d);
+    let cutGeo = makeCutoutGeo(backing.w, backing.h, backing.d);
+    cutGeo = mergeVerticesForExport(cutGeo);
     cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, backing.d));
-    cutGeo.computeVertexNormals();
     objects.push({ geo: cutGeo, name: `${backing.name}_cutout`, colour: '#000000', extruder: 1, id: objects.length+1, negative: true });
   }
 
