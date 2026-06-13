@@ -213,7 +213,8 @@ function addLayer(filledBase, borderMM, offX, offY, colour, depth, zPos, include
   for (const path of working) {
     if (ClipperLib.Clipper.Orientation(path)) outers.push(path);
   }
-  const hw = HOLE_W / 2, hh = HOLE_H / 2;
+  const backing = getBackingConfig();
+  const hw = (backing?.w ?? HOLE_W) / 2, hh = (backing?.h ?? HOLE_H) / 2;
   const shapes = outers.map(outer => {
     const shape = new THREE.Shape(
       outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
