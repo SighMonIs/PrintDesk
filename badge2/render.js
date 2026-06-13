@@ -129,12 +129,8 @@ function buildBadge() {
   for (let i = 0; i < layerConfig.length; i++) {
     const layer  = layerConfig[i];
     const colour = parseInt(layer.hex.slice(1), 16);
-    const isLast = i === layerConfig.length - 1;
 
-    if (isLast) {
-      // Top layer: outside stroke ring around letters
-      addStrokeLayer(polys, layer.border, offX, offY, colour, z);
-    } else if (layer.hasSlot && layer.depth > 1) {
+    if (layer.hasSlot && layer.depth > 1) {
       addLayer(unioned, layer.border, offX, offY, colour, layer.depth - 1, z, true);
       addLayer(unioned, layer.border, offX, offY, colour, 1, z + layer.depth - 1, false);
     } else {
