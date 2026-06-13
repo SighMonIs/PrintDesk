@@ -93,8 +93,6 @@ async function loadModel(){
   const s=settings[0]||{};
   document.getElementById('fontSize').value=currentModel.font_size||49;
   document.getElementById('letterSpacing').value=s.letter_spacing||0;
-  document.getElementById('filePrefix').value=s.file_prefix||'';
-  document.getElementById('fileSuffix').value=s.file_suffix||'';
 
   const p=prefs[0]||{};
   defRotX=parseFloat(p.def_rot_x??'-0.4');
@@ -107,7 +105,6 @@ async function loadModel(){
 
   buildLayerUI();
   loadPreviousCombos();
-  updateFileNamePreview();
   setStatus('');
 
   const fontPath=currentModel.font_path||FONT_PATH;
@@ -127,24 +124,35 @@ async function loadModel(){
 
 async function saveModelSettings(){
   const id=currentModel?.id; if(!id) return;
-  await sbUpsert('badge_models',{id, font_size:+document.getElementById('fontSize').value});
-  const existing=await sbGet('badge_model_settings',`?model_id=eq.${id}`);
-  const row={
-    ...(existing[0]?{id:existing[0].id}:{}),
-    model_id:id,
-    letter_spacing:+document.getElementById('letterSpacing').value,
-    file_prefix:document.getElementById('filePrefix').value,
-    file_suffix:document.getElementById('fileSuffix').value,
-  };
-  await sbUpsert('badge_model_settings',row);
-  for(const l of layerConfig){
-    await sbUpsert('badge_model_layers',{
-      id:l.id, model_id:l.model_id, layer_order:l.order,
-      colour_id:l.colourId||null, colour_hex:l.hex,
-      border_mm:l.border, thickness_mm:l.depth, filled:!l.isText,
+  setStatus('Saving…');
+  try{
+    const fontSize=+document.getElementById('fontSize').value;
+    const letterSpacing=+document.getElementById('letterSpacing').value;
+
+    const mRes=await sbUpsert('badge_models',{id, font_size:fontSize});
+    if(mRes?.code||mRes?.error) throw new Error(mRes.message||mRes.error||'badge_models save failed');
+    currentModel.font_size=fontSize;
+
+    const existing=await sbGet('badge_model_settings',`?model_id=eq.${id}`);
+    const sRes=await sbUpsert('badge_model_settings',{
+      ...(existing[0]?{id:existing[0].id}:{}),
+      model_id:id,
+      letter_spacing:letterSpacing,
     });
+    if(sRes?.code||sRes?.error) throw new Error(sRes.message||sRes.error||'badge_model_settings save failed');
+
+    for(const l of layerConfig){
+      const lRes=await sbUpsert('badge_model_layers',{
+        id:l.id, model_id:l.model_id, layer_order:l.order,
+        colour_id:l.colourId||null, colour_hex:l.hex,
+        border_mm:l.border, thickness_mm:l.depth, filled:!l.isText,
+      });
+      if(lRes?.code||lRes?.error) throw new Error(lRes.message||lRes.error||`layer ${l.order} save failed`);
+    }
+    setStatus('Saved','ok'); setTimeout(()=>setStatus(''),2000);
+  }catch(e){
+    setStatus('Save failed: '+e.message,'err');
   }
-  setStatus('Settings saved','ok'); setTimeout(()=>setStatus(''),2000);
 }
 
 // ── Layer UI ──────────────────────────────────────────────────
@@ -265,13 +273,6 @@ function toggleAccordion(){
   const b=document.getElementById('accordionBody'),c=document.getElementById('accordionChevron');
   const open=b.style.display!=='none';
   b.style.display=open?'none':''; c.style.transform=open?'':'rotate(180deg)';
-}
-
-function updateFileNamePreview(){
-  const p=document.getElementById('filePrefix')?.value||'';
-  const s=document.getElementById('fileSuffix')?.value||'';
-  const n=document.getElementById('nameInput')?.value||'NAME';
-  document.getElementById('fileNamePreview').textContent=[p,n,s].filter(Boolean).join(' ')+'.3mf';
 }
 
 // ── Boot ──────────────────────────────────────────────────────

@@ -413,9 +413,7 @@ function exportTMF() {
 
   const tmfData = build3MF(objects, name);
   const zip = buildZip(tmfData);
-  const prefix = (document.getElementById('filePrefix')?.value || '').trim();
-  const suffix = (document.getElementById('fileSuffix')?.value || '').trim();
-  const filename = [prefix, name, suffix].filter(Boolean).join(' ') + '.3mf';
+  const filename = name + '.3mf';
   downloadBlob(zip, filename, 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
   setStatus(`Exported ${filename}`, 'ok');
 }
