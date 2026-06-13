@@ -358,7 +358,7 @@ function renderTable(){
       return`<span style="color:var(--muted)">${esc(opt.name)}:</span> ${esc(val)}`;
     }).filter(Boolean);
     const isBadgeCat=cat&&cat.name.toLowerCase().includes('name badge');
-    const badgeBtn=isBadgeCat?`<a href="/badge2/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''})}" target="_blank" class="icon-btn" title="Generate Badge" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none"><i class="ti ti-badge"></i></a>`:'';
+    const badgeBtn=isBadgeCat?`<a href="/badge/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''})}" target="_blank" class="icon-btn" title="Generate Badge" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none"><i class="ti ti-badge"></i></a>`:'';
     const optHtml=optLines.length?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px">${l}</div>`).join(''):'';
     return`<tr class="${isFirst?'group-first':''}">
       <td class="card-order-num" style="padding:7px 8px">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
