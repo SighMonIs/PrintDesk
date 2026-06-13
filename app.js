@@ -339,10 +339,31 @@ function renderUserCard(u, isCurrentUser){
       </div>
     </div>
     <div style="display:flex;gap:6px">
+      ${!hasSignedIn?`<button class="icon-btn" onclick="resendInvite('${esc(email)}',this)" title="Resend invite email"><i class="ti ti-mail-forward"></i></button>`:''}
       <button class="icon-btn" onclick="openEditUserForm('${esc(u.id)}','${esc(email)}','${esc(name)}')" title="Edit"><i class="ti ti-edit"></i></button>
       ${!isCurrentUser?`<button class="icon-btn del" onclick="deleteUser('${esc(u.id)}','${esc(name)}')" title="Delete"><i class="ti ti-trash"></i></button>`:''}
     </div>
   </div>`;
+}
+
+async function resendInvite(email, btn) {
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i>';
+  try {
+    const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/invite', {
+      method: 'POST',
+      headers: SB_ADMIN_HEADERS(),
+      body: JSON.stringify({ email, redirect_to: 'https://simonreid.space' })
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.msg || d.message || 'Failed'); }
+    btn.innerHTML = '<i class="ti ti-check"></i>';
+    btn.title = 'Invite resent!';
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; btn.title = 'Resend invite email'; }, 2000);
+  } catch(e) {
+    alert('Could not resend invite: ' + e.message);
+    btn.innerHTML = orig; btn.disabled = false;
+  }
 }
 
 function openAddUserForm(){
