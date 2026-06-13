@@ -357,10 +357,9 @@ function renderTable(){
       }
       return`<span style="color:var(--muted)">${esc(opt.name)}:</span> ${esc(val)}`;
     }).filter(Boolean);
-    const optLines2=optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px">${l}</div>`).join('');
     const isBadgeCat=cat&&cat.name.toLowerCase().includes('name badge');
-    const badgeBtn=isBadgeCat?`<a href="/badge2/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''})}" target="_blank" class="icon-btn" title="Generate Badge" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0;margin-top:1px"><i class="ti ti-printer-3d"></i></a>`:'';
-    const optHtml=`<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">${optLines2}${badgeBtn}</div>`;
+    const badgeBtn=isBadgeCat?`<a href="/badge2/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''})}" target="_blank" class="icon-btn" title="Generate Badge" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none"><i class="ti ti-printer-3d"></i></a>`:'';
+    const optHtml=optLines.length?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px">${l}</div>`).join(''):'';
     return`<tr class="${isFirst?'group-first':''}">
       <td class="card-order-num" style="padding:7px 8px">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
       <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
@@ -368,6 +367,7 @@ function renderTable(){
       </td>
       <td data-label="Category" style="padding:7px 8px">${catHtml}</td>
       <td data-label="Options" style="padding:7px 8px;font-size:11px;overflow:visible;white-space:normal;line-height:1.6">${optHtml}</td>
+      <td style="padding:4px 4px;text-align:center;vertical-align:middle">${badgeBtn}</td>
       <td data-label="Qty" class="mono" style="padding:7px 8px">${o.qty}</td>
       <td data-label="Total" class="mono" style="padding:7px 8px">$${o.total.toFixed(2)}</td>
       <td data-label="Status" style="padding:7px 6px;text-align:center">
