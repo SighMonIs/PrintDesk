@@ -58,9 +58,9 @@ animate();
 
 // ── Layer defaults ────────────────────────────────────────────
 const defaultLayers = [
-  { hex: '#ef4444', border: 6, depth: 3, hasSlot: true  },
-  { hex: '#f4ee2a', border: 4, depth: 1, hasSlot: false },
-  { hex: '#1a1a1a', border: 2, depth: 1, hasSlot: false },
+  { hex: '#ef4444', border: 7.5, depth: 3, hasSlot: true  },
+  { hex: '#f4ee2a', border: 5,   depth: 1, hasSlot: false },
+  { hex: '#1a1a1a', border: 2.5, depth: 1, hasSlot: false },
 ];
 
 // ── Layer UI ──────────────────────────────────────────────────
@@ -173,9 +173,9 @@ function addStrokeLayer(polys, strokeMM, offX, offY, colour, zPos) {
 function addLayer(filledBase, borderMM, offX, offY, colour, depth, zPos, includeSlot) {
   const working = borderMM > 0 ? clipperOffset(filledBase, borderMM) : filledBase;
 
-  const outers = [], innerHoles = [];
+  const outers = [];
   for (const path of working) {
-    (ClipperLib.Clipper.Orientation(path) ? outers : innerHoles).push(path);
+    if (ClipperLib.Clipper.Orientation(path)) outers.push(path);
   }
 
   const hw = HOLE_W / 2, hh = HOLE_H / 2;
@@ -184,11 +184,6 @@ function addLayer(filledBase, borderMM, offX, offY, colour, depth, zPos, include
     const shape = new THREE.Shape(
       outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
     );
-    for (const h of innerHoles) {
-      shape.holes.push(new THREE.Path(
-        h.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
-      ));
-    }
     if (includeSlot) {
       const slot = new THREE.Path();
       slot.moveTo(-hw, -hh); slot.lineTo(hw, -hh);
