@@ -708,6 +708,20 @@ function revertToCustomerAddress(){
   document.getElementById('f-address').value = c.address;
 }
 
+// ── Badge modal ────────────────────────────────────────────
+function openBadgeModal(url){
+  document.getElementById('badgeFrame').src=url;
+  const m=document.getElementById('badgeModal');
+  m.style.display='flex';
+  document.body.style.overflow='hidden';
+}
+function closeBadgeModal(){
+  const m=document.getElementById('badgeModal');
+  m.style.display='none';
+  document.getElementById('badgeFrame').src='';
+  document.body.style.overflow='';
+}
+
 // ── Stats modal ────────────────────────────────────────────
 function openStatsModal(){
   updateStats();

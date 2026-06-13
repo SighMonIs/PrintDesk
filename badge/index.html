@@ -28,7 +28,7 @@
 <!-- ── App ── -->
 <div class="app-screen" id="appScreen">
   <header>
-    <a href="/" class="btn sm" style="margin-right:8px" title="Back to DripDesk"><i class="ti ti-arrow-left"></i></a>
+    <button class="btn sm" style="margin-right:8px" title="Back to DripDesk" onclick="window.parent!==window?window.parent.closeBadgeModal():window.location.href='/'"><i class="ti ti-arrow-left"></i></button>
     <span class="logo">DripDesk</span><span class="logo-sep">/</span><span class="logo-sub">Badge Generator</span>
     <div class="header-right">
       <span class="user-chip" id="userChip"></span>
@@ -86,7 +86,7 @@
         <button class="btn primary" id="exportBtn" onclick="exportTMF()" style="flex:1" disabled><i class="ti ti-download"></i> Export 3MF</button>
       </div>
       <div class="status" id="status">Signing in…</div>
-      <div class="version-footer">badge v2.4.0</div>
+      <div class="version-footer">badge v2.4.1</div>
     </div>
 
     <!-- Preview -->
