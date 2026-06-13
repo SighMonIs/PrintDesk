@@ -32,7 +32,7 @@ async function doLogin(){
 }
 
 async function restoreSession(){
-  const t=localStorage.getItem('badge2_token'); if(!t) return false;
+  const t=localStorage.getItem('badge2_token')||localStorage.getItem('pd_token'); if(!t) return false;
   try{
     const res=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+t}});
     if(!res.ok) return false;
@@ -152,17 +152,18 @@ async function loadModel(){
   setStatus('');
 
   const fontPath=currentModel.font_path||FONT_PATH;
+  const doAutoExport=()=>{ if(new URLSearchParams(location.search).get('autoExport')==='1'){ exportTMF(); window.parent.postMessage({type:'badgeExportDone'},'*'); } };
   if(!font){
     setStatus('Loading font…');
     opentype.load(fontPath,(err,f)=>{
       if(err){setStatus('Could not load font: '+fontPath,'err');return;}
       font=f; setStatus('Ready','ok');
       document.getElementById('exportBtn').disabled=false;
-      buildBadge();
+      buildBadge(); doAutoExport();
     });
   } else {
     document.getElementById('exportBtn').disabled=false;
-    buildBadge();
+    buildBadge(); doAutoExport();
   }
 }
 

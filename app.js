@@ -708,18 +708,14 @@ function revertToCustomerAddress(){
   document.getElementById('f-address').value = c.address;
 }
 
-// ── Badge modal ────────────────────────────────────────────
-function openBadgeModal(url){
-  document.getElementById('badgeFrame').src=url;
-  const m=document.getElementById('badgeModal');
-  m.style.display='flex';
-  document.body.style.overflow='hidden';
-}
-function closeBadgeModal(){
-  const m=document.getElementById('badgeModal');
-  m.style.display='none';
-  document.getElementById('badgeFrame').src='';
-  document.body.style.overflow='';
+// ── Badge export ───────────────────────────────────────────
+function generateBadge(url){
+  const iframe=document.createElement('iframe');
+  iframe.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px';
+  iframe.src=url+'&autoExport=1';
+  document.body.appendChild(iframe);
+  const handler=(e)=>{ if(e.data?.type==='badgeExportDone'){ window.removeEventListener('message',handler); setTimeout(()=>iframe.remove(),1000); } };
+  window.addEventListener('message',handler);
 }
 
 // ── Stats modal ────────────────────────────────────────────
