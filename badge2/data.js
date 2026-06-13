@@ -1,3 +1,5 @@
+const LAYER_NAMES = ['Red', 'Yellow', 'Black', 'Jade White'];
+
 // ── Supabase ──────────────────────────────────────────────────
 const SB_URL=(window.CONFIG&&window.CONFIG.SUPABASE_URL)||'';
 const SB_KEY=(window.CONFIG&&window.CONFIG.SUPABASE_KEY)||'';

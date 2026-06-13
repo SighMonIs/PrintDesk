@@ -116,7 +116,6 @@ const HOLE_W       = 46;
 const HOLE_H       = 14;
 const SCALE        = 1000;
 const FONT_PATH    = 'LEGO.TTF';
-const LAYER_NAMES  = ['Red', 'Yellow', 'Black', 'Jade White'];
 
 let font = null, timer = null;
 
@@ -304,6 +303,7 @@ function commandsToClipper(cmds) {
 }
 
 // ── Geometry helpers ───────────────────────────────────────────
+// Weld coincident vertices — used for text layer (Three.js ExtrudeGeometry)
 function mergeVerticesForExport(geo) {
   const nonIdx = geo.toNonIndexed();
   const pos = nonIdx.attributes.position;
@@ -311,7 +311,7 @@ function mergeVerticesForExport(geo) {
   const newPos = [], newIdx = [];
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-    const key = `${x.toFixed(5)},${y.toFixed(5)},${z.toFixed(5)}`;
+    const key = `${Math.round(x*1e4)},${Math.round(y*1e4)},${Math.round(z*1e4)}`;
     if (!map.has(key)) { map.set(key, newPos.length / 3); newPos.push(x, y, z); }
     newIdx.push(map.get(key));
   }
@@ -324,6 +324,39 @@ function mergeVerticesForExport(geo) {
   result.setAttribute('position', new THREE.BufferAttribute(new Float32Array(newPos), 3));
   result.setIndex(new THREE.BufferAttribute(new Uint32Array(filteredIdx), 1));
   return result;
+}
+
+// Build a guaranteed-manifold extrusion directly from Clipper outer polygons.
+// Outer polygon orientation from Clipper (Orientation===true) maps to CCW in
+// Three.js space after the y-flip, so winding here matches Three.js front-face rules.
+function buildSolidExtrusionMesh(clipperOuters, depth, offX, offY) {
+  const positions = [], indices = [];
+  for (const outer of clipperOuters) {
+    if (!ClipperLib.Clipper.Orientation(outer)) continue;
+    const n = outer.length;
+    if (n < 3) continue;
+    const base = positions.length / 3;
+    const pts = outer.map(p => [p.X / SCALE - offX, offY - p.Y / SCALE]);
+    for (const [x, y] of pts) positions.push(x, y, 0);       // bottom ring
+    for (const [x, y] of pts) positions.push(x, y, depth);   // top ring
+    // Side faces — each edge produces 2 triangles with outward normals
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const b0 = base+i, b1 = base+j, t0 = base+n+i, t1 = base+n+j;
+      indices.push(b0, b1, t0,  b1, t1, t0);
+    }
+    // Caps via earcut
+    const v2 = pts.map(([x, y]) => new THREE.Vector2(x, y));
+    const cap = THREE.ShapeUtils.triangulateShape(v2, []);
+    for (const [a, b, c] of cap) {
+      indices.push(base+n+a, base+n+b, base+n+c);  // top cap (CCW from +z)
+      indices.push(base+a,   base+c,   base+b);    // bottom cap (reversed)
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+  geo.setIndex(indices);
+  return geo;
 }
 
 // ── 3MF Export ─────────────────────────────────────────────────
@@ -359,16 +392,13 @@ function exportTMF() {
         else if (c.type === 'Z') shapePath.currentPath.closePath();
       }
       geo = new THREE.ExtrudeGeometry(shapePath.toShapes(false), { depth: layer.depth, bevelEnabled: false });
+      geo = mergeVerticesForExport(geo);
     } else {
       const working = layer.border > 0 ? clipperOffset(unioned, layer.border) : unioned;
       const outers  = working.filter(p => ClipperLib.Clipper.Orientation(p));
-      const shapes  = outers.map(outer => new THREE.Shape(
-        outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
-      ));
-      geo = new THREE.ExtrudeGeometry(shapes, { depth: slotD + layer.depth, bevelEnabled: false });
+      geo = buildSolidExtrusionMesh(outers, slotD + layer.depth, offX, offY);
     }
 
-    geo = mergeVerticesForExport(geo);
     geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, zOff));
     objects.push({ geo, name: LAYER_NAMES[i] || `layer${i+1}`, colour: layer.hex, extruder: i+1, id: objects.length+1 });
     zOff += slotD + layer.depth;
