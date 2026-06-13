@@ -7,6 +7,7 @@ let sbToken=null, currentUser=null;
 
 function sbHeaders(){ return{'apikey':SB_KEY,'Authorization':'Bearer '+(sbToken||SB_KEY),'Content-Type':'application/json','Prefer':'return=representation'}; }
 async function sbGet(table,q=''){ const r=await fetch(`${SB_URL}/rest/v1/${table}${q}`,{headers:sbHeaders()}); return r.json(); }
+async function sbPatch(table,q,row){ const r=await fetch(`${SB_URL}/rest/v1/${table}${q}`,{method:'PATCH',headers:sbHeaders(),body:JSON.stringify(row)}); if(!r.ok) return await r.json(); return null; }
 async function sbUpsert(table,row){ const r=await fetch(`${SB_URL}/rest/v1/${table}`,{method:'POST',headers:{...sbHeaders(),'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(row)}); return r.json(); }
 
 // ── Auth ──────────────────────────────────────────────────────
@@ -129,8 +130,8 @@ async function saveModelSettings(){
     const fontSize=+document.getElementById('fontSize').value;
     const letterSpacing=+document.getElementById('letterSpacing').value;
 
-    const mRes=await sbUpsert('badge_models',{id, font_size:fontSize});
-    if(mRes?.code||mRes?.error) throw new Error(mRes.message||mRes.error||'badge_models save failed');
+    const mRes=await sbPatch('badge_models',`?id=eq.${id}`,{font_size:fontSize});
+    if(mRes) throw new Error(mRes.message||mRes.error||'badge_models save failed');
     currentModel.font_size=fontSize;
 
     const existing=await sbGet('badge_model_settings',`?model_id=eq.${id}`);
