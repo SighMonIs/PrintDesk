@@ -127,6 +127,7 @@ async function loadModel(){
 
 async function saveModelSettings(){
   const id=currentModel?.id; if(!id) return;
+  await sbUpsert('badge_models',{id, font_size:+document.getElementById('fontSize').value});
   const existing=await sbGet('badge_model_settings',`?model_id=eq.${id}`);
   const row={
     ...(existing[0]?{id:existing[0].id}:{}),
