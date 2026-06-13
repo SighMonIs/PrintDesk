@@ -216,7 +216,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing by Claude</span>
     </div>
     <div class="footer-line">
-      <span id="footerVersion">v3.5.1</span>
+      <span id="footerVersion">v3.5.2</span>
       <span class="footer-sep">·</span>
       <span id="statusMsg" class="footer-status">Loading…</span>
     </div>
@@ -510,11 +510,13 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 <!-- Badge modal -->
-<div id="badgeModal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.85);flex-direction:column">
-  <div style="display:flex;align-items:center;justify-content:flex-end;padding:8px 12px;flex-shrink:0">
-    <button class="btn sm" onclick="closeBadgeModal()"><i class="ti ti-x"></i> Close</button>
+<div id="badgeModal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.85);align-items:center;justify-content:center">
+  <div style="display:flex;flex-direction:column;width:90%;height:90%;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.1)">
+    <div style="display:flex;align-items:center;justify-content:flex-end;padding:8px 12px;flex-shrink:0;background:#18181b">
+      <button class="btn sm" onclick="closeBadgeModal()"><i class="ti ti-x"></i> Close</button>
+    </div>
+    <iframe id="badgeFrame" src="" style="flex:1;border:none;background:#18181b" allowfullscreen></iframe>
   </div>
-  <iframe id="badgeFrame" src="" style="flex:1;border:none;border-radius:8px 8px 0 0;background:#18181b" allowfullscreen></iframe>
 </div>
 
 <script src="api.js"></script>
