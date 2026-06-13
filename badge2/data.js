@@ -51,8 +51,27 @@ async function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appScreen').style.display='flex';
   document.getElementById('userChip').textContent=currentUser?.user_metadata?.display_name||currentUser?.email||'';
+  const saved=localStorage.getItem('badge2_lastName');
+  if(saved){ const el=document.getElementById('nameInput'); el.value=saved; updateNameClear(el); }
   await loadColours();
   await loadModels();
+}
+
+function onNameInput(){
+  const el=document.getElementById('nameInput');
+  localStorage.setItem('badge2_lastName',el.value);
+  updateNameClear(el);
+  scheduleRender();
+}
+
+function updateNameClear(el){
+  document.getElementById('nameClearBtn').style.display=el.value?'flex':'none';
+}
+
+function clearName(){
+  const el=document.getElementById('nameInput');
+  el.value=''; localStorage.removeItem('badge2_lastName');
+  updateNameClear(el); scheduleRender();
 }
 
 // ── Data ──────────────────────────────────────────────────────

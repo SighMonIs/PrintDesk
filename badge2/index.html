@@ -43,7 +43,10 @@
       </div>
       <div>
         <div class="section-title">Name</div>
-        <input type="text" id="nameInput" value="" maxlength="20" placeholder="Enter name…" class="name-input" oninput="this.value=this.value.toUpperCase();scheduleRender()">
+        <div style="position:relative">
+          <input type="text" id="nameInput" value="" maxlength="20" placeholder="Enter name…" class="name-input" oninput="this.value=this.value.toUpperCase();onNameInput()" style="padding-right:36px">
+          <button id="nameClearBtn" onclick="clearName()" style="position:absolute;right:0;top:0;height:100%;width:36px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0;align-items:center;justify-content:center;display:none" tabindex="-1"><i class="ti ti-x"></i></button>
+        </div>
       </div>
       <div>
         <div class="section-title">Backing</div>
@@ -82,7 +85,7 @@
         <button class="btn primary" id="exportBtn" onclick="exportTMF()" style="flex:1" disabled><i class="ti ti-download"></i> Export 3MF</button>
       </div>
       <div class="status" id="status">Signing in…</div>
-      <div class="version-footer">badge2 v2.3.2</div>
+      <div class="version-footer">badge2 v2.3.3</div>
     </div>
 
     <!-- Preview -->
