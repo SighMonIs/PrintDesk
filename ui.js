@@ -400,6 +400,15 @@ function renderTable(){
 
     if(isMulti && isFirst){
       // Summary row: customer info + order-level status dropdown
+      const orderRows=list.filter(r=>r.orderId===o.orderId);
+      const catTotals={};
+      orderRows.forEach(r=>{
+        const name=(cats.find(c=>c.id===r.catId)||{}).name||'Unknown';
+        catTotals[name]=(catTotals[name]||0)+(r.qty||1);
+      });
+      const itemSummaryHtml=Object.entries(catTotals).map(([name,qty])=>
+        `<div style="font-size:10px;color:var(--muted);line-height:1.6">${qty}× ${name}</div>`
+      ).join('');
       const orderStat=o.status||'Pending';
       const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:7px">
         <span style="font-size:10px;color:var(--muted);letter-spacing:0.3px;white-space:nowrap">Applies to entire order</span>
@@ -414,7 +423,7 @@ function renderTable(){
       </div>`;
       const summaryRow=`<tr class="group-first order-summary-row ${altClass}">
         <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
-        <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${esc(o.customer)||'—'}</td>
+        <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}"><div>${esc(o.customer)||'—'}</div>${itemSummaryHtml}</td>
         <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
         <td colspan="5"></td>
         <td data-label="Status" style="padding:4px 6px;text-align:center;overflow:visible;white-space:nowrap">${orderStatusDd}</td>
