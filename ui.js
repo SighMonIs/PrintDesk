@@ -44,6 +44,23 @@ document.addEventListener('click', e=>{
   }
 });
 
+async function selectOrderStatus(orderId, newStatus, optEl){
+  const list = document.getElementById('sdd-order-'+orderId);
+  if(list) list.classList.remove('open');
+  const btn = list?.closest('.status-dd-wrap')?.querySelector('.status-dd-btn');
+  if(btn){ btn.className='status-dd-btn b-'+newStatus.toLowerCase().replace(' ','-'); btn.innerHTML=newStatus+' <i class="ti ti-chevron-down"></i>'; }
+  list?.querySelectorAll('.status-dd-opt').forEach(o=>o.classList.toggle('active',o.textContent.trim()===newStatus));
+  const rows = orders.filter(r=>r.orderId===orderId);
+  for(const row of rows){ row.status=newStatus; }
+  updateStats(); renderTable();
+  try{
+    for(const row of rows){
+      await sbUpsert('orders',{id:row.id,order_id:row.orderId,customer:row.customer,address:row.address,delivery:row.delivery,payment:row.payment,cat_id:row.catId,qty:row.qty,price:row.price,total:row.total,status:newStatus,date:row.date,notes:row.notes,options:row.options});
+    }
+    setStatus('ok','All items updated');
+  }catch(e){ setStatus('err','Save failed'); }
+}
+
 // ── Previously made check ─────────────────────────────────
 // A signature is catId + normalised options string
 // An order row counts as "made" if ANY order row with the same
@@ -198,6 +215,8 @@ function renderTable(){
   const seen=new Set();
   let groupIdx=0;
   const isMobile = window.innerWidth <= 640;
+  const orderItemCount={};
+  list.forEach(o=>{orderItemCount[o.orderId]=(orderItemCount[o.orderId]||0)+1;});
 
   tbody.innerHTML=list.map(o=>{
     const isFirst=!seen.has(o.orderId);
@@ -363,29 +382,74 @@ function renderTable(){
     const isBadgeCat=cat&&cat.name.toLowerCase().includes('name badge');
     const badgeBtn=isBadgeCat?`<button class="icon-btn" title="Generate Badge" onclick="generateBadge('/badge/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''})}')"><i class="ti ti-badge"></i></button>`:'';
     const optHtml=optLines.length?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px">${l}</div>`).join(''):'';
-    return`<tr class="${isFirst?'group-first':'inner-row'} ${altClass} ${hasNote?'has-note':''}">
-      <td class="card-order-num" style="padding:7px 8px">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
-      <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
-      <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)">${isFirst?`<span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span>`:''}
-      </td>
+    const isMulti=orderItemCount[o.orderId]>1;
+    const noteRow=hasNote?`<tr class="note-inline-row ${altClass}">
+      <td colspan="3"></td>
+      <td colspan="6" class="note-inline-cell"><i class="ti ti-notes" style="font-size:12px;margin-right:5px;opacity:0.5;flex-shrink:0"></i>${esc(o.notes)}</td>
+      <td colspan="2"></td>
+    </tr>`:'';
+
+    // Item cells (category → status) reused for both single and multi-item rows
+    const itemCells=`
       <td data-label="Category" style="padding:7px 8px">${catHtml}</td>
       <td data-label="Options" style="padding:7px 8px;font-size:11px;overflow:visible;white-space:normal;line-height:1.6">${optHtml}</td>
       <td style="padding:4px 4px;text-align:center;vertical-align:middle">${badgeBtn}</td>
       <td data-label="Qty" class="mono" style="padding:7px 8px">${o.qty}</td>
       <td data-label="Total" class="mono" style="padding:7px 8px">$${o.total.toFixed(2)}</td>
-      <td data-label="Status" style="padding:7px 6px;text-align:center">
-        ${statusDd}
-      </td>
-      <td data-label="$" style="padding:7px 6px;text-align:center">${isFirst?`<span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span>`:''}</td>
+      <td data-label="Status" style="padding:7px 6px;text-align:center">${statusDd}</td>`;
+
+    if(isMulti && isFirst){
+      // Summary row: customer info + order-level status dropdown
+      const orderStat=o.status||'Pending';
+      const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px;letter-spacing:0.3px">all ${orderItemCount[o.orderId]} items</div>
+        <button class="status-dd-btn b-${orderStat.toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('order-${esc(o.orderId)}',this)">
+          ${orderStat} <i class="ti ti-chevron-down"></i>
+        </button>
+        <div class="status-dd-list" id="sdd-order-${esc(o.orderId)}">
+          ${['Pending','Printing','Complete','On Hold','Cancelled'].map(s=>`
+            <div class="status-dd-opt b-${s.toLowerCase().replace(' ','-')}${orderStat===s?' active':''}"
+              onclick="selectOrderStatus('${esc(o.orderId)}','${s}',this)">${s}</div>`).join('')}
+        </div>
+      </div>`;
+      const summaryRow=`<tr class="group-first order-summary-row ${altClass}">
+        <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
+        <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${esc(o.customer)||'—'}</td>
+        <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
+        <td colspan="4"></td>
+        <td data-label="Status" style="padding:4px 6px;text-align:center">${orderStatusDd}</td>
+        <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
+        <td class="card-actions" style="display:flex;gap:3px;padding:5px 6px;justify-content:flex-end">
+          <button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
+          <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>
+        </td>
+      </tr>`;
+      const itemRow=`<tr class="inner-row ${altClass} ${hasNote?'has-note':''}">
+        <td></td><td></td><td></td>${itemCells}
+        <td></td><td class="card-actions" style="display:flex;padding:5px 6px"></td>
+      </tr>${noteRow}`;
+      return summaryRow+itemRow;
+    }
+
+    if(isMulti && !isFirst){
+      return`<tr class="inner-row ${altClass} ${hasNote?'has-note':''}">
+        <td></td><td></td><td></td>${itemCells}
+        <td></td><td class="card-actions" style="display:flex;padding:5px 6px"></td>
+      </tr>${noteRow}`;
+    }
+
+    // Single-item order — original layout
+    return`<tr class="group-first ${altClass} ${hasNote?'has-note':''}">
+      <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
+      <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${esc(o.customer)||'—'}</td>
+      <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
+      ${itemCells}
+      <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
       <td class="card-actions" style="display:flex;gap:3px;padding:5px 6px;justify-content:flex-end">
-        ${isFirst?`<button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
-        <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>`:''}
+        <button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
+        <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>
       </td>
-    </tr>${hasNote?`<tr class="note-inline-row ${altClass}">
-      <td colspan="3"></td>
-      <td colspan="6" class="note-inline-cell"><i class="ti ti-notes" style="font-size:12px;margin-right:5px;opacity:0.5;flex-shrink:0"></i>${esc(o.notes)}</td>
-      <td colspan="2"></td>
-    </tr>`:''}`;
+    </tr>${noteRow}`;
   }).join('');
 }
 
