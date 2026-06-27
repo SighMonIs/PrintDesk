@@ -562,9 +562,12 @@ function renderModelOpts(idx, catId, savedOpts){
     if(opt.display==='text'){
       const capsStyle=opt.force_caps?'text-transform:uppercase':'';
       const badgeCheck=isBadgeCat?`;badgeWidthCheck(${idx})`:'';
-      const capsHandler=opt.force_caps?`this.value=this.value.toUpperCase();collectOpts(${idx})${badgeCheck}`:`collectOpts(${idx})${badgeCheck}`;
+      const multiCheck=opt.multi_item?`;updateMultiBadge('ov-${idx}-${opt.id}','mb-${idx}-${opt.id}')`:''
+      const capsHandler=opt.force_caps?`this.value=this.value.toUpperCase();collectOpts(${idx})${badgeCheck}${multiCheck}`:`collectOpts(${idx})${badgeCheck}${multiCheck}`;
       const warnDiv=isBadgeCat?`<div class="badge-width-warn" id="bww-${idx}" style="display:none"></div>`:'';
-      return`<div class="opt-row"><label>${esc(opt.name)}</label><input type="text" id="ov-${idx}-${opt.id}" value="${esc(opt.force_caps&&val?val.toUpperCase():val)}" placeholder="Enter ${esc(opt.name).toLowerCase()}…" style="${capsStyle}" oninput="${capsHandler}"></div>${warnDiv}`;
+      const multiBadge=opt.multi_item?`<span class="multi-item-badge" id="mb-${idx}-${opt.id}" style="display:none"></span>`:'';
+      const inputVal=esc(opt.force_caps&&val?val.toUpperCase():val);
+      return`<div class="opt-row"><label>${esc(opt.name)}</label><div style="display:flex;align-items:center;gap:6px;flex:1"><input type="text" id="ov-${idx}-${opt.id}" value="${inputVal}" placeholder="Enter ${esc(opt.name).toLowerCase()}… or comma-separate for multiple" style="${capsStyle}flex:1" oninput="${capsHandler}">${multiBadge}</div></div>${warnDiv}`;
     } else {
       // dropdown
       const items=opt.options.split(',').map(s=>s.trim()).filter(Boolean);
@@ -915,6 +918,19 @@ function closeTypeConfirm(){
   document.getElementById('typeConfirmDialog').classList.remove('open');
   _typeConfirmCallback=null;_typeConfirmExpected='';
 }
+function updateMultiBadge(inputId, badgeId){
+  const input=document.getElementById(inputId);
+  const badge=document.getElementById(badgeId);
+  if(!input||!badge)return;
+  const parts=input.value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(parts.length>1){
+    badge.textContent='× '+parts.length+' items';
+    badge.style.display='inline-block';
+  } else {
+    badge.style.display='none';
+  }
+}
+
 function getModelData(){
   return Array.from(document.querySelectorAll('.model-row')).map(r=>{
     const i=r.dataset.idx;
@@ -1114,7 +1130,30 @@ async function saveOrder(){
     await createCustomerInline();
   }
   const customer=document.getElementById('f-customer').value.trim();
-  const models=getModelData();
+  const rawModels=getModelData();
+  // Expand multi-item rows (pairwise on comma-separated values)
+  const models=[];
+  for(const m of rawModels){
+    const catOpts=getCatOpts(m.catId).filter(o=>o.multi_item&&o.display==='text');
+    if(!catOpts.length){models.push(m);continue;}
+    const parts=m.options?m.options.split('||'):[];
+    const splits=catOpts.map(o=>{
+      const part=parts.find(p=>p.startsWith(o.name+':'));
+      const val=part?part.slice(o.name.length+1).trim():'';
+      return{name:o.name,values:val.split(',').map(s=>s.trim()).filter(Boolean)};
+    });
+    const count=Math.max(...splits.map(s=>s.values.length),1);
+    for(let j=0;j<count;j++){
+      const newParts=parts.map(p=>{
+        const colon=p.indexOf(':');
+        const k=colon>=0?p.slice(0,colon):'';
+        const sp=splits.find(s=>s.name===k.trim());
+        if(sp&&sp.values.length){return k+':'+sp.values[Math.min(j,sp.values.length-1)];}
+        return p;
+      });
+      models.push({...m,options:newParts.join('||')});
+    }
+  }
   const orderId=editOId||nextOrderId();
   const date=document.getElementById('f-date').value;
   const delivery=document.getElementById('f-delivery').value;
