@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6,8 +6,8 @@
 <title>PrintDesk</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
-<script src="config.js" onerror="console.warn('config.js not found â€” using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=3.5.49">
+<script src="config.js" onerror="console.warn('config.js not found &rdquo; using defaults')"></script>
+<link rel="stylesheet" href="styles.css?v=3.5.50">
 
 <script>
 // Fallback if config.js missing
@@ -48,7 +48,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     </div>
     <div class="field">
       <label>Password</label>
-      <input type="password" id="loginPassword" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <input type="password" id="loginPassword" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="btn primary" style="width:100%;height:40px;font-size:13px;margin-top:4px" id="loginBtn" onclick="doLogin()">
       <i class="ti ti-login"></i> Sign in
@@ -66,7 +66,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <input type="url" id="gasUrlInput" placeholder="https://xxxxxxxxxxxx.supabase.co">
     </div>
     <div class="url-input-row">
-      <input type="text" id="sbKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9â€¦">
+      <input type="text" id="sbKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9&hellip;">
       <button class="btn primary" onclick="saveSupabaseConfig()"><i class="ti ti-check"></i> Connect</button>
     </div>
   </div>
@@ -144,7 +144,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <button class="mobile-hamburger" style="position:static;flex-shrink:0;margin:0" onclick="openMobileSidebar()">
       <i class="ti ti-menu-2"></i>
     </button>
-    <input type="text" id="search-mobile" placeholder="Searchâ€¦" oninput="document.getElementById('search').value=this.value;renderTable()">
+    <input type="text" id="search-mobile" placeholder="Search&hellip;" oninput="document.getElementById('search').value=this.value;renderTable()">
   </div>
 
 <div class="app" id="mainContent">
@@ -161,7 +161,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
   <!-- Toolbar -->
   <div class="toolbar">
-    <input type="text" id="search" placeholder="Searchâ€¦" oninput="renderTable()">
+    <input type="text" id="search" placeholder="Search&hellip;" oninput="renderTable()">
     <div class="filter-wrap" id="filterWrap">      <button class="btn" id="filterBtn" onclick="toggleFilterPanel(event)">
         <i class="ti ti-filter"></i> Filters <span id="filterCount" style="display:none;background:var(--accent);color:var(--bg);font-size:10px;padding:1px 6px;border-radius:999px;margin-left:4px"></span>
       </button>
@@ -216,9 +216,9 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing by Claude</span>
     </div>
     <div class="footer-line">
-      <span id="footerVersion">v3.5.49</span>
+      <span id="footerVersion">v3.5.50</span>
       <span class="footer-sep">Â·</span>
-      <span id="statusMsg" class="footer-status">Loadingâ€¦</span>
+      <span id="statusMsg" class="footer-status">Loading&hellip;</span>
     </div>
   </footer>
 </div><!-- end app/mainContent -->
@@ -237,7 +237,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <div class="field">
         <label>Customer name</label>
         <div style="position:relative">
-          <input id="f-customer" type="text" placeholder="Search existing or type a new nameâ€¦" autocomplete="off"
+          <input id="f-customer" type="text" placeholder="Search existing or type a new name&hellip;" autocomplete="off"
             oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
           <div id="customerSuggestions" class="colour-picker-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:9999;max-height:200px;overflow-y:auto"></div>
         </div>
@@ -250,19 +250,19 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
     <!-- New customer details panel -->
     <div id="newCustomerPanel" style="display:none;background:rgba(92,184,122,0.06);border:1px solid rgba(92,184,122,0.25);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:500;color:var(--green);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px"><i class="ti ti-user-plus" style="margin-right:6px"></i>New customer â€” add details</div>
+      <div style="font-size:11px;font-weight:500;color:var(--green);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px"><i class="ti ti-user-plus" style="margin-right:6px"></i>New customer &rdquo; add details</div>
       <div class="field-row">
         <div class="field"><label>Email</label><input type="email" id="nc-email" placeholder="optional"></div>
         <div class="field"><label>Phone</label><input type="tel" id="nc-phone" placeholder="optional"></div>
       </div>
-      <div class="field"><label>Notes</label><input type="text" id="nc-notes" placeholder="Any notes about this customerâ€¦"></div>
+      <div class="field"><label>Notes</label><input type="text" id="nc-notes" placeholder="Any notes about this customer&hellip;"></div>
     </div>
     <div class="field-row">
       <div class="field">
         <label>Address / Location</label>
         <div class="addr-wrap" style="display:flex;gap:6px;align-items:center">
           <div style="position:relative;flex:1">
-            <input id="f-address" type="text" placeholder="Address or location noteâ€¦" autocomplete="off" oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
+            <input id="f-address" type="text" placeholder="Address or location note&hellip;" autocomplete="off" oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
             <i class="ti ti-map-pin-check addr-tick" id="addrTick"></i>
           </div>
           <button class="btn icon-only" id="addrRefreshBtn" onclick="revertToCustomerAddress()" style="flex-shrink:0" title=""><i class="ti ti-refresh"></i></button>
@@ -306,7 +306,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 <div class="modal-bg" id="catModal" onclick="if(event.target===this)closeCatModal()">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:720px">
     <div class="modal-title">Manage categories</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Each category can have options â€” extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical" style="font-size:12px"></i> to reorder options.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Each category can have options &rdquo; extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical" style="font-size:12px"></i> to reorder options.</p>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <label class="toolbar-check" style="height:28px;padding:0 8px;font-size:11px">
         <input type="checkbox" id="showArchivedCb" onchange="toggleShowArchived(this)"> Show archived
@@ -388,11 +388,11 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <div class="colour-picker-wrap" id="accentPickerWrap">
           <div class="colour-picker-btn" onclick="toggleColourPicker('accent-sel')" id="cpb-accent-sel">
             <div class="cp-swatch" id="accent-sel-swatch" style="background:var(--accent)"></div>
-            <span class="cp-label" id="accent-sel-label">Loadingâ€¦</span>
+            <span class="cp-label" id="accent-sel-label">Loading&hellip;</span>
             <i class="ti ti-chevron-down cp-arrow"></i>
           </div>
           <div class="colour-picker-list" id="cpl-accent-sel" style="display:none">
-            <div class="cp-none" onclick="selectAccentColour('','',this)">â€” none / custom â€”</div>
+            <div class="cp-none" onclick="selectAccentColour('','',this)">&rdquo; none / custom &rdquo;</div>
           </div>
         </div>
       </div>
@@ -404,7 +404,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Manage payment types. Archive options used in orders, delete unused ones. "Revenue" options are included in revenue totals.</p>
       <div id="paymentOptionsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
       <div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
-        <input type="text" id="newPaymentName" placeholder="New payment optionâ€¦"
+        <input type="text" id="newPaymentName" placeholder="New payment option&hellip;"
           style="flex:1;height:30px;padding:0 8px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none">
         <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);white-space:nowrap;cursor:pointer">
           <input type="checkbox" id="newPaymentRevenue" style="accent-color:var(--accent)"> Revenue
@@ -424,7 +424,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 14px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px">
             <input type="checkbox" id="settingsNotifyDaily" style="accent-color:var(--accent);width:14px;height:14px">
-            <span style="font-size:12px;font-weight:500">Daily badge digest â€” 4PM Melbourne</span>
+            <span style="font-size:12px;font-weight:500">Daily badge digest &rdquo; 4PM Melbourne</span>
           </label>
           <div style="font-size:11px;color:var(--muted);padding-left:22px">Sends a summary email if any badge orders were added that day. No email if nothing new.</div>
         </div>
@@ -482,7 +482,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     </div>
 
     <!-- User list -->
-    <div id="usersList"><div class="empty"><i class="ti ti-loader-2"></i> Loading usersâ€¦</div></div>
+    <div id="usersList"><div class="empty"><i class="ti ti-loader-2"></i> Loading users&hellip;</div></div>
 
     <div class="modal-actions">
       <button class="btn primary" onclick="closeUsersModal()">Close</button>
@@ -500,7 +500,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     </div>
 
     <!-- Search -->
-    <input type="text" id="customerSearch" placeholder="Search customersâ€¦"
+    <input type="text" id="customerSearch" placeholder="Search customers&hellip;"
       style="width:100%;margin-bottom:12px;height:34px;padding:0 10px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none"
       oninput="renderCustomerList(this.value)">
 
@@ -516,7 +516,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
           <div class="field"><label>Phone</label><input type="tel" id="cf-phone" placeholder="optional"></div>
           <div class="field"><label>Default address</label><input type="text" id="cf-address" placeholder="optional"></div>
         </div>
-        <div class="field"><label>Notes</label><input type="text" id="cf-notes" placeholder="Any notes about this customerâ€¦"></div>
+        <div class="field"><label>Notes</label><input type="text" id="cf-notes" placeholder="Any notes about this customer&hellip;"></div>
         <div id="cf-error" style="font-size:11px;color:var(--red);margin-top:4px;display:none"></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn" onclick="closeCustomerForm()">Cancel</button>
@@ -526,7 +526,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     </div>
 
     <!-- Customer list -->
-    <div id="customersList"><div class="empty"><i class="ti ti-loader-2"></i> Loadingâ€¦</div></div>
+    <div id="customersList"><div class="empty"><i class="ti ti-loader-2"></i> Loading&hellip;</div></div>
 
     <div class="modal-actions">
       <button class="btn primary" onclick="closeCustomersModal()">Close</button>
@@ -546,9 +546,9 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<script src="api.js?v=3.5.49"></script>
-<script src="ui.js?v=3.5.49"></script>
-<script src="app.js?v=3.5.49"></script>
+<script src="api.js?v=3.5.50"></script>
+<script src="ui.js?v=3.5.50"></script>
+<script src="app.js?v=3.5.50"></script>
 </body>
 </html>
 
