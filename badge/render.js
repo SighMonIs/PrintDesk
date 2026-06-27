@@ -360,8 +360,8 @@ function buildSolidExtrusionMesh(clipperOuters, depth, offX, offY) {
 }
 
 // ── 3MF Export ─────────────────────────────────────────────────
-function exportTMF() {
-  if (!font || !layerConfig.length) return;
+function buildBadgeExport() {
+  if (!font || !layerConfig.length) return null;
   const name = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
   const fsize = parseFloat(document.getElementById('fontSize')?.value) || FONT_SIZE_MM;
   const spacing = parseFloat(document.getElementById('letterSpacing')?.value) || 0;
@@ -413,9 +413,15 @@ function exportTMF() {
 
   const tmfData = build3MF(objects, name);
   const zip = buildZip(tmfData);
-  const filename = name + '.3mf';
-  downloadBlob(zip, filename, 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
-  setStatus(`Exported ${filename}`, 'ok');
+  return { zip, filename: name + '.3mf' };
+}
+
+function exportTMF() {
+  setStatus('Generating 3MF…');
+  const result = buildBadgeExport();
+  if (!result) return;
+  downloadBlob(result.zip, result.filename, 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
+  setStatus(`Exported ${result.filename}`, 'ok');
 }
 
 function build3MF(objects, name) {
