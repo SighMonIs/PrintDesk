@@ -1,4 +1,4 @@
-name: DripDesk Daily Badge Digest
+name: PrintDesk Daily Badge Digest
 
 on:
   schedule:
@@ -68,7 +68,7 @@ jobs:
               for o in unique
           )
           body = (
-              f"DripDesk — Daily Badge Summary\n\n"
+              f"PrintDesk — Daily Badge Summary\n\n"
               f"{n} badge order{'s' if n != 1 else ''}, {total_qty} item{'s' if total_qty != 1 else ''} in the last 24 hours:\n\n"
               f"{lines}\n\n"
               f"View all orders: https://simonreid.space\n"
@@ -80,9 +80,9 @@ jobs:
               print('No RESEND_API_KEY secret — email not sent'); exit(0)
 
           payload = json.dumps({
-              'from': 'DripDesk <onboarding@resend.dev>',
+              'from': 'PrintDesk <onboarding@resend.dev>',
               'to':   [email],
-              'subject': f'DripDesk: {n} new badge order{"s" if n != 1 else ""} today ({total_qty} items)',
+              'subject': f'PrintDesk: {n} new badge order{"s" if n != 1 else ""} today ({total_qty} items)',
               'text': body
           }).encode()
           req = urllib.request.Request(

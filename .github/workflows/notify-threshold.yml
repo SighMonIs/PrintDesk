@@ -1,4 +1,4 @@
-name: DripDesk Urgent Item Alert
+name: PrintDesk Urgent Item Alert
 
 on:
   schedule:
@@ -80,7 +80,7 @@ jobs:
               for o in unique
           )
           body = (
-              f"DripDesk — Busy Period Alert 🚨\n\n"
+              f"PrintDesk — Busy Period Alert 🚨\n\n"
               f"{total_qty} items across {len(unique)} order{'s' if len(unique) != 1 else ''} "
               f"added in the last 20 minutes (threshold: {threshold}):\n\n"
               f"{lines}\n\n"
@@ -93,9 +93,9 @@ jobs:
               print('No RESEND_API_KEY secret — email not sent'); exit(0)
 
           payload = json.dumps({
-              'from': 'DripDesk <onboarding@resend.dev>',
+              'from': 'PrintDesk <onboarding@resend.dev>',
               'to':   [email],
-              'subject': f'DripDesk: {total_qty} items just came in!',
+              'subject': f'PrintDesk: {total_qty} items just came in!',
               'text': body
           }).encode()
           req = urllib.request.Request(

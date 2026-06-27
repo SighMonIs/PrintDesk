@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>DripDesk</title>
+<title>PrintDesk</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=3.5.24">
+<link rel="stylesheet" href="styles.css?v=3.5.25">
 
 <script>
 // Fallback if config.js missing
@@ -20,7 +20,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 <!-- ══ Set Password Screen (for invited users) ══ -->
 <div id="setPasswordScreen" class="login-screen" style="display:none">
   <div class="login-card">
-    <div class="login-logo">DripDesk</div>
+    <div class="login-logo">PrintDesk</div>
     <div class="login-subtitle">Welcome! Set your password to continue.</div>
     <div id="setPasswordError" class="login-error" style="display:none"></div>
     <div class="field">
@@ -39,7 +39,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
-    <div class="login-logo">DripDesk</div>
+    <div class="login-logo">PrintDesk</div>
     <div class="login-subtitle">Sign in to continue</div>
     <div id="loginError" class="login-error" style="display:none"></div>
     <div class="field">
@@ -61,7 +61,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   <!-- Setup banner -->
   <div class="setup-banner" id="setupBanner" style="display:none">
     <h3><i class="ti ti-plug" style="vertical-align:-2px;margin-right:6px"></i>Connect to Supabase</h3>
-    <p>Enter your Supabase project URL and anon key to connect DripDesk to your database.</p>
+    <p>Enter your Supabase project URL and anon key to connect PrintDesk to your database.</p>
     <div class="url-input-row" style="margin-bottom:6px">
       <input type="url" id="gasUrlInput" placeholder="https://xxxxxxxxxxxx.supabase.co">
     </div>
@@ -76,7 +76,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <div class="sidebar-top">
       <div class="sidebar-logo">
         <i class="ti ti-printer sidebar-logo-icon"></i>
-        <span class="sidebar-label sidebar-logo-text">DripDesk</span>
+        <span class="sidebar-label sidebar-logo-text">PrintDesk</span>
       </div>
       <div class="sidebar-top-actions">
         <button class="sidebar-pin" id="sidebarPin" onclick="toggleSidebarMenu(event)" title="Sidebar controls">
@@ -211,12 +211,12 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     </table>
   </div>
   <footer class="site-footer">
-    <div class="footer-line">© 2026 DripDesk. All rights reserved.</div>
+    <div class="footer-line">© 2026 PrintDesk. All rights reserved.</div>
     <div class="footer-line">
       <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing by Claude</span>
     </div>
     <div class="footer-line">
-      <span id="footerVersion">v3.5.24</span>
+      <span id="footerVersion">v3.5.25</span>
       <span class="footer-sep">·</span>
       <span id="statusMsg" class="footer-status">Loading…</span>
     </div>
@@ -546,8 +546,8 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<script src="api.js?v=3.5.24"></script>
-<script src="ui.js?v=3.5.24"></script>
-<script src="app.js?v=3.5.24"></script>
+<script src="api.js?v=3.5.25"></script>
+<script src="ui.js?v=3.5.25"></script>
+<script src="app.js?v=3.5.25"></script>
 </body>
 </html>

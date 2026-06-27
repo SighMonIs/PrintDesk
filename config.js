@@ -1,4 +1,4 @@
-// DripDesk configuration
+// PrintDesk configuration
 // This file is safe to commit to GitHub — it contains only the public anon key.
 // The service role key (needed for user management) is stored in localStorage only.
 // To set it up on a device, run this once in the browser console:
