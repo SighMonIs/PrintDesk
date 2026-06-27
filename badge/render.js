@@ -119,21 +119,73 @@ const FONT_PATH    = 'LEGO.TTF';
 
 let font = null, timer = null;
 
+// ── Spinner helpers ────────────────────────────────────────────
+function stepInput(input, dir) {
+  const step = parseFloat(input.step) || 1;
+  const min  = input.min !== '' ? parseFloat(input.min) : -Infinity;
+  const max  = input.max !== '' ? parseFloat(input.max) :  Infinity;
+  const dec  = step.toString().includes('.') ? step.toString().split('.')[1].length : 0;
+  const newVal = Math.min(max, Math.max(min, (parseFloat(input.value) || 0) + dir * step));
+  input.value = newVal.toFixed(dec);
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function wrapSpinners(container) {
+  if (!container) return;
+  container.querySelectorAll('input[type="number"]').forEach(input => {
+    if (input.closest('.spin-wrap')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'spin-wrap';
+    input.parentNode.insertBefore(wrap, input);
+    const minus = document.createElement('button');
+    minus.className = 'spin-btn'; minus.type = 'button'; minus.textContent = '−';
+    minus.onclick = () => stepInput(input, -1);
+    const plus = document.createElement('button');
+    plus.className = 'spin-btn'; plus.type = 'button'; plus.textContent = '+';
+    plus.onclick = () => stepInput(input, 1);
+    wrap.appendChild(minus); wrap.appendChild(input); wrap.appendChild(plus);
+  });
+}
+
+// ── Backing coord override ─────────────────────────────────────
+let backingOverride = null;
+
 function updateBackingCoords() {
   const bc = getBackingConfig();
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   if (!bc || bc.type === 'keychain') {
-    set('bcX', '—'); set('bcY', '—'); set('bcZ', '—');
+    set('bcX', ''); set('bcY', ''); set('bcZ', '');
   } else if (bc.type === 'round') {
     set('bcX', bc.diameter.toFixed(2));
     set('bcY', bc.diameter.toFixed(2));
     set('bcZ', bc.depth.toFixed(2));
   } else {
-    set('bcX', (bc.w ?? '—').toString());
-    set('bcY', (bc.h ?? '—').toString());
-    set('bcZ', (bc.d ?? '—').toString());
+    set('bcX', bc.w); set('bcY', bc.h); set('bcZ', bc.d);
   }
+  wrapSpinners(document.getElementById('accordionBody'));
 }
+
+function onBackingCoordChange() {
+  const x = parseFloat(document.getElementById('bcX')?.value);
+  const y = parseFloat(document.getElementById('bcY')?.value);
+  const z = parseFloat(document.getElementById('bcZ')?.value);
+  const val = document.getElementById('backingSelect')?.value;
+  if (val === 'Round Magnet') {
+    const changed = !isNaN(x) ? x : (!isNaN(y) ? y : null);
+    if (changed !== null) {
+      const dEl = document.getElementById('rndMagDiam');
+      if (dEl) dEl.value = changed;
+    }
+    if (!isNaN(z)) { const dEl = document.getElementById('rndMagDepth'); if (dEl) dEl.value = z; }
+    saveRndMagSettings();
+  } else {
+    backingOverride = {};
+    if (!isNaN(x)) backingOverride.w = x;
+    if (!isNaN(y)) backingOverride.h = y;
+    if (!isNaN(z)) backingOverride.d = z;
+  }
+  scheduleRender();
+}
+
 function scheduleRender() { clearTimeout(timer); updateBackingCoords(); timer = setTimeout(buildBadge, 300); }
 
 // ── Build badge ────────────────────────────────────────────────
@@ -197,16 +249,20 @@ function buildBadge() {
 // ── Backing ────────────────────────────────────────────────────
 function getBackingConfig() {
   const val = document.getElementById('backingSelect')?.value || 'Magnet';
-  if (val === 'Pin')    return { w: 32, h: 7,  d: 2, name: 'pin' };
-  if (val === 'Magnet') return { w: 46, h: 14, d: 2, name: 'magnet' };
-  if (val === 'Keychain') return { type: 'keychain' };
-  if (val === 'Round Magnet') {
+  let cfg = null;
+  if (val === 'Pin')      cfg = { w: 32, h: 7,  d: 2, name: 'pin' };
+  else if (val === 'Magnet')   cfg = { w: 46, h: 14, d: 2, name: 'magnet' };
+  else if (val === 'Keychain') cfg = { type: 'keychain' };
+  else if (val === 'Round Magnet') {
     const diam      = parseFloat(document.getElementById('rndMagDiam')?.value      || localStorage.getItem('badge2_rndDiam')      || '17.15');
     const depth     = parseFloat(document.getElementById('rndMagDepth')?.value     || localStorage.getItem('badge2_rndDepth')     || '2');
     const threshold = parseFloat(document.getElementById('rndMagThreshold')?.value || localStorage.getItem('badge2_rndThreshold') || '60');
-    return { type: 'round', diameter: diam, depth, threshold, name: 'round_magnet' };
+    cfg = { type: 'round', diameter: diam, depth, threshold, name: 'round_magnet' };
   }
-  return null;
+  if (cfg && backingOverride && cfg.type !== 'round' && cfg.type !== 'keychain') {
+    cfg = { ...cfg, ...backingOverride };
+  }
+  return cfg;
 }
 function makeCutoutGeo(w, h, d) {
   const geo = new THREE.BoxGeometry(w, h, d);

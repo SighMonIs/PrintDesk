@@ -81,6 +81,12 @@ canvas{display:block;}
 .layer-setting-row label{font-size:11px;color:var(--muted);}
 .layer-setting-row input{width:56px;height:24px;padding:0 6px;font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;}
 
+/* Spinner +/- wrap */
+.spin-wrap{display:flex;align-items:center;gap:3px;}
+.spin-btn{width:22px;height:26px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;font-family:inherit;}
+.spin-btn:hover{background:var(--surface);border-color:rgba(255,255,255,0.22);}
+.layer-setting-row .spin-btn{width:20px;height:24px;font-size:14px;}
+
 /* Preview controls */
 .preview-controls{position:absolute;top:10px;right:10px;display:flex;gap:6px;}
 .preview-label{position:absolute;bottom:12px;left:12px;font-size:10px;color:var(--muted);background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;}

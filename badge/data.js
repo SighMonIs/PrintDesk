@@ -256,6 +256,7 @@ function buildLayerUI(){
       }
       <div class="layer-setting-row"><label>Depth (mm)</label><input type="number" value="${l.depth}" min="0.5" max="10" step="0.5" onchange="layerConfig[${i}].depth=+this.value;scheduleRender()"></div>
     </div>`).join('');
+  wrapSpinners(settingsEl);
 }
 
 function colourName(hex){ const c=colours.find(c=>c.code?.toLowerCase()===hex?.toLowerCase()); return c?c.name:hex; }
@@ -341,6 +342,7 @@ function toggleAccordion(){
   const b=document.getElementById('accordionBody'),c=document.getElementById('accordionChevron');
   const open=b.style.display!=='none';
   b.style.display=open?'none':''; c.style.transform=open?'':'rotate(180deg)';
+  if(!open) wrapSpinners(b);
 }
 
 // ── Boot ──────────────────────────────────────────────────────

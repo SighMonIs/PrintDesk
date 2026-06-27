@@ -51,7 +51,7 @@
       </div>
       <div>
         <div class="section-title">Backing</div>
-        <select id="backingSelect" class="model-select" onchange="scheduleRender()">
+        <select id="backingSelect" class="model-select" onchange="backingOverride=null;scheduleRender()">
           <option value="Magnet">Magnet</option>
           <option value="Pin">Pin</option>
           <option value="Round Magnet">Round Magnet</option>
@@ -78,9 +78,9 @@
         <div class="accordion-body" id="accordionBody" style="display:none">
           <div class="section-title" style="margin:0">Backing Position</div>
           <div id="backingCoords">
-            <div class="adv-row"><label>X (mm)</label><input type="text" class="adv-input" id="bcX" readonly style="background:var(--bg2);color:var(--muted);cursor:default"></div>
-            <div class="adv-row"><label>Y (mm)</label><input type="text" class="adv-input" id="bcY" readonly style="background:var(--bg2);color:var(--muted);cursor:default"></div>
-            <div class="adv-row"><label>Z (mm)</label><input type="text" class="adv-input" id="bcZ" readonly style="background:var(--bg2);color:var(--muted);cursor:default"></div>
+            <div class="adv-row"><label>X (mm)</label><input type="number" class="adv-input" id="bcX" min="1" max="500" step="0.5" onchange="onBackingCoordChange()"></div>
+            <div class="adv-row"><label>Y (mm)</label><input type="number" class="adv-input" id="bcY" min="1" max="500" step="0.5" onchange="onBackingCoordChange()"></div>
+            <div class="adv-row"><label>Z (mm)</label><input type="number" class="adv-input" id="bcZ" min="0.1" max="50" step="0.1" onchange="onBackingCoordChange()"></div>
           </div>
           <div class="section-title" style="margin-top:4px">Font</div>
           <div class="adv-row"><label>Font size (mm)</label><input type="number" class="adv-input" id="fontSize" value="49" min="10" max="200" onchange="scheduleRender()"></div>
@@ -98,7 +98,7 @@
         <button class="btn primary" id="exportBtn" onclick="exportTMF()" style="flex:1" disabled><i class="ti ti-download"></i> Export 3MF</button>
       </div>
       <div class="status" id="status">Signing in…</div>
-      <div class="version-footer">badge v2.4.3</div>
+      <div class="version-footer">badge v2.4.4</div>
     </div>
 
     <!-- Preview -->
