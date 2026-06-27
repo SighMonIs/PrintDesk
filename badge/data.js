@@ -136,6 +136,9 @@ async function loadModel(){
   const s=settings[0]||{};
   document.getElementById('fontSize').value=currentModel.font_size||49;
   document.getElementById('letterSpacing').value=s.letter_spacing||0;
+  if(s.round_magnet_diameter!=null)  document.getElementById('rndMagDiam').value=s.round_magnet_diameter;
+  if(s.round_magnet_depth!=null)     document.getElementById('rndMagDepth').value=s.round_magnet_depth;
+  if(s.round_magnet_threshold!=null) document.getElementById('rndMagThreshold').value=s.round_magnet_threshold;
 
   const p=prefs[0]||{};
   defRotX=parseFloat(p.def_rot_x??'-0.4');
@@ -187,6 +190,9 @@ async function saveModelSettings(){
       ...(existing[0]?{id:existing[0].id}:{}),
       model_id:id,
       letter_spacing:letterSpacing,
+      round_magnet_diameter:  +document.getElementById('rndMagDiam').value||17.15,
+      round_magnet_depth:     +document.getElementById('rndMagDepth').value||2,
+      round_magnet_threshold: +document.getElementById('rndMagThreshold').value||60,
     });
     if(sRes?.code||sRes?.error) throw new Error(sRes.message||sRes.error||'badge_model_settings save failed');
 

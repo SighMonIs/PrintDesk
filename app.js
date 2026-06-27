@@ -760,7 +760,7 @@ async function _ensureBadgeFont() {
 // Returns the minimum badge width (mm) needed for a given backing name
 function _badgeBackingMinWidth(backingName) {
   const n = (backingName || '').toLowerCase();
-  if (n.includes('round'))  return parseFloat(localStorage.getItem('badge2_rndDiam') || '17.15');
+  if (n.includes('round'))  return _badgeAssetCache?.rndDiam ?? 17.15;
   if (n.includes('magnet')) return 46;
   if (n.includes('pin'))    return 32;
   return 0;
@@ -771,9 +771,9 @@ function _badgeBuildBacking(backingStr) {
   const n = (backingStr || '').toLowerCase();
   if (n.includes('round')) return {
     type: 'round',
-    diameter:  parseFloat(localStorage.getItem('badge2_rndDiam')      || '17.15'),
-    depth:     parseFloat(localStorage.getItem('badge2_rndDepth')     || '2'),
-    threshold: parseFloat(localStorage.getItem('badge2_rndThreshold') || '60'),
+    diameter:  _badgeAssetCache?.rndDiam      ?? 17.15,
+    depth:     _badgeAssetCache?.rndDepth     ?? 2,
+    threshold: _badgeAssetCache?.rndThreshold ?? 60,
     name: 'round_magnet',
   };
   if (n.includes('pin'))    return { w: 32, h: 7,  d: 2, name: 'pin' };
@@ -874,9 +874,12 @@ async function _loadBadgeAssets() {
   const s = settings[0] || {};
   _badgeAssetCache = {
     layerConfig,
-    fsize: model.font_size || 49,
-    spacing: s.letter_spacing || 0,
-    fontPath: model.font_path || '/badge/LEGO.TTF',
+    fsize:     model.font_size || 49,
+    spacing:   s.letter_spacing || 0,
+    fontPath:  model.font_path || '/badge/LEGO.TTF',
+    rndDiam:      s.round_magnet_diameter  ?? 17.15,
+    rndDepth:     s.round_magnet_depth     ?? 2,
+    rndThreshold: s.round_magnet_threshold ?? 60,
     projectSettingsTemplate: tmpl,
   };
   return _badgeAssetCache;
