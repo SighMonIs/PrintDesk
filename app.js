@@ -98,6 +98,11 @@ function renderCatBlocks(){
                     style="width:13px;height:13px;accent-color:var(--accent);cursor:pointer;margin:0">
                   Caps
                 </label>
+                <label class="opt-extra-label" title="Comma-separated values create multiple order items">
+                  <input type="checkbox" ${o.multi_item?'checked':''} onchange="opts[${globalIdx}].multi_item=this.checked"
+                    style="width:13px;height:13px;accent-color:var(--accent);cursor:pointer;margin:0">
+                  Multi
+                </label>
               </div>`:''}
             </div>
             ${o.archived
@@ -156,7 +161,7 @@ function addCat(){cats.push({id:nextCatId(),name:'',price:0});renderCatBlocks();
 function removeCat(i){cats.splice(i,1);renderCatBlocks();}
 function removeOpt(i){opts.splice(i,1);renderCatBlocks();}
 function addOptToCat(catId){
-  opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4,force_caps:false,archived:false});
+  opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4,force_caps:false,multi_item:false,archived:false});
   renderCatBlocks();
 }
 
@@ -164,7 +169,7 @@ async function saveCatsAndOpts(){
   setStatus('spin','Saving…');closeCatModal();populateCatFilter();
   try{
     await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price,archived:c.archived||false})));
-    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false,archived:o.archived||false})));
+    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false,multi_item:o.multi_item||false,archived:o.archived||false})));
     setStatus('ok','Saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }

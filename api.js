@@ -98,7 +98,7 @@ function closeConfirm() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeConfirm();
+  if (e.key === 'Escape'){ closeConfirm(); if(typeof closeTypeConfirm==='function') closeTypeConfirm(); }
 });
 
 // ── Invite / Set password flow ─────────────────────────────
@@ -576,6 +576,7 @@ function normaliseOpt(o){
     sort_order:  Number(o.sort_order||0),
     num_colours: Number(o.num_colours||4),
     force_caps:  Boolean(o.force_caps||false),
+    multi_item:  Boolean(o.multi_item||false),
     archived:    Boolean(o.archived||false)
   };
 }

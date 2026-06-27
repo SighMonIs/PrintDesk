@@ -867,9 +867,53 @@ function calcTotal(){
   _updateItemFilter();
 }
 function removeModel(btn){
-  if(document.querySelectorAll('.model-row').length<=1){alert('Need at least one item.');return;}
+  if(document.querySelectorAll('.model-row').length<=1){
+    if(!editOId){closeModal();return;}
+    const customer=document.getElementById('f-customer').value.trim()||'this order';
+    showConfirm(`This is the last item. Delete the entire order for "${customer}"?`,()=>{
+      showTypeConfirm(
+        `Type the customer name to confirm permanently deleting this order:\n\n"${customer}"`,
+        customer,
+        async()=>{
+          closeModal();
+          setStatus('spin','Deleting…');
+          orders=orders.filter(o=>o.orderId!==editOId);renderTable();
+          try{
+            await sbDelete('orders','order_id=eq.'+encodeURIComponent(editOId));
+            setStatus('ok','Deleted · '+uniqueOrderCount()+' orders');
+          }catch(e){setStatus('err','Delete failed: '+e.message);}
+        }
+      );
+    },{confirmLabel:'Delete Order',isDanger:true});
+    return;
+  }
   const row=btn.closest('.model-row');
   showConfirm('Remove this item from the order?',()=>{row.remove();calcTotal();},{confirmLabel:'Remove',isDanger:true});
+}
+
+let _typeConfirmCallback=null,_typeConfirmExpected='';
+function showTypeConfirm(msg,expected,onConfirm){
+  _typeConfirmCallback=onConfirm;
+  _typeConfirmExpected=expected.trim().toLowerCase();
+  document.getElementById('typeConfirmMsg').textContent=msg;
+  document.getElementById('typeConfirmInput').value='';
+  document.getElementById('typeConfirmInput').placeholder=expected;
+  document.getElementById('typeConfirmOk').disabled=true;
+  document.getElementById('typeConfirmDialog').classList.add('open');
+  setTimeout(()=>document.getElementById('typeConfirmInput').focus(),80);
+}
+function typeConfirmCheck(){
+  const val=document.getElementById('typeConfirmInput').value.trim().toLowerCase();
+  document.getElementById('typeConfirmOk').disabled=(val!==_typeConfirmExpected);
+}
+function typeConfirmSubmit(){
+  const cb=_typeConfirmCallback;
+  closeTypeConfirm();
+  cb&&cb();
+}
+function closeTypeConfirm(){
+  document.getElementById('typeConfirmDialog').classList.remove('open');
+  _typeConfirmCallback=null;_typeConfirmExpected='';
 }
 function getModelData(){
   return Array.from(document.querySelectorAll('.model-row')).map(r=>{
