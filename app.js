@@ -730,10 +730,116 @@ function revertToCustomerAddress(){
   document.getElementById('f-address').value = c.address;
 }
 
-// ── Badge generation (inline — uses badge/3mf.js) ──────────────
-let _badge3mfReady = false;
+// ── Badge helpers ───────────────────────────────────────────────
+let _badge3mfReady  = false;
 let _badgeAssetCache = null;
-let _badgeFont = null;
+let _badgeFont       = null;
+let _opentypeLoading = null;
+
+// Load opentype.js + font without loading the full Three/Clipper stack
+async function _ensureBadgeFont() {
+  if (_badgeFont) return;
+  if (!_opentypeLoading) {
+    _opentypeLoading = (async () => {
+      if (typeof opentype === 'undefined') {
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js';
+          s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        });
+      }
+      const fontPath = _badgeAssetCache?.fontPath || '/badge/LEGO.TTF';
+      _badgeFont = await new Promise((res, rej) =>
+        opentype.load(fontPath, (err, f) => err ? rej(err) : res(f))
+      );
+    })();
+  }
+  await _opentypeLoading;
+}
+
+// Returns the minimum badge width (mm) needed for a given backing name
+function _badgeBackingMinWidth(backingName) {
+  const n = (backingName || '').toLowerCase();
+  if (n.includes('round'))  return parseFloat(localStorage.getItem('badge2_rndDiam') || '17.15');
+  if (n.includes('magnet')) return 46;
+  if (n.includes('pin'))    return 32;
+  return 0;
+}
+
+// Build backing config object from a backing name string
+function _badgeBuildBacking(backingStr) {
+  const n = (backingStr || '').toLowerCase();
+  if (n.includes('round')) return {
+    type: 'round',
+    diameter:  parseFloat(localStorage.getItem('badge2_rndDiam')      || '17.15'),
+    depth:     parseFloat(localStorage.getItem('badge2_rndDepth')     || '2'),
+    threshold: parseFloat(localStorage.getItem('badge2_rndThreshold') || '60'),
+    name: 'round_magnet',
+  };
+  if (n.includes('pin'))    return { w: 32, h: 7,  d: 2, name: 'pin' };
+  if (n.includes('magnet')) return { w: 46, h: 14, d: 2, name: 'magnet' };
+  return null;
+}
+
+// Validate badge name width against available backings — called from order modal
+async function badgeWidthCheck(idx) {
+  const catId = document.getElementById('mc-' + idx)?.value;
+  if (!catId) return;
+  const cat = cats.find(c => String(c.id) === String(catId));
+  if (!cat?.name?.toLowerCase().includes('name badge')) return;
+
+  const catOpts   = opts.filter(o => String(o.catId) === String(catId));
+  const textOpt   = catOpts.find(o => o.display === 'text');
+  const backingOpt = catOpts.find(o => o.name.toLowerCase() === 'backing');
+  if (!textOpt) return;
+
+  const textEl    = document.getElementById(`ov-${idx}-${textOpt.id}`);
+  const backingEl = backingOpt ? document.getElementById(`ov-${idx}-${backingOpt.id}`) : null;
+  if (!textEl) return;
+
+  const text = textEl.value.trim().toUpperCase();
+  if (!text) {
+    textEl.style.outline = '';
+    textEl.removeAttribute('title');
+    if (backingEl) Array.from(backingEl.options).forEach(o => { o.disabled = false; o.style.color = ''; });
+    return;
+  }
+
+  try { await _ensureBadgeFont(); } catch(e) { return; }
+
+  const fsize = _badgeAssetCache?.fsize || 49;
+  const bb = _badgeFont.getPath(text, 0, 0, fsize).getBoundingBox();
+  const textWidth = bb.x2 - bb.x1;
+
+  let anyDisabled = false;
+  let currentInvalid = false;
+
+  if (backingEl) {
+    Array.from(backingEl.options).forEach(opt => {
+      if (!opt.value) return;
+      const minW = _badgeBackingMinWidth(opt.value);
+      const fits = textWidth >= minW;
+      opt.disabled = !fits;
+      opt.style.color = fits ? '' : 'var(--muted)';
+      if (!fits) anyDisabled = true;
+      if (opt.selected && !fits) currentInvalid = true;
+    });
+    if (currentInvalid) {
+      const first = Array.from(backingEl.options).find(o => o.value && !o.disabled);
+      if (first) { backingEl.value = first.value; collectOpts(idx); }
+    }
+  }
+
+  if (anyDisabled) {
+    textEl.style.outline = '2px solid var(--red,#e55)';
+    textEl.title = `Badge width (${textWidth.toFixed(1)}mm) limits the backing options available`;
+  } else {
+    textEl.style.outline = '';
+    textEl.removeAttribute('title');
+  }
+}
+
+// ── Badge generation (inline — uses badge/3mf.js) ──────────────
 
 async function _loadBadge3mfDeps() {
   if (_badge3mfReady) return;
@@ -803,9 +909,14 @@ async function generateAllBadges(items) {
           if (c) { layerConfig[idx].hex = c.code; layerConfig[idx].colourId = c.id; }
         });
       }
-      const backing = backingStr === 'Pin'    ? { w:32, h:7,  d:2, name:'pin'    }
-                    : backingStr === 'Magnet' ? { w:46, h:14, d:2, name:'magnet' }
-                    : null;
+      const backing = _badgeBuildBacking(backingStr);
+      if (backing) {
+        const bb2 = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
+        if (bb2.x2 - bb2.x1 < (backing.type === 'round' ? backing.diameter : (backing.w || 0))) {
+          console.warn(`Skipping "${name}" — too narrow for ${backingStr}`);
+          continue;
+        }
+      }
       const result = generate3MF({
         name, layerConfig, backing, font: _badgeFont,
         fsize: assets.fsize, spacing: assets.spacing,
@@ -858,9 +969,18 @@ async function generateBadge(url) {
       });
     }
 
-    const backing = backingStr === 'Pin'    ? { w:32, h:7,  d:2, name:'pin'    }
-                  : backingStr === 'Magnet' ? { w:46, h:14, d:2, name:'magnet' }
-                  : null;
+    const backing = _badgeBuildBacking(backingStr);
+
+    // Validate text width vs backing minimum
+    if (backing) {
+      const bb = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
+      const textWidth = bb.x2 - bb.x1;
+      const minW = backing.type === 'round' ? backing.diameter : (backing.w || 0);
+      if (textWidth < minW) {
+        setStatus('err', `"${name}" is too narrow (${textWidth.toFixed(1)}mm) for ${backingStr} — needs ${minW}mm+`);
+        return;
+      }
+    }
 
     const result = generate3MF({
       name, layerConfig, backing, font: _badgeFont,

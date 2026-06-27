@@ -557,11 +557,13 @@ function renderModelOpts(idx, catId, savedOpts){
   // Parse saved options: "FieldName:value||FieldName:value" (double pipe separates fields)
   const saved={};
   if(savedOpts){savedOpts.split('||').forEach(p=>{const[k,...v]=p.split(':');if(k)saved[k.trim()]=v.join(':').trim();});}
+  const isBadgeCat=!!(cats.find(c=>String(c.id)===String(catId))?.name?.toLowerCase().includes('name badge'));
   container.innerHTML=catOpts.map(opt=>{
     const val=saved[opt.name]||'';
     if(opt.display==='text'){
       const capsStyle=opt.force_caps?'text-transform:uppercase':'';
-      const capsHandler=opt.force_caps?`this.value=this.value.toUpperCase();collectOpts(${idx})`:`collectOpts(${idx})`;
+      const badgeCheck=isBadgeCat?`;badgeWidthCheck(${idx})`:'';
+      const capsHandler=opt.force_caps?`this.value=this.value.toUpperCase();collectOpts(${idx})${badgeCheck}`:`collectOpts(${idx})${badgeCheck}`;
       return`<div class="opt-row"><label>${esc(opt.name)}</label><input type="text" id="ov-${idx}-${opt.id}" value="${esc(opt.force_caps&&val?val.toUpperCase():val)}" placeholder="Enter ${esc(opt.name).toLowerCase()}…" style="${capsStyle}" oninput="${capsHandler}"></div>`;
     } else {
       // dropdown
@@ -604,11 +606,15 @@ function renderModelOpts(idx, catId, savedOpts){
         return rowHtml;
       }
       const customContent=`<input type="text" id="ovt-${idx}-${opt.id}" value="${esc(customVal)}" placeholder="Describe your custom option…" oninput="collectOpts(${idx})">`;
-      const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label><select id="ov-${idx}-${opt.id}" onchange="ddChanged(${idx},'${opt.id}')"><option value="">— select —</option>${opts_html}</select></div>`+
+      const isBacking=isBadgeCat&&opt.name.toLowerCase()==='backing';
+      const ddOnChange=isBacking?`ddChanged(${idx},'${opt.id}');badgeWidthCheck(${idx})`:`ddChanged(${idx},'${opt.id}')`;
+      const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label><select id="ov-${idx}-${opt.id}" onchange="${ddOnChange}"><option value="">— select —</option>${opts_html}</select></div>`+
         `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="0" style="${ddVal==='Custom'?'':'display:none'}">${customContent}</div>`;
       return rowHtml;
     }
   }).join('');
+  // Run width check immediately when editing an existing badge order
+  if(isBadgeCat && savedOpts) setTimeout(()=>badgeWidthCheck(idx), 100);
 }
 
 function colourOptChanged(idx, optId, value){

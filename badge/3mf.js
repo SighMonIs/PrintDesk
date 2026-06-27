@@ -29,7 +29,12 @@ function _badgeBboxCentre(paths) {
       if (pt.Y < minY) minY = pt.Y; if (pt.Y > maxY) maxY = pt.Y;
     }
   }
-  return { offX: (minX + maxX) / 2 / _BADGE_SCALE, offY: (minY + maxY) / 2 / _BADGE_SCALE };
+  return {
+    offX:   (minX + maxX) / 2 / _BADGE_SCALE,
+    offY:   (minY + maxY) / 2 / _BADGE_SCALE,
+    width:  (maxX - minX)     / _BADGE_SCALE,
+    height: (maxY - minY)     / _BADGE_SCALE,
+  };
 }
 function _badgeCommandsToClipper(cmds) {
   const polys = [];
@@ -125,6 +130,13 @@ function _badgeMakeCutoutGeo(w, h, d) {
   geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, -d / 2));
   return geo;
 }
+function _badgeMakeRoundCutoutGeo(x, diameter, depth) {
+  const r = diameter / 2;
+  const geo = new THREE.CylinderGeometry(r, r, depth, 32);
+  geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+  geo.applyMatrix4(new THREE.Matrix4().makeTranslation(x, 0, -depth / 2));
+  return geo;
+}
 
 // ── 3MF file builders ──────────────────────────────────────────
 function _badgeBuild3MF(objects, name, projectSettingsTemplate) {
@@ -198,7 +210,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
   const opts = spacing ? { letterSpacing: spacing / fsize } : {};
   const polys = _badgeCommandsToClipper(font.getPath(name, 0, 0, fsize, opts).commands);
   const unioned = _badgeClipperUnion(polys);
-  const { offX, offY } = _badgeBboxCentre(unioned);
+  const { offX, offY, width: bboxWidth } = _badgeBboxCentre(unioned);
 
   let zOff = 0;
   const objects = [];
@@ -232,10 +244,21 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
   }
 
   if (backing && objects.length > 0) {
-    let cutGeo = _badgeMakeCutoutGeo(backing.w, backing.h, backing.d);
-    cutGeo = _badgeMergeVerticesForExport(cutGeo);
-    cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, backing.d));
-    objects.push({ geo: cutGeo, name: `${backing.name}_cutout`, colour: '#000000', extruder: 1, id: objects.length+1, negative: true });
+    if (backing.type === 'round') {
+      const n = Math.max(1, Math.ceil(bboxWidth / backing.threshold));
+      for (let k = 1; k <= n; k++) {
+        const x = bboxWidth * (2*k - 1 - n) / (2*n);
+        let cutGeo = _badgeMakeRoundCutoutGeo(x, backing.diameter, backing.depth);
+        cutGeo = _badgeMergeVerticesForExport(cutGeo);
+        cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, backing.depth));
+        objects.push({ geo: cutGeo, name: `round_magnet_${k}`, colour: '#000000', extruder: 1, id: objects.length+1, negative: true });
+      }
+    } else {
+      let cutGeo = _badgeMakeCutoutGeo(backing.w, backing.h, backing.d);
+      cutGeo = _badgeMergeVerticesForExport(cutGeo);
+      cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, backing.d));
+      objects.push({ geo: cutGeo, name: `${backing.name}_cutout`, colour: '#000000', extruder: 1, id: objects.length+1, negative: true });
+    }
   }
 
   const tmfData = _badgeBuild3MF(objects, name, projectSettingsTemplate);

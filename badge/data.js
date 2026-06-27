@@ -147,6 +147,7 @@ async function loadModel(){
   if(zs){zs.value=scrollZoomSpeed;zsn.value=scrollZoomSpeed.toFixed(3);}
 
   buildLayerUI();
+  loadRndMagSettings();
   applyUrlParams();
   loadPreviousCombos();
   setStatus('');
@@ -205,6 +206,19 @@ async function saveModelSettings(){
 
 // ── Layer UI ──────────────────────────────────────────────────
 let openPickerId=null, openCombo=false, previousCombos=[];
+
+function loadRndMagSettings(){
+  const el=(id,key,def)=>{const e=document.getElementById(id);if(e)e.value=localStorage.getItem(key)||def;};
+  el('rndMagDiam','badge2_rndDiam','17.15');
+  el('rndMagDepth','badge2_rndDepth','2');
+  el('rndMagThreshold','badge2_rndThreshold','60');
+}
+function saveRndMagSettings(){
+  const v=(id,def)=>document.getElementById(id)?.value||def;
+  localStorage.setItem('badge2_rndDiam',      v('rndMagDiam','17.15'));
+  localStorage.setItem('badge2_rndDepth',     v('rndMagDepth','2'));
+  localStorage.setItem('badge2_rndThreshold', v('rndMagThreshold','60'));
+}
 
 function buildLayerUI(){
   const colList=document.getElementById('layerColoursList');

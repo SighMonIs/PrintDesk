@@ -162,6 +162,12 @@ function getBackingConfig() {
   const val = document.getElementById('backingSelect')?.value || 'Magnet';
   if (val === 'Pin')    return { w: 32, h: 7,  d: 2, name: 'pin' };
   if (val === 'Magnet') return { w: 46, h: 14, d: 2, name: 'magnet' };
+  if (val === 'Round Magnet') {
+    const diam      = parseFloat(document.getElementById('rndMagDiam')?.value      || localStorage.getItem('badge2_rndDiam')      || '17.15');
+    const depth     = parseFloat(document.getElementById('rndMagDepth')?.value     || localStorage.getItem('badge2_rndDepth')     || '2');
+    const threshold = parseFloat(document.getElementById('rndMagThreshold')?.value || localStorage.getItem('badge2_rndThreshold') || '60');
+    return { type: 'round', diameter: diam, depth, threshold, name: 'round_magnet' };
+  }
   return null;
 }
 function makeCutoutGeo(w, h, d) {
@@ -223,11 +229,23 @@ function addLayer(filledBase, borderMM, offX, offY, colour, depth, zPos, include
       outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
     );
     if (includeSlot) {
-      const slot = new THREE.Path();
-      slot.moveTo(-hw, -hh); slot.lineTo(hw, -hh);
-      slot.lineTo(hw,   hh); slot.lineTo(-hw, hh);
-      slot.closePath();
-      shape.holes.push(slot);
+      if (backing?.type === 'round') {
+        const r = (backing.diameter || 17.15) / 2;
+        const bw = _badgeBboxCentre(filledBase).width || 0;
+        const n = Math.max(1, Math.ceil(bw / (backing.threshold || 60)));
+        for (let k = 1; k <= n; k++) {
+          const cx = bw * (2*k - 1 - n) / (2*n);
+          const hole = new THREE.Path();
+          hole.absarc(cx, 0, r, 0, Math.PI * 2, false);
+          shape.holes.push(hole);
+        }
+      } else {
+        const slot = new THREE.Path();
+        slot.moveTo(-hw, -hh); slot.lineTo(hw, -hh);
+        slot.lineTo(hw,   hh); slot.lineTo(-hw, hh);
+        slot.closePath();
+        shape.holes.push(slot);
+      }
     }
     return shape;
   });
