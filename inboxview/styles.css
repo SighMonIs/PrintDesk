@@ -67,8 +67,8 @@ body{overflow:hidden;background:var(--bg);}
 }
 .inbox-tab-pill:hover:not(.active){color:var(--text);}
 .inbox-tab-pill.active{
-  background:var(--bg);color:var(--text);font-weight:600;
-  box-shadow:0 1px 3px rgba(0,0,0,0.3);
+  background:#fff;color:#111;font-weight:600;
+  box-shadow:0 1px 3px rgba(0,0,0,0.25);
 }
 
 /* Sort row below tabs */
