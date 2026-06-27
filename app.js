@@ -635,6 +635,9 @@ function selectCustomer(id, name, address){
     document.getElementById('f-address').value=address;
   }
   updateAddrRefreshBtn();
+  // Hide the + button once a customer is linked
+  const createBtn = document.getElementById('createCustomerBtn');
+  if(createBtn) createBtn.style.display='none';
 }
 
 function toggleNewCustomerPanel(){
@@ -659,6 +662,10 @@ function toggleNewCustomerPanel(){
     panel.style.display = '';
     btn.style.borderColor = 'var(--green)';
     btn.style.color = 'var(--green)';
+    // Pre-fill notes hint if editing an order with an address
+    const addr = document.getElementById('f-address')?.value.trim();
+    const notesEl = document.getElementById('nc-notes');
+    if(addr && notesEl && !notesEl.value) notesEl.placeholder = 'Address will be copied from order…';
     document.getElementById('nc-email').focus();
   }
 }

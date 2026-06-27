@@ -768,9 +768,9 @@ function openEdit(orderId){
   document.getElementById('modalTitle').textContent='Edit Order';
   document.getElementById('f-customer').value=first.customer;
   document.getElementById('f-customer-id').value=first.customer_id||'';
-  // Edit order: hide + button, update refresh state
+  // Show + button only when order has no linked customer record yet
   const createBtn = document.getElementById('createCustomerBtn');
-  if(createBtn) createBtn.style.display='none';
+  if(createBtn) createBtn.style.display = first.customer_id ? 'none' : '';
   updateAddrRefreshBtn();
   document.getElementById('f-address').value=first.address||'';
   if(first.address){document.getElementById('f-address').classList.add('validated');document.getElementById('addrTick').style.display='';}
