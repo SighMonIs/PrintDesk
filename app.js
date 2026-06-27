@@ -956,6 +956,25 @@ function _buildOuterZip(entries) {
   const all = [...parts,...cd,eocd]; const res = new Uint8Array(all.reduce((s,p)=>s+p.length,0)); let p=0; for(const a of all){res.set(a,p);p+=a.length;} return res;
 }
 
+function _batchBuildFilenameMap(items) {
+  const totals = {}, counters = {};
+  for (const { name: rawName, backing } of items) {
+    const n = (rawName || 'NAME').toUpperCase();
+    const b = (backing || '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim();
+    const key = b ? `${n} ${b}` : n;
+    totals[key] = (totals[key] || 0) + 1;
+  }
+  return {
+    next(rawName, backing) {
+      const n = (rawName || 'NAME').toUpperCase();
+      const b = (backing || '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim();
+      const key = b ? `${n} ${b}` : n;
+      counters[key] = (counters[key] || 0) + 1;
+      return totals[key] > 1 ? `${key} ${counters[key]}.3mf` : `${key}.3mf`;
+    }
+  };
+}
+
 async function generateAllBadgesZip(items) {
   if (!items || !items.length) return;
   const total = items.length;
@@ -969,6 +988,7 @@ async function generateAllBadgesZip(items) {
       );
     }
     const entries = []; const skipped = [];
+    const fnMap = _batchBuildFilenameMap(items);
     for (let i = 0; i < items.length; i++) {
       const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
       const name = (rawName || 'NAME').toUpperCase();
@@ -990,7 +1010,7 @@ async function generateAllBadgesZip(items) {
         }
       }
       const result = generate3MF({ name, layerConfig, backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate });
-      entries.push({ name: result.filename, data: result.zip });
+      entries.push({ name: fnMap.next(rawName, backingStr), data: result.zip });
     }
     _batchUpdateProgress(total, total, 'Building ZIP…');
     await new Promise(r => setTimeout(r, 0));
@@ -1020,6 +1040,7 @@ async function generateAllBadges(items) {
       );
     }
     const files = [];
+    const fnMap = _batchBuildFilenameMap(items);
     for (let i = 0; i < items.length; i++) {
       const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
       const name = (rawName || 'NAME').toUpperCase();
@@ -1041,7 +1062,7 @@ async function generateAllBadges(items) {
         }
       }
       const result = generate3MF({ name, layerConfig, backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate });
-      files.push(result);
+      files.push({ ...result, filename: fnMap.next(rawName, backingStr) });
     }
     const toDownload = files.filter(f => !f.skipped);
     const skipped = files.filter(f => f.skipped).map(f => f.skipped);
