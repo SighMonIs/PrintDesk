@@ -146,7 +146,8 @@ function buildBadge() {
       addTextLayer(font.getPath(text, 0, 0, fsize, opts).commands, offX, offY, colour, layer.depth, z);
       z += layer.depth;
     } else if (layer.hasSlot) {
-      const slotD = getBackingConfig()?.d ?? 2;
+      const bc = getBackingConfig();
+      const slotD = bc?.d ?? bc?.depth ?? 2;
       addLayer(unioned, layer.border, offX, offY, colour, slotD, z, true);
       addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z + slotD, false);
       z += slotD + layer.depth;
