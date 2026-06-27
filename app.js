@@ -732,24 +732,9 @@ function revertToCustomerAddress(){
 
 // ── Badge export ───────────────────────────────────────────
 function generateBadge(url){
-  const iframe=document.createElement('iframe');
-  iframe.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px';
-  iframe.src=url+'&autoExport=1';
-  document.body.appendChild(iframe);
-  const handler=(e)=>{
-    if(e.data?.type!=='badgeExportDone') return;
-    window.removeEventListener('message',handler);
-    setTimeout(()=>iframe.remove(),500);
-    if(e.data.error){ setStatus('err','Badge export failed: '+e.data.error); return; }
-    const zip=new Uint8Array(e.data.zip);
-    const b=new Blob([zip],{type:'application/vnd.ms-package.3dmanufacturing-3dmodel+xml'});
-    const u=URL.createObjectURL(b);
-    const a=document.createElement('a');
-    a.href=u; a.download=e.data.filename; a.click();
-    URL.revokeObjectURL(u);
-    setStatus('ok','Badge downloaded: '+e.data.filename);
-  };
-  window.addEventListener('message',handler);
+  setStatus('spin','Generating badge&hellip;');
+  window.open(url+'&autoExport=1','_blank','width=400,height=300,menubar=no,toolbar=no,location=no,status=no');
+  setTimeout(()=>setStatus('ok','Badge download started'), 3000);
 }
 
 // ── Stats modal ────────────────────────────────────────────
