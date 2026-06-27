@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found &rdquo; using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=3.5.63">
+<link rel="stylesheet" href="styles.css?v=3.5.64">
 
 <script>
 // Fallback if config.js missing
@@ -216,7 +216,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing by Claude</span>
     </div>
     <div class="footer-line">
-      <span id="footerVersion">v3.5.63</span>
+      <span id="footerVersion">v3.5.64</span>
       <span class="footer-sep">Â·</span>
       <span id="statusMsg" class="footer-status">Loading&hellip;</span>
     </div>
@@ -354,22 +354,44 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
 <!-- â•â• Settings Modal â•â• -->
 <!-- Badge Batch Modal -->
-<div class="modal-bg" id="badgeBatchModal" onclick="if(event.target===this)closeBadgeBatchModal()">
+<div class="modal-bg" id="badgeBatchModal">
   <div class="modal sm" onclick="event.stopPropagation()">
     <div class="modal-title"><i class="ti ti-badges" style="margin-right:8px;vertical-align:-2px"></i>Generate All Badges</div>
-    <p id="badgeBatchCount" style="font-size:13px;color:var(--muted);margin:0 0 1rem"></p>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn" style="justify-content:flex-start;gap:10px;padding:10px 14px" onclick="closeBadgeBatchModal();generateAllBadges(_batchItems)">
-        <i class="ti ti-files" style="font-size:16px;flex-shrink:0"></i>
-        <span><strong id="badgeBatchCountA"></strong> individual .3mf files</span>
-      </button>
-      <button class="btn primary" style="justify-content:flex-start;gap:10px;padding:10px 14px" onclick="closeBadgeBatchModal();generateAllBadgesZip(_batchItems)">
-        <i class="ti ti-file-zip" style="font-size:16px;flex-shrink:0"></i>
-        <span>Single ZIP containing all files</span>
-      </button>
+
+    <!-- Choose phase -->
+    <div id="badgeBatchChoose">
+      <p id="badgeBatchCount" style="font-size:13px;color:var(--muted);margin:0 0 1rem"></p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn" style="justify-content:flex-start;gap:10px;padding:10px 14px" onclick="generateAllBadges(_batchItems)">
+          <i class="ti ti-files" style="font-size:16px;flex-shrink:0"></i>
+          <span><strong id="badgeBatchCountA"></strong> individual .3mf files</span>
+        </button>
+        <button class="btn primary" style="justify-content:flex-start;gap:10px;padding:10px 14px" onclick="generateAllBadgesZip(_batchItems)">
+          <i class="ti ti-file-zip" style="font-size:16px;flex-shrink:0"></i>
+          <span>Single ZIP containing all files</span>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeBadgeBatchModal()">Cancel</button>
+      </div>
     </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeBadgeBatchModal()">Cancel</button>
+
+    <!-- Progress phase -->
+    <div id="badgeBatchProgress" style="display:none">
+      <p id="badgeBatchProgressLabel" style="font-size:13px;margin:0 0 10px"></p>
+      <div style="background:var(--border2);border-radius:4px;height:8px;overflow:hidden">
+        <div id="badgeBatchBar" style="height:100%;background:var(--accent);width:0%;transition:width 0.15s ease"></div>
+      </div>
+      <p id="badgeBatchProgressSub" style="font-size:11px;color:var(--muted);margin:6px 0 0"></p>
+    </div>
+
+    <!-- Done phase -->
+    <div id="badgeBatchDone" style="display:none">
+      <p id="badgeBatchDoneMsg" style="font-size:13px;margin:0 0 6px"></p>
+      <p id="badgeBatchDoneSub" style="font-size:11px;color:var(--muted);margin:0"></p>
+      <div class="modal-actions">
+        <button class="btn primary" onclick="closeBadgeBatchModal()">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -568,9 +590,9 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<script src="api.js?v=3.5.63"></script>
-<script src="ui.js?v=3.5.63"></script>
-<script src="app.js?v=3.5.63"></script>
+<script src="api.js?v=3.5.64"></script>
+<script src="ui.js?v=3.5.64"></script>
+<script src="app.js?v=3.5.64"></script>
 </body>
 </html>
 

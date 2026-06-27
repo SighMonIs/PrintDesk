@@ -897,11 +897,42 @@ function openBadgeBatchModal(items) {
   _batchItems = items;
   document.getElementById('badgeBatchCount').textContent = `${items.length} badges found in this order`;
   document.getElementById('badgeBatchCountA').textContent = items.length;
+  document.getElementById('badgeBatchChoose').style.display = '';
+  document.getElementById('badgeBatchProgress').style.display = 'none';
+  document.getElementById('badgeBatchDone').style.display = 'none';
   document.getElementById('badgeBatchModal').classList.add('open');
 }
 
 function closeBadgeBatchModal() {
   document.getElementById('badgeBatchModal').classList.remove('open');
+}
+
+function _batchShowProgress(label) {
+  document.getElementById('badgeBatchChoose').style.display = 'none';
+  document.getElementById('badgeBatchDone').style.display = 'none';
+  document.getElementById('badgeBatchProgress').style.display = '';
+  document.getElementById('badgeBatchProgressLabel').textContent = label;
+  document.getElementById('badgeBatchProgressSub').textContent = '';
+  document.getElementById('badgeBatchBar').style.width = '0%';
+}
+
+function _batchUpdateProgress(current, total, sub) {
+  document.getElementById('badgeBatchBar').style.width = `${Math.round(current / total * 100)}%`;
+  document.getElementById('badgeBatchProgressSub').textContent = sub || '';
+}
+
+function _batchShowDone(msg, skipped) {
+  document.getElementById('badgeBatchProgress').style.display = 'none';
+  document.getElementById('badgeBatchDone').style.display = '';
+  document.getElementById('badgeBatchDoneMsg').textContent = msg;
+  document.getElementById('badgeBatchDoneSub').textContent = skipped.length ? `Skipped (too narrow): ${skipped.join(', ')}` : '';
+}
+
+function _batchShowError(msg) {
+  document.getElementById('badgeBatchProgress').style.display = 'none';
+  document.getElementById('badgeBatchDone').style.display = '';
+  document.getElementById('badgeBatchDoneMsg').textContent = `Error: ${msg}`;
+  document.getElementById('badgeBatchDoneSub').textContent = '';
 }
 
 function _buildOuterZip(entries) {
@@ -926,7 +957,7 @@ function _buildOuterZip(entries) {
 async function generateAllBadgesZip(items) {
   if (!items || !items.length) return;
   const total = items.length;
-  setStatus('spin', `Generating ${total} badges&hellip;`);
+  _batchShowProgress(`Generating ${total} badges…`);
   try {
     await _loadBadge3mfDeps();
     const assets = await _loadBadgeAssets();
@@ -938,8 +969,9 @@ async function generateAllBadgesZip(items) {
     const entries = []; const skipped = [];
     for (let i = 0; i < items.length; i++) {
       const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
-      setStatus('spin', `Generating badge ${i + 1} of ${total}&hellip;`);
       const name = (rawName || 'NAME').toUpperCase();
+      _batchUpdateProgress(i, total, name);
+      await new Promise(r => setTimeout(r, 0)); // yield to browser to repaint
       const layerConfig = assets.layerConfig.map(l => ({ ...l }));
       if (colourStr) {
         colourStr.split('|').map(s => s.trim()).forEach((colName, idx) => {
@@ -958,24 +990,24 @@ async function generateAllBadgesZip(items) {
       const result = generate3MF({ name, layerConfig, backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate });
       entries.push({ name: result.filename, data: result.zip });
     }
-    setStatus('spin', 'Building ZIP&hellip;');
+    _batchUpdateProgress(total, total, 'Building ZIP…');
+    await new Promise(r => setTimeout(r, 0));
     const zipData = _buildOuterZip(entries);
     const b = new Blob([zipData], { type: 'application/zip' });
     const u = URL.createObjectURL(b);
     const a = document.createElement('a');
     a.href = u; a.download = 'badges.zip'; a.click(); URL.revokeObjectURL(u);
-    const skipMsg = skipped.length ? ` — skipped: ${skipped.join(', ')}` : '';
-    setStatus('ok', `${entries.length} of ${total} badges downloaded as ZIP${skipMsg}`);
+    _batchShowDone(`${entries.length} of ${total} badges downloaded as badges.zip`, skipped);
   } catch(e) {
     console.error('Generate badges ZIP error:', e);
-    setStatus('err', 'Badge ZIP failed: ' + e.message);
+    _batchShowError(e.message);
   }
 }
 
 async function generateAllBadges(items) {
   if (!items || !items.length) return;
   const total = items.length;
-  setStatus('spin', `Generating ${total} badges&hellip;`);
+  _batchShowProgress(`Generating ${total} badges…`);
   try {
     await _loadBadge3mfDeps();
     const assets = await _loadBadgeAssets();
@@ -984,13 +1016,12 @@ async function generateAllBadges(items) {
         opentype.load(assets.fontPath, (err, f) => err ? rej(err) : res(f))
       );
     }
-
-    // Generate all files first
     const files = [];
     for (let i = 0; i < items.length; i++) {
       const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
-      setStatus('spin', `Generating badge ${i + 1} of ${total}&hellip;`);
       const name = (rawName || 'NAME').toUpperCase();
+      _batchUpdateProgress(i, total * 2, name);
+      await new Promise(r => setTimeout(r, 0));
       const layerConfig = assets.layerConfig.map(l => ({ ...l }));
       if (colourStr) {
         colourStr.split('|').map(s => s.trim()).forEach((colName, idx) => {
@@ -1003,24 +1034,16 @@ async function generateAllBadges(items) {
       if (backing) {
         const bb2 = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
         if (bb2.x2 - bb2.x1 < (backing.type === 'round' ? backing.diameter : (backing.w || 0))) {
-          console.warn(`Skipping "${name}" — too narrow for ${backingStr}`);
-          files.push({ zip: null, filename: null, skipped: name });
-          continue;
+          files.push({ skipped: name }); continue;
         }
       }
-      const result = generate3MF({
-        name, layerConfig, backing, font: _badgeFont,
-        fsize: assets.fsize, spacing: assets.spacing,
-        projectSettingsTemplate: assets.projectSettingsTemplate,
-      });
+      const result = generate3MF({ name, layerConfig, backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate });
       files.push(result);
     }
-
-    // Download sequentially with a small delay so the browser can handle each
     const toDownload = files.filter(f => !f.skipped);
     const skipped = files.filter(f => f.skipped).map(f => f.skipped);
-    setStatus('spin', `Downloading ${toDownload.length} badges&hellip;`);
     for (let i = 0; i < toDownload.length; i++) {
+      _batchUpdateProgress(total + i, total * 2, `Downloading ${toDownload[i].filename}…`);
       const { zip, filename } = toDownload[i];
       const b = new Blob([zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
       const u = URL.createObjectURL(b);
@@ -1029,11 +1052,10 @@ async function generateAllBadges(items) {
       URL.revokeObjectURL(u);
       await new Promise(r => setTimeout(r, 250));
     }
-    const skipMsg = skipped.length ? ` — skipped: ${skipped.join(', ')}` : '';
-    setStatus('ok', `${toDownload.length} of ${total} badges downloaded${skipMsg}`);
+    _batchShowDone(`${toDownload.length} of ${total} badges downloaded`, skipped);
   } catch(e) {
     console.error('Generate all badges error:', e);
-    setStatus('err', 'Badge batch failed: ' + e.message);
+    _batchShowError(e.message);
   }
 }
 
