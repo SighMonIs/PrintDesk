@@ -695,7 +695,8 @@ function addModelRow(d){
     <div class="model-notes"><input type="text" id="mn-${idx}" value="${esc(d.notes||'')}" placeholder="Item notes (colour, material, special requests…)"></div>
     <input type="hidden" id="mm-${idx}" value="${esc(d.model||'')}">
     <input type="hidden" id="opts-${idx}" value="${esc(d.options||'')}">`;
-  document.getElementById('modelRows').appendChild(el);
+  const container=document.getElementById('modelRows');
+  if(d.catId) container.appendChild(el); else container.prepend(el);
   if(d.catId)renderModelOpts(idx,d.catId,d.options||'');
   calcTotal();
 }
