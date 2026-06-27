@@ -776,6 +776,62 @@ async function _loadBadgeAssets() {
   return _badgeAssetCache;
 }
 
+async function generateAllBadges(items) {
+  if (!items || !items.length) return;
+  const total = items.length;
+  setStatus('spin', `Generating ${total} badges&hellip;`);
+  try {
+    await _loadBadge3mfDeps();
+    const assets = await _loadBadgeAssets();
+    if (!_badgeFont) {
+      _badgeFont = await new Promise((res, rej) =>
+        opentype.load(assets.fontPath, (err, f) => err ? rej(err) : res(f))
+      );
+    }
+
+    // Generate all files first
+    const files = [];
+    for (let i = 0; i < items.length; i++) {
+      const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
+      setStatus('spin', `Generating badge ${i + 1} of ${total}&hellip;`);
+      const name = (rawName || 'NAME').toUpperCase();
+      const layerConfig = assets.layerConfig.map(l => ({ ...l }));
+      if (colourStr) {
+        colourStr.split('|').map(s => s.trim()).forEach((colName, idx) => {
+          if (idx >= layerConfig.length) return;
+          const c = colours.find(c => c.name.toLowerCase() === colName.toLowerCase());
+          if (c) { layerConfig[idx].hex = c.code; layerConfig[idx].colourId = c.id; }
+        });
+      }
+      const backing = backingStr === 'Pin'    ? { w:32, h:7,  d:2, name:'pin'    }
+                    : backingStr === 'Magnet' ? { w:46, h:14, d:2, name:'magnet' }
+                    : null;
+      const result = generate3MF({
+        name, layerConfig, backing, font: _badgeFont,
+        fsize: assets.fsize, spacing: assets.spacing,
+        projectSettingsTemplate: assets.projectSettingsTemplate,
+      });
+      files.push(result);
+    }
+
+    // Download sequentially with a small delay so the browser can handle each
+    setStatus('spin', `Downloading ${total} badges&hellip;`);
+    for (let i = 0; i < files.length; i++) {
+      const { zip, filename } = files[i];
+      const b = new Blob([zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
+      const u = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.href = u; a.download = filename; a.click();
+      URL.revokeObjectURL(u);
+      await new Promise(r => setTimeout(r, 150));
+    }
+    setStatus('ok', `${total} badges downloaded`);
+  } catch(e) {
+    console.error('Generate all badges error:', e);
+    setStatus('err', 'Badge batch failed: ' + e.message);
+  }
+}
+
 async function generateBadge(url) {
   setStatus('spin', 'Generating badge&hellip;');
   try {

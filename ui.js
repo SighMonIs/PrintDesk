@@ -399,6 +399,17 @@ function renderTable(){
     if(isMulti && isFirst){
       // Summary row: customer info + order-level status dropdown
       const orderRows=list.filter(r=>r.orderId===o.orderId);
+      // Collect badge params for all badge-category items in this order
+      const badgeItems=orderRows.reduce((acc,r)=>{
+        const rCat=cats.find(c=>c.id===r.catId);
+        if(!rCat||!rCat.name.toLowerCase().includes('name badge')) return acc;
+        const rOpts={};
+        if(r.options) r.options.split('||').forEach(p=>{const idx=p.indexOf(':');if(idx>=0)rOpts[p.slice(0,idx).trim()]=p.slice(idx+1).trim();});
+        const qty=r.qty||1;
+        for(let q=0;q<qty;q++) acc.push({name:rOpts['Text']||'',backing:rOpts['Backing']||'',colours:rOpts['Colours']||''});
+        return acc;
+      },[]);
+      const allBadgesBtn=badgeItems.length>1?`<button class="icon-btn" title="Generate all ${badgeItems.length} badges" onclick="generateAllBadges(${esc(JSON.stringify(badgeItems))})"><i class="ti ti-badges"></i></button>`:'';
       const catTotals={};
       const seenColours=new Set();
       orderRows.forEach(r=>{
@@ -444,6 +455,7 @@ function renderTable(){
         <td data-label="Status" style="padding:4px 6px;text-align:center">${orderStatusDd}</td>
         <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
         <td class="card-actions" style="padding:5px 6px"><div style="display:flex;gap:3px;justify-content:flex-end">
+          ${allBadgesBtn}
           <button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
           <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>
         </div></td>
