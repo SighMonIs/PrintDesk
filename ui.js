@@ -773,11 +773,12 @@ function addModelRow(d){
   const el=document.createElement('div');
   el.className='model-row';el.dataset.idx=idx;
   el.innerHTML=`
+    <button class="rm-btn" onclick="removeModel(this)" title="Remove item"><i class="ti ti-trash"></i></button>
     <div class="model-row-top">
       <div class="mf"><label>Category</label><select id="mc-${idx}" onchange="catChanged(${idx})">${catOptions(d.catId)}</select></div>
       <div class="mf"><label>Qty</label><div class="stepper"><button type="button" class="step-btn" onclick="stepVal('mq-${idx}',-1,1,1)">−</button><input type="number" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"><button type="button" class="step-btn" onclick="stepVal('mq-${idx}',1,1,1)">+</button></div></div>
-      <div class="mf"><label>Price ($)</label><div class="stepper"><button type="button" class="step-btn" onclick="stepVal('mp-${idx}',-0.5,0,0.5)">−</button><input type="number" id="mp-${idx}" value="${d.price||''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"><button type="button" class="step-btn" onclick="stepVal('mp-${idx}',0.5,0,0.5)">+</button></div></div>
-      <button class="rm-btn" onclick="removeModel(this)" title="Remove item"><i class="ti ti-x"></i></button>
+      <div class="mf"><label>Price (each)</label><div class="stepper"><button type="button" class="step-btn" onclick="stepVal('mp-${idx}',-0.5,0,0.5)">−</button><input type="number" id="mp-${idx}" value="${d.price||''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"><button type="button" class="step-btn" onclick="stepVal('mp-${idx}',0.5,0,0.5)">+</button></div></div>
+      <div class="model-row-total"><label>Total</label><div class="total-val" id="mt-${idx}">—</div></div>
     </div>
     <div class="model-options" id="mo-${idx}"></div>
     <div class="model-notes"><input type="text" id="mn-${idx}" value="${esc(d.notes||'')}" placeholder="Item notes (colour, material, special requests…)"></div>
@@ -815,7 +816,12 @@ function calcTotal(){
   let t=0;
   document.querySelectorAll('.model-row').forEach(r=>{
     const i=r.dataset.idx;
-    t+=(parseFloat(document.getElementById('mq-'+i)?.value)||0)*(parseFloat(document.getElementById('mp-'+i)?.value)||0);
+    const qty=parseFloat(document.getElementById('mq-'+i)?.value)||0;
+    const price=parseFloat(document.getElementById('mp-'+i)?.value)||0;
+    const rowTotal=qty*price;
+    t+=rowTotal;
+    const rowTotalEl=document.getElementById('mt-'+i);
+    if(rowTotalEl) rowTotalEl.textContent=price?'$'+rowTotal.toFixed(2):'—';
   });
   document.getElementById('orderTotal').textContent='$'+t.toFixed(2);
 }
