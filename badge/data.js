@@ -154,8 +154,9 @@ async function loadModel(){
   const fontPath=currentModel.font_path||FONT_PATH;
   const doAutoExport=()=>{
     if(new URLSearchParams(location.search).get('autoExport')!=='1') return;
-    try{ exportTMF(); } catch(e){ console.error('Badge export failed',e); }
-    setTimeout(()=>window.close(), 500);
+    const result=buildBadgeExport();
+    if(!result){ window.parent.postMessage({type:'badgeExportDone',error:'Build failed'},'*'); return; }
+    window.parent.postMessage({type:'badgeExportDone',zip:result.zip.buffer,filename:result.filename},'*',[result.zip.buffer]);
   };
   if(!font){
     setStatus('Loading font…');
