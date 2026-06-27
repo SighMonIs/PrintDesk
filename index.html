@@ -216,7 +216,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing by Claude</span>
     </div>
     <div class="footer-line">
-      <span id="footerVersion">v3.5.3</span>
+      <span id="footerVersion">v3.5.4</span>
       <span class="footer-sep">·</span>
       <span id="statusMsg" class="footer-status">Loading…</span>
     </div>
@@ -509,6 +509,17 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
+
+<!-- ══ Confirm Dialog ══ -->
+<div class="confirm-bg" id="confirmDialog">
+  <div class="confirm-box" onclick="event.stopPropagation()">
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <div class="confirm-actions">
+      <button class="btn" id="confirmCancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn danger" id="confirmOk">Delete</button>
+    </div>
+  </div>
+</div>
 
 <script src="api.js"></script>
 <script src="ui.js"></script>

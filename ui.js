@@ -997,13 +997,16 @@ async function updateStatus(orderId,rowId,newStatus,sel){
 
 async function deleteOrder(orderId){
   const rows=orders.filter(o=>o.orderId===orderId);
-  if(!confirm(rows.length>1?`Delete this order (${rows.length} models)?`:'Delete this order?'))return;
-  setStatus('spin','Deleting…');
-  orders=orders.filter(o=>o.orderId!==orderId);renderTable();
-  try{
-    await sbDelete('orders', 'order_id=eq.'+encodeURIComponent(orderId));
-    setStatus('ok','Deleted · '+uniqueOrderCount()+' orders');
-  }catch(e){setStatus('err','Delete failed: '+e.message);}
+  const msg = rows.length>1?`Delete this order (${rows.length} models)?`:'Delete this order?';
+  showConfirm(msg, async ()=>{
+    setStatus('spin','Deleting…');
+    orders=orders.filter(o=>o.orderId!==orderId);renderTable();
+    try{
+      await sbDelete('orders', 'order_id=eq.'+encodeURIComponent(orderId));
+      setStatus('ok','Deleted · '+uniqueOrderCount()+' orders');
+    }catch(e){setStatus('err','Delete failed: '+e.message);}
+  });
+  return;
 }
 
 // ── Categories modal ───────────────────────────────────────

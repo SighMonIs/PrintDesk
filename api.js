@@ -79,6 +79,28 @@ document.addEventListener('click', e=>{
 });
 
 
+// ── Confirm dialog ─────────────────────────────────────────
+let _confirmCallback = null;
+
+function showConfirm(msg, onConfirm, { confirmLabel = 'Delete', isDanger = true } = {}) {
+  document.getElementById('confirmMsg').textContent = msg;
+  const okBtn = document.getElementById('confirmOk');
+  okBtn.textContent = confirmLabel;
+  okBtn.className = 'btn' + (isDanger ? ' danger' : ' primary');
+  _confirmCallback = onConfirm;
+  okBtn.onclick = () => { closeConfirm(); _confirmCallback && _confirmCallback(); };
+  document.getElementById('confirmDialog').classList.add('open');
+}
+
+function closeConfirm() {
+  document.getElementById('confirmDialog').classList.remove('open');
+  _confirmCallback = null;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeConfirm();
+});
+
 // ── Invite / Set password flow ─────────────────────────────
 // When an invited user clicks their email link, Supabase redirects to
 // simonreid.space with #access_token=...&type=invite in the URL hash

@@ -461,18 +461,18 @@ async function saveUser(){
 }
 
 async function deleteUser(id, name){
-  if(!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
-  try{
-    const token = getAccessToken();
-    const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users/' + id, {
-      method: 'DELETE',
-      headers: SB_ADMIN_HEADERS()
-    });
-    if(!res.ok){ const d=await res.json(); throw new Error(d.msg||'Delete failed'); }
-    loadUsers();
-  }catch(e){
-    alert('Could not delete user: ' + e.message);
-  }
+  showConfirm(`Delete user "${name}"? This cannot be undone.`, async () => {
+    try{
+      const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users/' + id, {
+        method: 'DELETE',
+        headers: SB_ADMIN_HEADERS()
+      });
+      if(!res.ok){ const d=await res.json(); throw new Error(d.msg||'Delete failed'); }
+      loadUsers();
+    }catch(e){
+      alert('Could not delete user: ' + e.message);
+    }
+  });
 }
 
 
@@ -585,18 +585,19 @@ async function saveCustomer(){
   }
 }
 
-async function deleteCustomer(id, name){
-  if(!confirm(`Delete customer "${name}"?`)) return;
-  try{
-    await sbDelete('customers','id=eq.'+encodeURIComponent(id));
-    customers=customers.filter(c=>c.id!==id);
-    renderCustomerList(document.getElementById('customerSearch').value);
-  }catch(e){
-    const msg = e.message&&e.message.includes('409')
-      ? 'This customer is linked to orders and cannot be deleted.'
-      : 'Delete failed: '+e.message;
-    alert(msg);
-  }
+function deleteCustomer(id, name){
+  showConfirm(`Delete customer "${name}"?`, async () => {
+    try{
+      await sbDelete('customers','id=eq.'+encodeURIComponent(id));
+      customers=customers.filter(c=>c.id!==id);
+      renderCustomerList(document.getElementById('customerSearch').value);
+    }catch(e){
+      const msg = e.message&&e.message.includes('409')
+        ? 'This customer is linked to orders and cannot be deleted.'
+        : 'Delete failed: '+e.message;
+      alert(msg);
+    }
+  });
 }
 
 // ── Customer autocomplete in order modal ───────────────────
@@ -981,10 +982,11 @@ function togglePaymentArchive(i){
 }
 
 function removePaymentOption(i){
-  if(!confirm('Delete this payment option?')) return;
-  paymentOptions.splice(i,1);
-  savePaymentOptions();
-  renderPaymentSettings();
+  showConfirm('Delete this payment option?', () => {
+    paymentOptions.splice(i,1);
+    savePaymentOptions();
+    renderPaymentSettings();
+  });
 }
 
 function addPaymentOption(){
