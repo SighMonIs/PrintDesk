@@ -52,7 +52,7 @@ tbody tr.has-note:hover + tr.note-inline-row,
 tbody tr:has(+ tr.note-inline-row:hover){background:#272730;}
 tbody tr.inner-row td:nth-child(-n+3){border-top:none;}
 td.item-connector{position:relative;}
-td.item-connector::after{content:'';position:absolute;right:10px;top:0;bottom:50%;width:10px;border-left:1px solid var(--border2);border-bottom:1px solid var(--border2);border-radius:0 0 0 3px;}
+td.item-connector::after{content:'';position:absolute;right:10px;bottom:calc(50% - 1px);width:10px;height:10px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:0 0 0 2px;}
 tbody td{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
 td.mono{font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:12px;}
 tr.group-first td{}
