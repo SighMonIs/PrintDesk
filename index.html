@@ -592,9 +592,9 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
 <!-- Type-to-confirm Delete Dialog -->
 <div class="confirm-bg" id="typeConfirmDialog">
-  <div class="confirm-box" onclick="event.stopPropagation()" style="gap:12px">
-    <div class="confirm-msg" id="typeConfirmMsg"></div>
-    <input type="text" id="typeConfirmInput" placeholder="" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text);font-size:14px" oninput="typeConfirmCheck()">
+  <div class="confirm-box" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;gap:16px">
+    <div class="confirm-msg" id="typeConfirmMsg" style="margin-bottom:0"></div>
+    <input type="text" id="typeConfirmInput" placeholder="" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border2);border-radius:0;background:var(--bg2);color:var(--text);font-size:14px" oninput="typeConfirmCheck()">
     <div class="confirm-actions">
       <button class="btn" onclick="closeTypeConfirm()">Cancel</button>
       <button class="btn danger" id="typeConfirmOk" disabled onclick="typeConfirmSubmit()">Delete Order</button>
