@@ -119,7 +119,22 @@ const FONT_PATH    = 'LEGO.TTF';
 
 let font = null, timer = null;
 
-function scheduleRender() { clearTimeout(timer); timer = setTimeout(buildBadge, 300); }
+function updateBackingCoords() {
+  const bc = getBackingConfig();
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  if (!bc || bc.type === 'keychain') {
+    set('bcX', '—'); set('bcY', '—'); set('bcZ', '—');
+  } else if (bc.type === 'round') {
+    set('bcX', bc.diameter.toFixed(2));
+    set('bcY', bc.diameter.toFixed(2));
+    set('bcZ', bc.depth.toFixed(2));
+  } else {
+    set('bcX', (bc.w ?? '—').toString());
+    set('bcY', (bc.h ?? '—').toString());
+    set('bcZ', (bc.d ?? '—').toString());
+  }
+}
+function scheduleRender() { clearTimeout(timer); updateBackingCoords(); timer = setTimeout(buildBadge, 300); }
 
 // ── Build badge ────────────────────────────────────────────────
 function buildBadge() {

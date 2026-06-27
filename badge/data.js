@@ -166,11 +166,11 @@ async function loadModel(){
       if(err){setStatus('Could not load font: '+fontPath,'err');return;}
       font=f; setStatus('Ready','ok');
       document.getElementById('exportBtn').disabled=false;
-      buildBadge(); doAutoExport();
+      updateBackingCoords(); buildBadge(); doAutoExport();
     });
   } else {
     document.getElementById('exportBtn').disabled=false;
-    buildBadge(); doAutoExport();
+    updateBackingCoords(); buildBadge(); doAutoExport();
   }
 }
 
