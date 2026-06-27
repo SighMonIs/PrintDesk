@@ -2,12 +2,15 @@
 
 /* ── Inbox 3-col layout ──────────────────────────────────── */
 .inbox-layout{
-  display:flex;height:100vh;
-  margin-left:var(--sidebar-collapsed);
+  display:flex;
+  position:fixed;top:0;right:0;bottom:0;
+  left:var(--sidebar-collapsed);
   overflow:hidden;
-  transition:margin-left 0.2s ease;
+  transition:left 0.2s ease;
 }
-#mainApp.sidebar-pinned .inbox-layout{margin-left:var(--sidebar-expanded);}
+#mainApp.sidebar-pinned .inbox-layout{left:var(--sidebar-expanded);}
+.sidebar:hover ~ #mainContent.inbox-layout{left:var(--sidebar-expanded);}
+.sidebar.force-collapsed ~ #mainContent.inbox-layout{left:var(--sidebar-collapsed)!important;}
 
 /* Col 2 — order list */
 .inbox-list-col{
