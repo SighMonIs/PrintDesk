@@ -501,7 +501,7 @@ async function loadAll(){
   setStatus('spin','Loading…');
   try{
     const [ordersRaw, catsRaw, optsRaw, coloursRaw, customersRaw] = await Promise.all([
-      sbGet('orders', '?order=order_id.asc'),
+      sbGet('orders', '?order=order_id.asc&limit=10000'),
       sbGet('categories', '?order=id.asc'),
       sbGet('options', '?order=sort_order.asc,id.asc'),
       sbGet('colours', '?order=id.asc'),
