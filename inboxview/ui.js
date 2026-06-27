@@ -1424,7 +1424,7 @@ let _inboxTab = 'all';
 
 function setInboxTab(tab) {
   _inboxTab = tab;
-  document.querySelectorAll('.inbox-tab').forEach(el => {
+  document.querySelectorAll('.inbox-tab-pill').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === tab);
   });
   renderTable();
@@ -1696,13 +1696,13 @@ function _renderViewOrders() {
     + '<i class="ti ti-search inbox-search-icon"></i>'
     + '<input type="text" id="search" placeholder="Search…" oninput="renderTable()">'
     + '</div>'
-    + '<div class="inbox-tabs-row">'
-    + '<div class="inbox-tabs">'
+    + '<div class="inbox-tabs-pill">'
     + ['all','pending','printing','complete'].map(function(t) {
         var label = t.charAt(0).toUpperCase() + t.slice(1);
-        return '<button class="inbox-tab' + (activeTab===t?' active':'') + '" data-tab="' + t + '" onclick="setInboxTab(\'' + t + '\')">' + label + '</button>';
+        return '<button class="inbox-tab-pill' + (activeTab===t?' active':'') + '" data-tab="' + t + '" onclick="setInboxTab(\'' + t + '\')">' + label + '</button>';
       }).join('')
     + '</div>'
+    + '<div class="inbox-sort-row">'
     + '<div class="sort-btn-wrap" id="sortWrap">'
     + '<div class="sort-btn-group">'
     + '<button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)"><i class="ti ti-arrows-sort"></i></button>'
