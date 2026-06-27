@@ -1418,7 +1418,7 @@ document.addEventListener('click', e=>{
 });
 
 
-// â”€â”€ Inbox view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Inbox view -----------------------------------------------------
 let _inboxSelectedOrderId = null;
 
 function renderInboxList(list) {
@@ -1454,11 +1454,11 @@ function renderInboxList(list) {
     const orderNum = orderNumFromId(oid);
     return '<div class="inbox-card ' + blClass + (isSelected ? ' selected' : '') + '" onclick="showInboxDetail(\'' + esc(oid) + '\')">'
       + '<div class="inbox-card-top">'
-      + '<div class="inbox-card-customer">' + (esc(first.customer) || 'â€”') + '</div>'
-      + '<div class="inbox-card-num">' + orderNum + '</div>'
+      + '<div class=”inbox-card-customer”>' + (esc(first.customer) || '?') + '</div>'
+      + '<div class=”inbox-card-num”>' + orderNum + '</div>'
       + '</div>'
-      + '<div class="inbox-card-meta">'
-      + '<div class="inbox-card-cats">' + (esc(catNames) || 'â€”') + ' Â· ' + itemLabel + '</div>'
+      + '<div class=”inbox-card-meta”>'
+      + '<div class=”inbox-card-cats”>' + (esc(catNames) || '?') + ' &middot; ' + itemLabel + '</div>'
       + '<div class="inbox-card-total">$' + total.toFixed(2) + '</div>'
       + '</div>'
       + '</div>';
@@ -1558,7 +1558,7 @@ function _showInboxDetailFromData(orderId, rows) {
       + '</div>'
       + '<div class="inbox-item-divider"></div>'
       + '<div class="inbox-item-right">'
-      + '<div class="inbox-item-cat">' + (cat ? esc(cat.name) : 'â€”') + (prevMade ? ' <span class="made-tick"><i class="ti ti-circle-check-filled"></i></span>' : '') + '</div>'
+      + '<div class=”inbox-item-cat”>' + (cat ? esc(cat.name) : '?') + (prevMade ? ' <span class=”made-tick”><i class=”ti ti-circle-check-filled”></i></span>' : '') + '</div>'
       + optLines
       + (row.notes ? '<div class="inbox-item-opt" style="margin-top:5px"><i class="ti ti-notes" style="font-size:12px;opacity:0.5"></i> <em style="color:var(--muted)">' + esc(row.notes) + '</em></div>' : '')
       + '</div>'
@@ -1583,14 +1583,17 @@ function _showInboxDetailFromData(orderId, rows) {
     ? '<button class="icon-btn" style="margin-left:4px" onclick="printShippingLabel(\'' + esc(first.customer) + '\',\'' + esc(first.address) + '\',\'' + esc(String(orderId)) + '\')" title="Print label"><i class="ti ti-printer"></i></button>'
     : '';
 
-  detailEl.innerHTML = '<div class="inbox-detail">'
-    + '<div class="inbox-detail-header">'
-    + '<div class="inbox-detail-customer">' + (esc(first.customer) || 'â€”') + '</div>'
-    + '<div class="inbox-detail-num">' + orderNum + '</div>'
+  detailEl.innerHTML = '<div class=”inbox-detail”>'
+    + '<div class=”inbox-detail-header”>'
+    + '<div class=”inbox-detail-header-top”>'
+    + '<div class=”inbox-detail-customer”>' + (esc(first.customer) || '?') + '</div>'
+    + '<div class=”inbox-detail-num”>' + orderNum + '</div>'
+    + '</div>'
+    + '<div class=”inbox-detail-header-bot”>'
     + statusDd
-    + '<div class="inbox-detail-actions">'
-    + '<button class="btn sm" onclick="openEdit(\'' + esc(String(orderId)) + '\')"><i class="ti ti-edit"></i> Edit</button>'
-    + '<button class="btn sm icon-only" onclick="deleteOrder(\'' + esc(String(orderId)) + '\')" title="Delete order" style="border-color:rgba(224,92,92,0.3);color:var(--red)"><i class="ti ti-trash"></i></button>'
+    + '<div style=”flex:1”></div>'
+    + '<button class=”btn sm” onclick=”openEdit(\'' + esc(String(orderId)) + '\')”><i class=”ti ti-edit”></i> Edit</button>'
+    + '<button class=”btn sm icon-only” onclick=”deleteOrder(\'' + esc(String(orderId)) + '\')” title=”Delete order” style=”border-color:rgba(224,92,92,0.3);color:var(--red)”><i class=”ti ti-trash”></i></button>'
     + '</div>'
     + '</div>'
 

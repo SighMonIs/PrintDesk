@@ -71,7 +71,10 @@
 .inbox-no-selection p{font-size:13px;}
 
 .inbox-detail{padding:1.5rem;display:flex;flex-direction:column;gap:1rem;}
-.inbox-detail-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.inbox-detail-header{display:flex;flex-direction:column;gap:8px;}
+.inbox-detail-header-top{display:flex;align-items:center;gap:10px;}
+.inbox-detail-header-bot{display:flex;align-items:center;gap:8px;}
+.inbox-detail-header-bot .status-dd-btn{width:auto;min-width:110px;}
 .inbox-detail-customer{font-size:20px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .inbox-detail-num{
   font-family:ui-monospace,'Cascadia Code',monospace;font-size:12px;
@@ -79,7 +82,6 @@
   border-radius:var(--radius);padding:0 8px;height:26px;
   display:flex;align-items:center;flex-shrink:0;
 }
-.inbox-detail-actions{display:flex;gap:6px;flex-shrink:0;}
 
 .inbox-detail-meta{
   display:flex;gap:16px;flex-wrap:wrap;
