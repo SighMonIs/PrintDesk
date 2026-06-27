@@ -139,6 +139,8 @@ tr.group-first td{}
 .addr-wrap{position:relative;}
 .addr-wrap input.validated{border-color:var(--green);}
 .addr-tick{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--green);font-size:15px;display:none;pointer-events:none;}
+#f-customer.cust-linked{border-color:var(--green);}
+#f-customer.cust-new{border-color:var(--red);}
 .pac-container{background:var(--surface2)!important;border:1px solid var(--border2)!important;border-radius:var(--radius)!important;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif!important;font-size:13px!important;box-shadow:0 8px 24px rgba(0,0,0,0.5)!important;}
 .pac-item{padding:8px 12px!important;color:var(--text)!important;border-top:1px solid var(--border)!important;cursor:pointer;}
 .pac-item:hover{background:var(--surface)!important;}

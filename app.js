@@ -613,6 +613,7 @@ function initCustomerAutocomplete(){
     if(q.length<1){
       list.style.display='none';
       if(panel) panel.style.display='none';
+      updateCustomerBorder();
       return;
     }
     const matches = customers.filter(c=>c.name.toLowerCase().includes(q)).slice(0,6);
@@ -633,10 +634,19 @@ function initCustomerAutocomplete(){
     const name = input.value.trim();
     const customerId = document.getElementById('f-customer-id').value;
     const panel = document.getElementById('newCustomerPanel');
-    if(panel){
-      panel.style.display = (name && !customerId) ? '' : 'none';
-    }
+    if(panel) panel.style.display = (name && !customerId) ? '' : 'none';
+    updateCustomerBorder();
   }, 150));
+}
+
+function updateCustomerBorder(){
+  const input = document.getElementById('f-customer');
+  const id    = document.getElementById('f-customer-id')?.value;
+  const name  = input?.value.trim();
+  if(!input) return;
+  input.classList.remove('cust-linked','cust-new');
+  if(!name) return;
+  input.classList.add(id ? 'cust-linked' : 'cust-new');
 }
 
 function selectCustomer(id, name, address){
@@ -647,6 +657,7 @@ function selectCustomer(id, name, address){
     document.getElementById('f-address').value=address;
   }
   updateAddrRefreshBtn();
+  updateCustomerBorder();
   const panel = document.getElementById('newCustomerPanel');
   if(panel) panel.style.display='none';
 }
@@ -678,6 +689,7 @@ async function createCustomerInline(){
     customers.push(row);
     customers.sort((a,b)=>a.name.localeCompare(b.name));
     selectCustomer(row.id, row.name, address);
+    updateCustomerBorder();
     setStatus('ok','Customer created');
     document.getElementById('newCustomerPanel').style.display='none';
   }catch(e){ alert('Failed to create customer: '+e.message); }

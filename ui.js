@@ -769,6 +769,7 @@ function openEdit(orderId){
   // Auto-show new customer panel for orders not yet linked to a customer record
   document.getElementById('newCustomerPanel').style.display = first.customer_id ? 'none' : '';
   updateAddrRefreshBtn();
+  updateCustomerBorder();
   document.getElementById('f-address').value=first.address||'';
   if(first.address){document.getElementById('f-address').classList.add('validated');document.getElementById('addrTick').style.display='';}
   else{document.getElementById('f-address').classList.remove('validated');document.getElementById('addrTick').style.display='none';}
@@ -796,6 +797,8 @@ function closeModal(){
   const panel = document.getElementById('newCustomerPanel');
   if(panel) panel.style.display='none';
   ['nc-email','nc-phone','nc-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const custInput = document.getElementById('f-customer');
+  if(custInput) custInput.classList.remove('cust-linked','cust-new');
 }
 
 function validateOrder(){
