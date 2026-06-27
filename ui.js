@@ -425,7 +425,7 @@ function renderTable(){
         </div></td>
       </tr>`;
       const itemRow=`<tr class="inner-row ${altClass} ${hasNote?'has-note':''}">
-        <td></td><td></td><td></td>${itemCells}
+        <td></td><td></td><td class="item-connector"></td>${itemCells}
         <td></td><td class="card-actions" style="padding:5px 6px"></td>
       </tr>${noteRow}`;
       return summaryRow+itemRow;
@@ -433,7 +433,7 @@ function renderTable(){
 
     if(isMulti && !isFirst){
       return`<tr class="inner-row ${altClass} ${hasNote?'has-note':''}">
-        <td></td><td></td><td></td>${itemCells}
+        <td></td><td></td><td class="item-connector"></td>${itemCells}
         <td></td><td class="card-actions" style="padding:5px 6px"></td>
       </tr>${noteRow}`;
     }
