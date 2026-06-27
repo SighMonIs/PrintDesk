@@ -773,7 +773,6 @@ function addModelRow(d){
   const el=document.createElement('div');
   el.className='model-row';el.dataset.idx=idx;
   el.innerHTML=`
-    <button class="rm-btn" onclick="removeModel(this)" title="Remove item"><i class="ti ti-trash"></i></button>
     <div class="model-row-top">
       <div class="mf"><label>Category</label><select id="mc-${idx}" onchange="catChanged(${idx})">${catOptions(d.catId)}</select></div>
       <div class="mf"><label>Qty</label><div class="stepper"><button type="button" class="step-btn" onclick="stepVal('mq-${idx}',-1,1,1)">−</button><input type="number" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"><button type="button" class="step-btn" onclick="stepVal('mq-${idx}',1,1,1)">+</button></div></div>
@@ -783,7 +782,10 @@ function addModelRow(d){
     <div class="model-options" id="mo-${idx}"></div>
     <div class="model-notes"><input type="text" id="mn-${idx}" value="${esc(d.notes||'')}" placeholder="Item notes (colour, material, special requests…)"></div>
     <input type="hidden" id="mm-${idx}" value="${esc(d.model||'')}">
-    <input type="hidden" id="opts-${idx}" value="${esc(d.options||'')}">`;
+    <input type="hidden" id="opts-${idx}" value="${esc(d.options||'')}">
+    <div class="model-row-footer">
+      <button type="button" class="rm-btn-full" onclick="removeModel(this)"><i class="ti ti-trash"></i> Remove Item</button>
+    </div>`;
   const container=document.getElementById('modelRows');
   if(d.catId) container.appendChild(el); else container.prepend(el);
   if(d.catId)renderModelOpts(idx,d.catId,d.options||'');
@@ -827,7 +829,8 @@ function calcTotal(){
 }
 function removeModel(btn){
   if(document.querySelectorAll('.model-row').length<=1){alert('Need at least one item.');return;}
-  btn.closest('.model-row').remove();calcTotal();
+  const row=btn.closest('.model-row');
+  showConfirm('Remove this item from the order?',()=>{row.remove();calcTotal();},{confirmLabel:'Remove',isDanger:true});
 }
 function getModelData(){
   return Array.from(document.querySelectorAll('.model-row')).map(r=>{
