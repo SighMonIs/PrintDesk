@@ -160,7 +160,7 @@ function _badgeBuild3MF(objects, name, projectSettingsTemplate) {
   });
   const modelSettings = `<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <object id="${wId}">\n    <metadata key="name" value="${name}"/>\n    <metadata key="extruder" value="1"/>\n${parts}  </object>\n</config>`;
 
-  const filamentColours = objects.filter(o => !o.negative).map(o => o.colour);
+  const filamentColours = objects.filter(o => !o.negative && !o.skipFilamentSlot).map(o => o.colour);
   let projectSettings;
   if (projectSettingsTemplate) {
     const tmpl = JSON.parse(JSON.stringify(projectSettingsTemplate));
@@ -202,11 +202,26 @@ function _badgeBuildZip(data) {
 
 function _badgeCrc32(data) { let c=0xFFFFFFFF; for(let i=0;i<data.length;i++){c^=data[i];for(let j=0;j<8;j++)c=(c>>>1)^(c&1?0xEDB88320:0);} return(c^0xFFFFFFFF)>>>0; }
 
+// ── Geometry concat helper ─────────────────────────────────────
+function _badgeConcatGeos(a, b) {
+  const na = a.toNonIndexed();
+  const nb = b.toNonIndexed();
+  const pa = na.attributes.position.array;
+  const pb = nb.attributes.position.array;
+  const pos = new Float32Array(pa.length + pb.length);
+  pos.set(pa, 0);
+  pos.set(pb, pa.length);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  return geo;
+}
+
 // ── Public entry point ─────────────────────────────────────────
-// generate3MF({ name, layerConfig, backing, font, fsize, spacing, projectSettingsTemplate })
+// generate3MF({ name, layerConfig, backing, font, fsize, spacing, projectSettingsTemplate, keychain })
 // backing: { w, h, d, name } or null
+// keychain: if true, adds red-outline base + torus loop and skips backing cutout
 // Returns: { zip: Uint8Array, filename: string }
-function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0, projectSettingsTemplate = null }) {
+function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0, projectSettingsTemplate = null, keychain = false }) {
   const opts = spacing ? { letterSpacing: spacing / fsize } : {};
   const polys = _badgeCommandsToClipper(font.getPath(name, 0, 0, fsize, opts).commands);
   const unioned = _badgeClipperUnion(polys);
@@ -218,7 +233,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
     let geo;
-    const slotD = layer.hasSlot ? (backing?.d ?? 2) : 0;
+    const slotD = (layer.hasSlot && !keychain) ? (backing?.d ?? 2) : 0;
 
     if (layer.isText) {
       const shapePath = new THREE.ShapePath();
@@ -243,7 +258,25 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     zOff += slotD + layer.depth;
   }
 
-  if (backing && objects.length > 0) {
+  if (keychain && layerConfig.length > 0) {
+    const redLayer = layerConfig[0];
+    const redPoly = _badgeClipperOffset(unioned, redLayer.border);
+    const redOuters = redPoly.filter(p => ClipperLib.Clipper.Orientation(p));
+    const baseGeo = _badgeBuildSolidExtrusionMesh(redOuters, zOff, offX, offY);
+
+    const redBbox = _badgeBboxCentre(redPoly);
+    const rightEdge = redBbox.width / 2;
+    const majorR = 9, tubeR = 1;
+
+    const torusGeo = new THREE.TorusGeometry(majorR, tubeR, 16, 32);
+    torusGeo.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI / 2));
+    torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(rightEdge + 1 + majorR, 0, zOff / 2));
+
+    const kcGeo = _badgeMergeVerticesForExport(_badgeConcatGeos(baseGeo, torusGeo));
+    objects.push({ geo: kcGeo, name: 'Keychain_Base', colour: redLayer.hex, extruder: 1, id: objects.length + 1, skipFilamentSlot: true });
+  }
+
+  if (backing && objects.length > 0 && !keychain) {
     if (backing.type === 'round') {
       const n = Math.max(1, Math.ceil(bboxWidth / backing.threshold));
       for (let k = 1; k <= n; k++) {

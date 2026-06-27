@@ -776,6 +776,7 @@ function _badgeBuildBacking(backingStr) {
     threshold: _badgeAssetCache?.rndThreshold ?? 60,
     name: 'round_magnet',
   };
+  if (n.includes('keychain')) return { type: 'keychain' };
   if (n.includes('pin'))    return { w: 32, h: 7,  d: 2, name: 'pin' };
   if (n.includes('magnet')) return { w: 46, h: 14, d: 2, name: 'magnet' };
   return null;
@@ -1009,7 +1010,8 @@ async function generateAllBadgesZip(items) {
           skipped.push(name); continue;
         }
       }
-      const result = generate3MF({ name, layerConfig, backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate });
+      const _kc = backing?.type === 'keychain';
+      const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc });
       entries.push({ name: fnMap.next(rawName, backingStr), data: result.zip });
     }
     _batchUpdateProgress(total, total, 'Building ZIP…');
@@ -1061,7 +1063,8 @@ async function generateAllBadges(items) {
           files.push({ skipped: name }); continue;
         }
       }
-      const result = generate3MF({ name, layerConfig, backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate });
+      const _kc2 = backing?.type === 'keychain';
+      const result = generate3MF({ name, layerConfig, backing: _kc2 ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc2 });
       files.push({ ...result, filename: fnMap.next(rawName, backingStr) });
     }
     const toDownload = files.filter(f => !f.skipped);
@@ -1122,10 +1125,12 @@ async function generateBadge(url) {
       }
     }
 
+    const _kc3 = backing?.type === 'keychain';
     const result = generate3MF({
-      name, layerConfig, backing, font: _badgeFont,
+      name, layerConfig, backing: _kc3 ? null : backing, font: _badgeFont,
       fsize: assets.fsize, spacing: assets.spacing,
       projectSettingsTemplate: assets.projectSettingsTemplate,
+      keychain: _kc3,
     });
 
     const b = new Blob([result.zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });

@@ -147,14 +147,35 @@ function buildBadge() {
       z += layer.depth;
     } else if (layer.hasSlot) {
       const bc = getBackingConfig();
-      const slotD = bc?.d ?? bc?.depth ?? 2;
-      addLayer(unioned, layer.border, offX, offY, colour, slotD, z, true);
+      const slotD = bc?.type === 'keychain' ? 0 : (bc?.d ?? bc?.depth ?? 2);
+      if (slotD > 0) addLayer(unioned, layer.border, offX, offY, colour, slotD, z, true);
       addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z + slotD, false);
       z += slotD + layer.depth;
     } else {
       addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z, false);
       z += layer.depth;
     }
+  }
+
+  // Keychain: red outline base spanning full z-height + torus loop on right side
+  const _kbc = getBackingConfig();
+  if (_kbc?.type === 'keychain' && layerConfig.length > 0) {
+    const redLayer = layerConfig[0];
+    const colour = parseInt(redLayer.hex.replace('#', ''), 16);
+    const redPoly = clipperOffset(unioned, redLayer.border);
+    const outers = redPoly.filter(p => ClipperLib.Clipper.Orientation(p));
+    const shapes = outers.map(o => new THREE.Shape(o.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))));
+    const baseGeo = new THREE.ExtrudeGeometry(shapes, { depth: z, bevelEnabled: false });
+    const mat = new THREE.MeshPhongMaterial({ color: colour, shininess: 40 });
+    badgeGroup.add(new THREE.Mesh(baseGeo, mat));
+
+    const { width: redW } = bboxCentre(redPoly);
+    const rightEdge = redW / 2;
+    const majorR = 9, tubeR = 1;
+    const torusGeo = new THREE.TorusGeometry(majorR, tubeR, 16, 32);
+    torusGeo.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI / 2));
+    torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(rightEdge + 1 + majorR, 0, z / 2));
+    badgeGroup.add(new THREE.Mesh(torusGeo, new THREE.MeshPhongMaterial({ color: colour, shininess: 40 })));
   }
 }
 
@@ -163,6 +184,7 @@ function getBackingConfig() {
   const val = document.getElementById('backingSelect')?.value || 'Magnet';
   if (val === 'Pin')    return { w: 32, h: 7,  d: 2, name: 'pin' };
   if (val === 'Magnet') return { w: 46, h: 14, d: 2, name: 'magnet' };
+  if (val === 'Keychain') return { type: 'keychain' };
   if (val === 'Round Magnet') {
     const diam      = parseFloat(document.getElementById('rndMagDiam')?.value      || localStorage.getItem('badge2_rndDiam')      || '17.15');
     const depth     = parseFloat(document.getElementById('rndMagDepth')?.value     || localStorage.getItem('badge2_rndDepth')     || '2');
@@ -229,7 +251,7 @@ function addLayer(filledBase, borderMM, offX, offY, colour, depth, zPos, include
     const shape = new THREE.Shape(
       outer.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))
     );
-    if (includeSlot) {
+    if (includeSlot && backing?.type !== 'keychain') {
       if (backing?.type === 'round') {
         const r = (backing.diameter || 17.15) / 2;
         const bw = _badgeBboxCentre(filledBase).width || 0;
@@ -270,8 +292,9 @@ function buildBadgeExport() {
   const fsize   = parseFloat(document.getElementById('fontSize')?.value) || FONT_SIZE_MM;
   const spacing = parseFloat(document.getElementById('letterSpacing')?.value) || 0;
   const backing = getBackingConfig();
+  const keychain = backing?.type === 'keychain';
   setStatus('Generating 3MF…');
-  return generate3MF({ name, layerConfig, backing, font, fsize, spacing, projectSettingsTemplate });
+  return generate3MF({ name, layerConfig, backing: keychain ? null : backing, font, fsize, spacing, projectSettingsTemplate, keychain });
 }
 
 function exportTMF() {
