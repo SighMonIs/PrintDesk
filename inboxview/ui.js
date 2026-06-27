@@ -1,4 +1,4 @@
-// ── Custom status dropdown ─────────────────────────────────
+﻿// ── Custom status dropdown ─────────────────────────────────
 function toggleStatusDd(rowId, btn){
   // Close all other open dropdowns
   document.querySelectorAll('.status-dd-list.open').forEach(el=>{
@@ -1462,7 +1462,7 @@ function renderInboxList(list) {
   });
 
   if (!orderIds.length) {
-    el.innerHTML = '<div class=”inbox-empty-state”><i class=”ti ti-inbox”></i>No orders</div>';
+    el.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-inbox"></i>No orders</div>';
     _inboxClearDetailIfGone(orderIds);
     return;
   }
@@ -1485,17 +1485,17 @@ function renderInboxList(list) {
     const statusColor = {Pending:'rgba(232,169,58,0.15)',Printing:'rgba(91,156,246,0.15)',Complete:'rgba(92,184,122,0.15)','On Hold':'rgba(224,124,58,0.15)',Cancelled:'rgba(224,92,92,0.15)'}[status]||'rgba(136,136,133,0.15)';
     const statusText = {Pending:'var(--amber)',Printing:'var(--blue)',Complete:'var(--green)','On Hold':'var(--orange)',Cancelled:'var(--red)'}[status]||'var(--muted)';
 
-    return '<div class=”inbox-card ' + blClass + (isSelected ? ' selected' : '') + '” onclick=”showInboxDetail(\'' + esc(oid) + '\')”>'
-      + '<div class=”inbox-card-avatar” style=”background:' + avatarColor + '”>' + initials + '</div>'
-      + '<div class=”inbox-card-content”>'
-      + '<div class=”inbox-card-row1”>'
-      + '<span class=”inbox-card-customer”>' + (esc(first.customer) || '?') + '</span>'
-      + '<span class=”inbox-card-num”>' + orderNum + '</span>'
+    return '<div class="inbox-card ' + blClass + (isSelected ? ' selected' : '') + '" onclick="showInboxDetail(\'' + esc(oid) + '\')">'
+      + '<div class="inbox-card-avatar" style="background:' + avatarColor + '">' + initials + '</div>'
+      + '<div class="inbox-card-content">'
+      + '<div class="inbox-card-row1">'
+      + '<span class="inbox-card-customer">' + (esc(first.customer) || '?') + '</span>'
+      + '<span class="inbox-card-num">' + orderNum + '</span>'
       + '</div>'
-      + '<div class=”inbox-card-subject”>' + (esc(catNames) || '?') + ' &middot; ' + itemLabel + '</div>'
-      + '<div class=”inbox-card-footer”>'
-      + '<span class=”inbox-card-status” style=”background:' + statusColor + ';color:' + statusText + '”>' + status + '</span>'
-      + '<span class=”inbox-card-total”>$' + total.toFixed(2) + '</span>'
+      + '<div class="inbox-card-subject">' + (esc(catNames) || '?') + ' &middot; ' + itemLabel + '</div>'
+      + '<div class="inbox-card-footer">'
+      + '<span class="inbox-card-status" style="background:' + statusColor + ';color:' + statusText + '">' + status + '</span>'
+      + '<span class="inbox-card-total">$' + total.toFixed(2) + '</span>'
       + '</div>'
       + '</div>'
       + '</div>';
@@ -1595,7 +1595,7 @@ function _showInboxDetailFromData(orderId, rows) {
       + '</div>'
       + '<div class="inbox-item-divider"></div>'
       + '<div class="inbox-item-right">'
-      + '<div class=”inbox-item-cat”>' + (cat ? esc(cat.name) : '?') + (prevMade ? ' <span class=”made-tick”><i class=”ti ti-circle-check-filled”></i></span>' : '') + '</div>'
+      + '<div class="inbox-item-cat">' + (cat ? esc(cat.name) : '?') + (prevMade ? ' <span class="made-tick"><i class="ti ti-circle-check-filled"></i></span>' : '') + '</div>'
       + optLines
       + (row.notes ? '<div class="inbox-item-opt" style="margin-top:5px"><i class="ti ti-notes" style="font-size:12px;opacity:0.5"></i> <em style="color:var(--muted)">' + esc(row.notes) + '</em></div>' : '')
       + '</div>'
@@ -1620,17 +1620,17 @@ function _showInboxDetailFromData(orderId, rows) {
     ? '<button class="icon-btn" style="margin-left:4px" onclick="printShippingLabel(\'' + esc(first.customer) + '\',\'' + esc(first.address) + '\',\'' + esc(String(orderId)) + '\')" title="Print label"><i class="ti ti-printer"></i></button>'
     : '';
 
-  detailEl.innerHTML = '<div class=”inbox-detail”>'
-    + '<div class=”inbox-detail-header”>'
-    + '<div class=”inbox-detail-header-top”>'
-    + '<div class=”inbox-detail-customer”>' + (esc(first.customer) || '?') + '</div>'
-    + '<div class=”inbox-detail-num”>' + orderNum + '</div>'
+  detailEl.innerHTML = '<div class="inbox-detail">'
+    + '<div class="inbox-detail-header">'
+    + '<div class="inbox-detail-header-top">'
+    + '<div class="inbox-detail-customer">' + (esc(first.customer) || '?') + '</div>'
+    + '<div class="inbox-detail-num">' + orderNum + '</div>'
     + '</div>'
-    + '<div class=”inbox-detail-header-bot”>'
+    + '<div class="inbox-detail-header-bot">'
     + statusDd
-    + '<div style=”flex:1”></div>'
-    + '<button class=”btn sm” onclick=”openEdit(\'' + esc(String(orderId)) + '\')”><i class=”ti ti-edit”></i> Edit</button>'
-    + '<button class=”btn sm icon-only” onclick=”deleteOrder(\'' + esc(String(orderId)) + '\')” title=”Delete order” style=”border-color:rgba(224,92,92,0.3);color:var(--red)”><i class=”ti ti-trash”></i></button>'
+    + '<div style="flex:1"></div>'
+    + '<button class="btn sm" onclick="openEdit(\'' + esc(String(orderId)) + '\')"><i class="ti ti-edit"></i> Edit</button>'
+    + '<button class="btn sm icon-only" onclick="deleteOrder(\'' + esc(String(orderId)) + '\')" title="Delete order" style="border-color:rgba(224,92,92,0.3);color:var(--red)"><i class="ti ti-trash"></i></button>'
     + '</div>'
     + '</div>'
 
