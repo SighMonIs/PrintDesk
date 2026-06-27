@@ -48,7 +48,7 @@ async function selectOrderStatus(orderId, newStatus, optEl){
   const list = document.getElementById('sdd-order-'+orderId);
   if(list) list.classList.remove('open');
   const btn = list?.closest('.status-dd-wrap')?.querySelector('.status-dd-btn');
-  if(btn){ btn.className='status-dd-btn b-'+newStatus.toLowerCase().replace(' ','-'); btn.innerHTML=newStatus+' <i class="ti ti-chevron-down"></i>'; }
+  if(btn){ btn.className='status-dd-btn order-status-dd b-'+newStatus.toLowerCase().replace(' ','-'); btn.innerHTML='<span>'+newStatus+'</span><i class="ti ti-chevron-down"></i>'; }
   list?.querySelectorAll('.status-dd-opt').forEach(o=>o.classList.toggle('active',o.textContent.trim()===newStatus));
   const rows = orders.filter(r=>String(r.orderId)===String(orderId));
   for(const row of rows){ row.status=newStatus; }
@@ -247,7 +247,7 @@ function renderTable(){
 
     const statusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
       <button class="status-dd-btn b-${(o.status||'pending').toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('${o.id}',this)">
-        ${o.status||'Pending'} <i class="ti ti-chevron-down"></i>
+        <span>${o.status||'Pending'}</span><i class="ti ti-chevron-down"></i>
       </button>
       <div class="status-dd-list" id="sdd-${o.id}">
         ${['Pending','Printing','Complete','On Hold','Cancelled'].map(s=>`
@@ -425,7 +425,7 @@ function renderTable(){
       const orderStat=o.status||'Pending';
       const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
         <button class="status-dd-btn order-status-dd b-${orderStat.toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('order-${esc(o.orderId)}',this)">
-          ${orderStat} <i class="ti ti-chevron-down"></i>
+          <span>${orderStat}</span><i class="ti ti-chevron-down"></i>
         </button>
         <div class="status-dd-list" id="sdd-order-${esc(o.orderId)}">
           ${['Pending','Printing','Complete','On Hold','Cancelled'].map(s=>`
