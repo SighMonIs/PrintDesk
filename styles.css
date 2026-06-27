@@ -55,7 +55,8 @@ tbody td{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowr
 td.mono{font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:12px;}
 tr.group-first td{}
 .note-inline-row td{border-top:none;border-bottom:none;padding:0;}
-.note-inline-cell{padding:0 8px 7px 8px;font-size:12px;color:var(--muted);display:flex;align-items:flex-start;white-space:pre-wrap;line-height:1.5;}
+.note-inline-cell{padding:0;}
+.note-inline-cell-inner{display:flex;align-items:flex-start;padding:0 8px 7px 8px;font-size:12px;color:var(--muted);white-space:pre-wrap;line-height:1.5;}
 tbody tr.has-note td{border-bottom:none;}
 tbody tr.note-inline-row + tr td{border-top:1px solid var(--border);}
 

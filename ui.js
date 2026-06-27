@@ -385,7 +385,7 @@ function renderTable(){
     const isMulti=orderItemCount[o.orderId]>1;
     const noteRow=hasNote?`<tr class="note-inline-row ${altClass}">
       <td colspan="3"></td>
-      <td colspan="6" class="note-inline-cell"><i class="ti ti-notes" style="font-size:12px;margin-right:5px;opacity:0.5;flex-shrink:0"></i>${esc(o.notes)}</td>
+      <td colspan="6" class="note-inline-cell"><div class="note-inline-cell-inner"><i class="ti ti-notes" style="font-size:12px;margin-right:5px;opacity:0.5;flex-shrink:0"></i>${esc(o.notes)}</div></td>
       <td colspan="2"></td>
     </tr>`:'';
 
