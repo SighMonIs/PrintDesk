@@ -88,7 +88,7 @@ function showConfirm(msg, onConfirm, { confirmLabel = 'Delete', isDanger = true 
   okBtn.textContent = confirmLabel;
   okBtn.className = 'btn' + (isDanger ? ' danger' : ' primary');
   _confirmCallback = onConfirm;
-  okBtn.onclick = () => { closeConfirm(); _confirmCallback && _confirmCallback(); };
+  okBtn.onclick = () => { const cb = _confirmCallback; closeConfirm(); cb && cb(); };
   document.getElementById('confirmDialog').classList.add('open');
 }
 
