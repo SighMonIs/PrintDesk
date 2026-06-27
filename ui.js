@@ -447,7 +447,7 @@ function renderTable(){
       const summaryRow=`<tr class="group-first order-summary-row ${altClass}">
         <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
         <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${o.customer_id?`<a href="#" onclick="viewCustomer('${esc(o.customer_id)}');return false;" style="color:inherit;text-decoration:none;border-bottom:1px solid var(--border2)">${esc(o.customer)}</a>`:esc(o.customer)||'—'}</td>
-        <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
+        <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span>${o.address?`<button class="icon-btn" style="flex-shrink:0;margin-left:2px" onclick="printShippingLabel('${esc(o.customer)}','${esc(o.address)}','${esc(o.orderId)}')" title="Print shipping label"><i class="ti ti-printer"></i></button>`:''}</span></td>
         <td style="padding:7px 8px;vertical-align:middle">${itemSummaryHtml}</td>
         <td style="padding:7px 8px;vertical-align:middle">${colourSwatchSummary}</td>
         <td style="padding:4px 4px;text-align:center;vertical-align:middle">${allBadgesBtn}</td>
@@ -477,7 +477,7 @@ function renderTable(){
     return`<tr class="group-first ${altClass} ${hasNote?'has-note':''}">
       <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
       <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${o.customer_id?`<a href="#" onclick="viewCustomer('${esc(o.customer_id)}');return false;" style="color:inherit;text-decoration:none;border-bottom:1px solid var(--border2)">${esc(o.customer)}</a>`:esc(o.customer)||'—'}</td>
-      <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
+      <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span>${o.address?`<button class="icon-btn" style="flex-shrink:0;margin-left:2px" onclick="printShippingLabel('${esc(o.customer)}','${esc(o.address)}','${esc(o.orderId)}')" title="Print shipping label"><i class="ti ti-printer"></i></button>`:''}</span></td>
       ${itemCells}
       <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
       <td class="card-actions" style="padding:5px 6px"><div style="display:flex;gap:3px;justify-content:flex-end">
@@ -1229,6 +1229,41 @@ async function updateStatus(orderId,rowId,newStatus,sel){
     sel.disabled=false;
     sel.dataset.prev=newStatus;
   }
+}
+
+function printShippingLabel(customer, address, orderId){
+  const lines = address.split(/,\s*|\n/).map(s=>s.trim()).filter(Boolean);
+  const addrHtml = lines.map(l=>`<div>${l}</div>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Shipping Label</title>
+<style>
+  @page{size:100mm 150mm;margin:0}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;width:100mm;height:150mm;padding:6mm;display:flex;flex-direction:column;gap:4mm}
+  .from-block{border:1.5px solid #000;padding:3mm 4mm;font-size:9pt}
+  .from-label{font-size:7pt;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#555;margin-bottom:1mm}
+  .from-name{font-weight:700;font-size:10pt}
+  .divider{border:none;border-top:2px solid #000}
+  .to-block{flex:1;border:1.5px solid #000;padding:3mm 4mm;display:flex;flex-direction:column;justify-content:center}
+  .to-label{font-size:7pt;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#555;margin-bottom:2mm}
+  .to-name{font-size:15pt;font-weight:700;margin-bottom:2mm}
+  .to-addr{font-size:11pt;line-height:1.5}
+  .order-ref{text-align:right;font-size:7.5pt;color:#555;margin-top:auto;padding-top:2mm}
+</style>
+</head><body>
+  <div class="from-block">
+    <div class="from-label">From</div>
+    <div class="from-name">PrintDesk</div>
+  </div>
+  <div class="to-block">
+    <div class="to-label">To</div>
+    <div class="to-name">${customer}</div>
+    <div class="to-addr">${addrHtml}</div>
+    <div class="order-ref">Order ${orderId}</div>
+  </div>
+<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
+</body></html>`;
+  const w=window.open('','_blank','width=400,height=600');
+  if(w){w.document.write(html);w.document.close();}
 }
 
 async function deleteOrder(orderId){
