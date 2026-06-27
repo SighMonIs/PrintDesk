@@ -938,6 +938,30 @@ function selectAccentColour(hex, name, el){
   document.getElementById('customColour').value = hex;
 }
 
+// ── Notification settings ──────────────────────────────────
+async function loadNotificationSettings(){
+  try{
+    const rows = await sbGet('app_settings', '?key=in.(notify_email,notify_daily_enabled,notify_threshold_enabled,notify_threshold_count)');
+    const cfg = Object.fromEntries(rows.map(r=>[r.key, r.value]));
+    document.getElementById('settingsNotifyEmail').value   = cfg.notify_email            || '';
+    document.getElementById('settingsNotifyDaily').checked = cfg.notify_daily_enabled    === 'true';
+    document.getElementById('settingsNotifyThreshold').checked = cfg.notify_threshold_enabled === 'true';
+    document.getElementById('settingsNotifyCount').value   = cfg.notify_threshold_count  || '5';
+  }catch(e){ console.warn('Could not load notification settings:', e); }
+}
+
+async function saveNotificationSettings(){
+  const rows = [
+    {key:'notify_email',              value: document.getElementById('settingsNotifyEmail').value.trim()},
+    {key:'notify_daily_enabled',      value: String(document.getElementById('settingsNotifyDaily').checked)},
+    {key:'notify_threshold_enabled',  value: String(document.getElementById('settingsNotifyThreshold').checked)},
+    {key:'notify_threshold_count',    value: document.getElementById('settingsNotifyCount').value||'5'}
+  ];
+  for(const row of rows){
+    await sbUpsert('app_settings', row);
+  }
+}
+
 function openSettings(){
   if(currentUser){
     document.getElementById('settingsEmail').value=currentUser.email||'';
@@ -950,6 +974,7 @@ function openSettings(){
   const s=localStorage.getItem('pd_accent');
   if(s){try{document.getElementById('customColour').value=JSON.parse(s).a;}catch(e){}}
   renderPaymentSettings();
+  loadNotificationSettings();
   document.getElementById('settingsModal').classList.add('open');
 }
 
@@ -1063,6 +1088,7 @@ async function applySettings(){
     }
 
     savePreferences();
+    await saveNotificationSettings();
     closeSettings();
   }catch(e){
     errEl.textContent=e.message;

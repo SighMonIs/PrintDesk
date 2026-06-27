@@ -1,0 +1,113 @@
+name: DripDesk Urgent Item Alert
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check item threshold and alert
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SUPABASE_URL: https://brcwodrrpkxerxlpfgkd.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyY3dvZHJycGt4ZXJ4bHBmZ2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDA3MzgsImV4cCI6MjA5NTkxNjczOH0.T9m0gtP1Xp9PB8u8FnS0-9_a2Z2EHYrW4-NQbU6Z9tI
+        run: |
+          python3 << 'PYEOF'
+          import json, os, urllib.request, urllib.error
+          from datetime import datetime, timezone, timedelta
+
+          SB_URL  = os.environ['SUPABASE_URL']
+          SB_KEY  = os.environ['SUPABASE_KEY']
+          RESEND  = os.environ.get('RESEND_API_KEY', '')
+          HEADERS = {'apikey': SB_KEY, 'Authorization': f'Bearer {SB_KEY}'}
+
+          def sb_get(path):
+              req = urllib.request.Request(f"{SB_URL}/rest/v1/{path}", headers=HEADERS)
+              with urllib.request.urlopen(req) as r:
+                  return json.loads(r.read())
+
+          def sb_upsert(row):
+              payload = json.dumps(row).encode()
+              req = urllib.request.Request(
+                  f"{SB_URL}/rest/v1/app_settings", data=payload, method='POST',
+                  headers={**HEADERS, 'Content-Type': 'application/json',
+                           'Prefer': 'resolution=merge-duplicates'}
+              )
+              with urllib.request.urlopen(req) as r:
+                  return r.read()
+
+          # Load settings
+          rows = sb_get('app_settings?key=in.(notify_email,notify_threshold_enabled,notify_threshold_count,notify_threshold_last_sent)')
+          cfg  = {r['key']: r['value'] for r in rows}
+
+          if cfg.get('notify_threshold_enabled') != 'true':
+              print('Threshold alerts disabled — skipping'); exit(0)
+          email = cfg.get('notify_email', '')
+          if not email:
+              print('No notification email set — skipping'); exit(0)
+
+          threshold = int(cfg.get('notify_threshold_count') or 5)
+
+          # Don't spam — only send once per hour
+          last_sent_str = cfg.get('notify_threshold_last_sent', '')
+          if last_sent_str:
+              last_sent = datetime.fromisoformat(last_sent_str.replace('Z', '+00:00'))
+              if (datetime.now(timezone.utc) - last_sent).total_seconds() < 3600:
+                  print(f'Sent less than 1 hour ago — skipping'); exit(0)
+
+          # Items added in last 20 minutes (slightly more than 15-min cron interval)
+          since  = (datetime.now(timezone.utc) - timedelta(minutes=20)).strftime('%Y-%m-%dT%H:%M:%SZ')
+          orders = sb_get(f'orders?created_at=gte.{since}&order=order_id.desc')
+
+          total_qty = sum(int(o.get('qty') or 1) for o in orders)
+
+          if total_qty < threshold:
+              print(f'{total_qty} items in last 20 min — below threshold of {threshold}'); exit(0)
+
+          # Deduplicate order summaries
+          seen, unique = set(), []
+          for o in orders:
+              oid = o.get('order_id', '')
+              if oid not in seen:
+                  seen.add(oid); unique.append(o)
+
+          lines = '\n'.join(
+              f"  • Order #{o.get('order_id','-')} — {o.get('customer','Unknown')} "
+              f"({o.get('qty',1)} item{'s' if int(o.get('qty',1)) != 1 else ''})"
+              for o in unique
+          )
+          body = (
+              f"DripDesk — Busy Period Alert 🚨\n\n"
+              f"{total_qty} items across {len(unique)} order{'s' if len(unique) != 1 else ''} "
+              f"added in the last 20 minutes (threshold: {threshold}):\n\n"
+              f"{lines}\n\n"
+              f"View all orders: https://simonreid.space\n"
+          )
+
+          print(body)
+
+          if not RESEND:
+              print('No RESEND_API_KEY secret — email not sent'); exit(0)
+
+          payload = json.dumps({
+              'from': 'DripDesk <onboarding@resend.dev>',
+              'to':   [email],
+              'subject': f'DripDesk: {total_qty} items just came in!',
+              'text': body
+          }).encode()
+          req = urllib.request.Request(
+              'https://api.resend.com/emails', data=payload,
+              headers={'Authorization': f'Bearer {RESEND}', 'Content-Type': 'application/json'}
+          )
+          try:
+              with urllib.request.urlopen(req) as r:
+                  print('Alert sent:', r.read().decode())
+                  # Record send time to prevent spam
+                  sb_upsert({'key': 'notify_threshold_last_sent',
+                             'value': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')})
+          except urllib.error.HTTPError as e:
+              print('Resend error:', e.read().decode()); exit(1)
+          PYEOF

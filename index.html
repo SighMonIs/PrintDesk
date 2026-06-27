@@ -216,7 +216,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing by Claude</span>
     </div>
     <div class="footer-line">
-      <span id="footerVersion">v3.5.7</span>
+      <span id="footerVersion">v3.5.8</span>
       <span class="footer-sep">·</span>
       <span id="statusMsg" class="footer-status">Loading…</span>
     </div>
@@ -413,6 +413,34 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
           <input type="checkbox" id="newPaymentRevenue" style="accent-color:var(--accent)"> Revenue
         </label>
         <button class="btn sm" onclick="addPaymentOption()"><i class="ti ti-plus"></i> Add</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Notifications</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">Email alerts for new orders. Requires a free <strong style="color:var(--text)">Resend</strong> account with <code style="font-size:11px;background:var(--surface3);padding:1px 5px;border-radius:4px">RESEND_API_KEY</code> added as a GitHub repository secret.</p>
+      <div class="field" style="margin-bottom:12px">
+        <label>Notification email</label>
+        <input type="email" id="settingsNotifyEmail" placeholder="you@example.com">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 14px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px">
+            <input type="checkbox" id="settingsNotifyDaily" style="accent-color:var(--accent);width:14px;height:14px">
+            <span style="font-size:12px;font-weight:500">Daily badge digest — 4PM Melbourne</span>
+          </label>
+          <div style="font-size:11px;color:var(--muted);padding-left:22px">Sends a summary email if any badge orders were added that day. No email if nothing new.</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 14px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px;flex-wrap:wrap">
+            <input type="checkbox" id="settingsNotifyThreshold" style="accent-color:var(--accent);width:14px;height:14px">
+            <span style="font-size:12px;font-weight:500">Urgent alert when</span>
+            <input type="number" id="settingsNotifyCount" value="5" min="1" max="99"
+              style="width:48px;height:26px;padding:0 6px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);text-align:center">
+            <span style="font-size:12px;font-weight:500">or more items added</span>
+          </label>
+          <div style="font-size:11px;color:var(--muted);padding-left:22px">Checks every 15 minutes. Alerts as soon as the total across recent orders hits your threshold.</div>
+        </div>
       </div>
     </div>
 

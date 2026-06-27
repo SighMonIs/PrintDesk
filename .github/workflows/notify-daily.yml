@@ -1,0 +1,97 @@
+name: DripDesk Daily Badge Digest
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 4PM AEST (UTC+10) / 5PM AEDT (UTC+11)
+  workflow_dispatch:
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send daily badge digest
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SUPABASE_URL: https://brcwodrrpkxerxlpfgkd.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyY3dvZHJycGt4ZXJ4bHBmZ2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDA3MzgsImV4cCI6MjA5NTkxNjczOH0.T9m0gtP1Xp9PB8u8FnS0-9_a2Z2EHYrW4-NQbU6Z9tI
+        run: |
+          python3 << 'PYEOF'
+          import json, os, urllib.request, urllib.error
+          from datetime import datetime, timezone, timedelta
+
+          SB_URL  = os.environ['SUPABASE_URL']
+          SB_KEY  = os.environ['SUPABASE_KEY']
+          RESEND  = os.environ.get('RESEND_API_KEY', '')
+          HEADERS = {'apikey': SB_KEY, 'Authorization': f'Bearer {SB_KEY}'}
+
+          def sb(path):
+              req = urllib.request.Request(f"{SB_URL}/rest/v1/{path}", headers=HEADERS)
+              with urllib.request.urlopen(req) as r:
+                  return json.loads(r.read())
+
+          # Load settings
+          rows = sb('app_settings?key=in.(notify_email,notify_daily_enabled)')
+          cfg  = {r['key']: r['value'] for r in rows}
+
+          if cfg.get('notify_daily_enabled') != 'true':
+              print('Daily digest disabled — skipping'); exit(0)
+          email = cfg.get('notify_email', '')
+          if not email:
+              print('No notification email set — skipping'); exit(0)
+
+          # Find badge category IDs
+          cats      = sb('categories?archived=eq.false')
+          badge_ids = [c['id'] for c in cats if 'badge' in c['name'].lower()]
+          if not badge_ids:
+              print('No badge categories found — skipping'); exit(0)
+
+          # Orders in last 24 hours
+          since    = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')
+          id_list  = ','.join(str(i) for i in badge_ids)
+          orders   = sb(f'orders?cat_id=in.({id_list})&created_at=gte.{since}&order=order_id.desc')
+
+          # Deduplicate by order_id and count total items
+          seen, unique, total_qty = set(), [], 0
+          for o in orders:
+              total_qty += int(o.get('qty') or 1)
+              oid = o.get('order_id', '')
+              if oid not in seen:
+                  seen.add(oid); unique.append(o)
+
+          if not unique:
+              print('No new badge orders today — no email sent'); exit(0)
+
+          n     = len(unique)
+          lines = '\n'.join(
+              f"  • Order #{o.get('order_id','-')} — {o.get('customer','Unknown')} "
+              f"({o.get('qty',1)} item{'s' if int(o.get('qty',1)) != 1 else ''})"
+              for o in unique
+          )
+          body = (
+              f"DripDesk — Daily Badge Summary\n\n"
+              f"{n} badge order{'s' if n != 1 else ''}, {total_qty} item{'s' if total_qty != 1 else ''} in the last 24 hours:\n\n"
+              f"{lines}\n\n"
+              f"View all orders: https://simonreid.space\n"
+          )
+
+          print(body)
+
+          if not RESEND:
+              print('No RESEND_API_KEY secret — email not sent'); exit(0)
+
+          payload = json.dumps({
+              'from': 'DripDesk <onboarding@resend.dev>',
+              'to':   [email],
+              'subject': f'DripDesk: {n} new badge order{"s" if n != 1 else ""} today ({total_qty} items)',
+              'text': body
+          }).encode()
+          req = urllib.request.Request(
+              'https://api.resend.com/emails', data=payload,
+              headers={'Authorization': f'Bearer {RESEND}', 'Content-Type': 'application/json'}
+          )
+          try:
+              with urllib.request.urlopen(req) as r:
+                  print('Email sent:', r.read().decode())
+          except urllib.error.HTTPError as e:
+              print('Resend error:', e.read().decode()); exit(1)
+          PYEOF
