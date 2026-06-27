@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found &rdquo; using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=4.0.0">
+<link rel="stylesheet" href="styles.css?v=4.0.1">
 
 <script>
 // Fallback if config.js missing
@@ -168,21 +168,25 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <i class="ti ti-search inbox-search-icon"></i>
         <input type="text" id="search" placeholder="Search&hellip;" oninput="renderTable()">
         <input type="text" id="search-mobile" style="display:none" oninput="document.getElementById('search').value=this.value;renderTable()">
-        <div class="sort-btn-wrap" id="sortWrap" style="flex-shrink:0">
-          <button class="inbox-sort-btn" id="sortBtn" onclick="toggleSortPanel(event)" title="Sort">
-            <i class="ti ti-arrows-sort"></i>
-          </button>
-          <button class="inbox-sort-btn" id="sortDirBtn" onclick="toggleSortDir()" title="Toggle direction">
-            <i class="ti ti-arrow-up" id="sortDirIcon"></i>
-          </button>
+      </div>
+      <div class="inbox-tabs-row">
+        <div class="inbox-tabs">
+          <button class="inbox-tab active" data-tab="all"      onclick="setInboxTab('all')">All</button>
+          <button class="inbox-tab"        data-tab="pending"   onclick="setInboxTab('pending')">Pending</button>
+          <button class="inbox-tab"        data-tab="printing"  onclick="setInboxTab('printing')">Printing</button>
+          <button class="inbox-tab"        data-tab="complete"  onclick="setInboxTab('complete')">Complete</button>
+        </div>
+        <div class="sort-btn-wrap" id="sortWrap">
+          <div class="sort-btn-group">
+            <button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)">
+              <i class="ti ti-arrows-sort"></i>
+            </button>
+            <button class="sort-btn-dir" id="sortDirBtn" onclick="toggleSortDir()" title="Toggle sort direction">
+              <i class="ti ti-arrow-up" id="sortDirIcon"></i>
+            </button>
+          </div>
           <div class="sort-panel" id="sortPanel" style="display:none"></div>
         </div>
-      </div>
-      <div class="inbox-tabs">
-        <button class="inbox-tab active" data-tab="all"     onclick="setInboxTab('all')">All</button>
-        <button class="inbox-tab"         data-tab="pending"  onclick="setInboxTab('pending')">Pending</button>
-        <button class="inbox-tab"         data-tab="printing" onclick="setInboxTab('printing')">Printing</button>
-        <button class="inbox-tab"         data-tab="complete" onclick="setInboxTab('complete')">Complete</button>
       </div>
       <!-- Hidden filter panel still needed for category/payment filtering -->
       <div class="filter-wrap" id="filterWrap" style="display:none">
