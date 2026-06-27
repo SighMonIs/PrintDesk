@@ -417,7 +417,7 @@ function renderTable(){
         <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${esc(o.customer)||'—'}</td>
         <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
         <td colspan="5"></td>
-        <td data-label="Status" style="padding:4px 6px;text-align:center">${orderStatusDd}</td>
+        <td data-label="Status" style="padding:4px 6px;text-align:center;overflow:visible;white-space:nowrap">${orderStatusDd}</td>
         <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
         <td class="card-actions" style="padding:5px 6px"><div style="display:flex;gap:3px;justify-content:flex-end">
           <button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
