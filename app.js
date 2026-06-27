@@ -730,34 +730,98 @@ function revertToCustomerAddress(){
   document.getElementById('f-address').value = c.address;
 }
 
-// ── Badge export ───────────────────────────────────────────
-// ── Badge generation (iframe + postMessage) ────────────────────
-function generateBadge(url){
-  setStatus('spin','Generating badge&hellip;');
-  const iframe=document.createElement('iframe');
-  iframe.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px';
-  iframe.src=url+'&autoExport=1';
-  document.body.appendChild(iframe);
-  const timeout=setTimeout(()=>{
-    window.removeEventListener('message',handler);
-    iframe.remove();
-    setStatus('err','Badge timed out — try opening the Badge page directly');
-  },30000);
-  const handler=(e)=>{
-    if(e.data?.type!=='badgeExportDone') return;
-    clearTimeout(timeout);
-    window.removeEventListener('message',handler);
-    setTimeout(()=>iframe.remove(),500);
-    if(e.data.error){ setStatus('err','Badge failed: '+e.data.error); return; }
-    const zip=new Uint8Array(e.data.zip);
-    const b=new Blob([zip],{type:'application/vnd.ms-package.3dmanufacturing-3dmodel+xml'});
-    const u=URL.createObjectURL(b);
-    const a=document.createElement('a');
-    a.href=u; a.download=e.data.filename; a.click();
-    URL.revokeObjectURL(u);
-    setStatus('ok','Badge downloaded: '+e.data.filename);
+// ── Badge generation (inline — uses badge/3mf.js) ──────────────
+let _badge3mfReady = false;
+let _badgeAssetCache = null;
+let _badgeFont = null;
+
+async function _loadBadge3mfDeps() {
+  if (_badge3mfReady) return;
+  const load = src => new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src;
+    s.onload = res; s.onerror = rej; document.head.appendChild(s);
+  });
+  await load('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
+  await load('https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js');
+  await load('https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
+  await load('/badge/3mf.js');
+  _badge3mfReady = true;
+}
+
+async function _loadBadgeAssets() {
+  if (_badgeAssetCache) return _badgeAssetCache;
+  const [models, tmpl] = await Promise.all([
+    sbGet('badge_models', '?archived=eq.false&order=name&limit=1'),
+    fetch('/badge/project_settings_template.json').then(r => r.json()).catch(() => null),
+  ]);
+  if (!models || !models.length) throw new Error('No badge model found');
+  const model = models[0];
+  const [layers, settings] = await Promise.all([
+    sbGet('badge_model_layers', `?model_id=eq.${model.id}&order=layer_order`),
+    sbGet('badge_model_settings', `?model_id=eq.${model.id}`),
+  ]);
+  const layerConfig = layers.map((l, i) => ({
+    id: l.id, hex: l.colour_hex, colourId: l.colour_id,
+    border: l.border_mm, depth: l.thickness_mm,
+    hasSlot: i === 0, isText: !l.filled,
+  }));
+  const s = settings[0] || {};
+  _badgeAssetCache = {
+    layerConfig,
+    fsize: model.font_size || 49,
+    spacing: s.letter_spacing || 0,
+    fontPath: model.font_path || '/badge/LEGO.TTF',
+    projectSettingsTemplate: tmpl,
   };
-  window.addEventListener('message',handler);
+  return _badgeAssetCache;
+}
+
+async function generateBadge(url) {
+  setStatus('spin', 'Generating badge&hellip;');
+  try {
+    const params     = new URLSearchParams(url.includes('?') ? url.split('?')[1] : url);
+    const name       = (params.get('name') || 'NAME').toUpperCase();
+    const backingStr = params.get('backing') || 'Magnet';
+    const colourStr  = params.get('colours') || '';
+
+    await _loadBadge3mfDeps();
+    const assets = await _loadBadgeAssets();
+
+    if (!_badgeFont) {
+      _badgeFont = await new Promise((res, rej) =>
+        opentype.load(assets.fontPath, (err, f) => err ? rej(err) : res(f))
+      );
+    }
+
+    const layerConfig = assets.layerConfig.map(l => ({ ...l }));
+    if (colourStr) {
+      colourStr.split('|').map(s => s.trim()).forEach((colName, i) => {
+        if (i >= layerConfig.length) return;
+        const c = colours.find(c => c.name.toLowerCase() === colName.toLowerCase());
+        if (c) { layerConfig[i].hex = c.code; layerConfig[i].colourId = c.id; }
+      });
+    }
+
+    const backing = backingStr === 'Pin'    ? { w:32, h:7,  d:2, name:'pin'    }
+                  : backingStr === 'Magnet' ? { w:46, h:14, d:2, name:'magnet' }
+                  : null;
+
+    const result = generate3MF({
+      name, layerConfig, backing, font: _badgeFont,
+      fsize: assets.fsize, spacing: assets.spacing,
+      projectSettingsTemplate: assets.projectSettingsTemplate,
+    });
+
+    const b = new Blob([result.zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u; a.download = result.filename; a.click();
+    URL.revokeObjectURL(u);
+    setStatus('ok', 'Badge downloaded: ' + result.filename);
+  } catch(e) {
+    console.error('Badge generation error:', e);
+    setStatus('err', 'Badge failed: ' + e.message);
+  }
 }
 
 // ── Stats modal ────────────────────────────────────────────
