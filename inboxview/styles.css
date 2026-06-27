@@ -1,9 +1,16 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 
+/* ── Centered app shell ──────────────────────────────────── */
+body{overflow:hidden;}
+#mainApp{
+  max-width:1480px;margin:0 auto;
+  position:relative;height:100vh;overflow:hidden;
+}
+
 /* ── Inbox 3-col layout ──────────────────────────────────── */
 .inbox-layout{
   display:flex;
-  position:fixed;top:0;right:0;bottom:0;
+  position:absolute;top:0;right:0;bottom:0;
   left:var(--sidebar-collapsed);
   overflow:hidden;
   transition:left 0.2s ease;
@@ -625,7 +632,7 @@ thead th.sortable{user-select:none;}
 
 /* Sidebar */
 .sidebar{
-  position:fixed;left:0;top:0;bottom:0;
+  position:absolute;left:0;top:0;bottom:0;
   width:var(--sidebar-collapsed);
   background:var(--surface);
   border-right:1px solid var(--border2);
@@ -695,9 +702,33 @@ thead th.sortable{user-select:none;}
 }
 .sidebar-item i{font-size:18px;flex-shrink:0;width:24px;text-align:center;}
 .sidebar-item:hover{background:var(--surface2);color:var(--text);}
+.sidebar-item.active{background:rgba(232,213,163,0.1);color:var(--accent);}
+.sidebar-item.active i{color:var(--accent);}
 .sidebar-item.primary-item{color:var(--accent);}
 .sidebar-item.primary-item:hover{background:rgba(232,213,163,0.08);color:var(--accent);}
 .sidebar-item.sidebar-logout:hover{color:var(--red);background:rgba(224,92,92,0.08);}
+
+/* Sidebar count badge */
+.sidebar-badge{
+  margin-left:auto;font-size:11px;color:var(--muted);
+  opacity:0;transition:opacity 0.15s;flex-shrink:0;
+  font-family:ui-monospace,'Cascadia Code',monospace;
+}
+.sidebar:hover .sidebar-badge,.sidebar.pinned .sidebar-badge{opacity:1;}
+.sidebar-item.active .sidebar-badge{color:var(--accent);}
+
+/* Generic view header (non-orders views) */
+.inbox-view-header{
+  display:flex;align-items:center;gap:8px;
+  padding:0 0 12px;
+}
+.inbox-view-title{font-size:14px;font-weight:600;color:var(--text);}
+.inbox-view-count{
+  font-size:10px;color:var(--muted);background:var(--surface2);
+  border:1px solid var(--border);border-radius:10px;
+  padding:1px 7px;font-family:ui-monospace,'Cascadia Code',monospace;
+}
+.inbox-tabs-row{display:flex;align-items:center;gap:4px;}
 .sidebar-label{
   opacity:0;transition:opacity 0.15s 0.05s;
   overflow:hidden;

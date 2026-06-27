@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found &rdquo; using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=4.0.1">
+<link rel="stylesheet" href="styles.css?v=4.0.2">
 
 <script>
 // Fallback if config.js missing
@@ -105,16 +105,23 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <i class="ti ti-plus"></i><span class="sidebar-label">New Order</span>
       </button>
       <div class="sidebar-divider"></div>
-      <button class="sidebar-item" onclick="openCustomersModal()">
+      <button class="sidebar-item active" data-view="orders" onclick="setSidebarView('orders')">
+        <i class="ti ti-inbox"></i><span class="sidebar-label">Orders</span>
+        <span class="sidebar-badge" id="badge-orders"></span>
+      </button>
+      <button class="sidebar-item" data-view="customers" onclick="setSidebarView('customers')">
         <i class="ti ti-address-book"></i><span class="sidebar-label">Customers</span>
+        <span class="sidebar-badge" id="badge-customers"></span>
       </button>
-      <button class="sidebar-item" onclick="openColourModal()">
+      <button class="sidebar-item" data-view="colours" onclick="setSidebarView('colours')">
         <i class="ti ti-brush"></i><span class="sidebar-label">Colours</span>
+        <span class="sidebar-badge" id="badge-colours"></span>
       </button>
-      <button class="sidebar-item" onclick="openCatModal()">
+      <button class="sidebar-item" data-view="categories" onclick="setSidebarView('categories')">
         <i class="ti ti-category"></i><span class="sidebar-label">Categories</span>
+        <span class="sidebar-badge" id="badge-categories"></span>
       </button>
-      <button class="sidebar-item" onclick="openStatsModal()">
+      <button class="sidebar-item" data-view="stats" onclick="setSidebarView('stats')">
         <i class="ti ti-chart-bar"></i><span class="sidebar-label">Stats</span>
       </button>
       <button class="sidebar-item" onclick="window.location.href='/badge/'">
@@ -123,16 +130,15 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     </div>
     <div class="sidebar-bottom">
       <div class="sidebar-divider"></div>
-      <button class="sidebar-item" onclick="openSettings()">
+      <button class="sidebar-item" data-view="settings" onclick="setSidebarView('settings')">
         <i class="ti ti-settings"></i><span class="sidebar-label">Settings</span>
       </button>
-      <button class="sidebar-item" onclick="openUsersModal()">
+      <button class="sidebar-item" data-view="users" onclick="setSidebarView('users')">
         <i class="ti ti-users"></i><span class="sidebar-label">Users</span>
       </button>
       <button class="sidebar-item sidebar-logout" onclick="doLogout()">
         <i class="ti ti-logout"></i><span class="sidebar-label">Sign out</span>
       </button>
-
     </div>
   </nav>
 
