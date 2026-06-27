@@ -1,0 +1,149 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Badge Generator</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  #loginScreen { display: flex; }
+  #appScreen   { display: none; }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+</head>
+<body>
+
+<!-- ── Login ── -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">PrintDesk</div>
+    <div class="login-sub">Badge Generator 2 — sign in to continue</div>
+    <div class="login-field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="username email" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="login-field"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="login-error" id="loginError"></div>
+    <button class="btn primary" id="loginBtn" onclick="doLogin()" style="width:100%"><i class="ti ti-login"></i> Sign in</button>
+  </div>
+</div>
+
+<!-- ── App ── -->
+<div class="app-screen" id="appScreen">
+  <header>
+    <a href="/" class="btn sm" style="margin-right:8px" title="Back to PrintDesk"><i class="ti ti-arrow-left"></i></a>
+    <span class="logo">PrintDesk</span><span class="logo-sep">/</span><span class="logo-sub">Badge Generator</span>
+    <div class="header-right">
+      <span class="user-chip" id="userChip"></span>
+      <button class="btn sm" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</button>
+    </div>
+  </header>
+  <main>
+    <!-- Panel -->
+    <div class="panel">
+      <div>
+        <div class="section-title">Model</div>
+        <select class="model-select" id="modelSelect" onchange="loadModel()"><option value="">Loading…</option></select>
+      </div>
+      <div>
+        <div class="section-title">Name</div>
+        <div style="position:relative">
+          <input type="text" id="nameInput" value="" maxlength="20" placeholder="Enter name…" class="name-input" oninput="this.value=this.value.toUpperCase();onNameInput()" style="padding-right:36px">
+          <button id="nameClearBtn" onclick="clearName()" style="position:absolute;right:0;top:0;height:100%;width:36px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0;align-items:center;justify-content:center;display:none" tabindex="-1"><i class="ti ti-x"></i></button>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Backing</div>
+        <select id="backingSelect" class="model-select" onchange="scheduleRender()">
+          <option value="Magnet">Magnet</option>
+          <option value="Pin">Pin</option>
+          <option value="Round Magnet">Round Magnet</option>
+          <option value="Keychain">Keychain</option>
+        </select>
+      </div>
+      <div>
+        <div class="section-title">Layer Colours</div>
+        <div class="colour-picker-wrap" id="cpwCombo">
+          <div class="colour-picker-btn" onclick="toggleComboList(this)" id="comboBtnDisplay">
+            <div style="display:flex;gap:3px;align-items:center" id="comboSwatches"></div>
+            <span class="cp-label" id="comboLabel">Loading…</span>
+            <i class="ti ti-chevron-down" style="font-size:11px;color:var(--muted);flex-shrink:0"></i>
+          </div>
+          <div class="colour-picker-list" id="comboList" style="display:none;min-width:260px"></div>
+        </div>
+        <div id="layerColoursList" style="display:none;flex-direction:column;gap:7px;margin-top:8px"></div>
+      </div>
+      <div class="accordion">
+        <button class="accordion-btn" onclick="toggleAccordion()">
+          <span>Advanced</span>
+          <i class="ti ti-chevron-down" id="accordionChevron" style="transition:transform 0.2s"></i>
+        </button>
+        <div class="accordion-body" id="accordionBody" style="display:none">
+          <div class="section-title" style="margin:0">Font</div>
+          <div class="adv-row"><label>Font size (mm)</label><input type="number" class="adv-input" id="fontSize" value="49" min="10" max="200" onchange="scheduleRender()"></div>
+          <div class="adv-row"><label>Letter spacing (mm)</label><input type="number" class="adv-input" id="letterSpacing" value="0" min="-20" max="50" step="0.5" onchange="scheduleRender()"></div>
+          <div class="section-title" style="margin-top:4px">Round Magnet</div>
+          <div class="adv-row"><label>Diameter (mm)</label><input type="number" class="adv-input" id="rndMagDiam" value="17.15" min="5" max="50" step="0.05" onchange="saveRndMagSettings()"></div>
+          <div class="adv-row"><label>Depth (mm)</label><input type="number" class="adv-input" id="rndMagDepth" value="2" min="1" max="10" step="0.1" onchange="saveRndMagSettings()"></div>
+          <div class="adv-row"><label>Multi-magnet threshold (mm)</label><input type="number" class="adv-input" id="rndMagThreshold" value="60" min="20" max="200" step="5" onchange="saveRndMagSettings()"></div>
+          <div class="section-title" style="margin-top:4px">Layer Settings</div>
+          <div id="layerSettings" style="display:flex;flex-direction:column;gap:6px"></div>
+          <button class="btn sm" style="width:100%;margin-top:4px" onclick="saveModelSettings()"><i class="ti ti-device-floppy"></i> Save Model Defaults</button>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn primary" id="exportBtn" onclick="exportTMF()" style="flex:1" disabled><i class="ti ti-download"></i> Export 3MF</button>
+      </div>
+      <div class="status" id="status">Signing in…</div>
+      <div class="version-footer">badge v2.4.2</div>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview" id="previewPane">
+      <canvas id="canvas"></canvas>
+      <div class="preview-controls">
+        <button class="btn sm" id="toggleGridBtn" onclick="toggleGrid()"><i class="ti ti-grid-dots"></i> Grid</button>
+        <button class="btn sm" onclick="toggleCamPanel('camAnglePanel')"><i class="ti ti-camera-cog"></i></button>
+        <button class="btn sm" onclick="toggleCamPanel('camZoomPanel')"><i class="ti ti-zoom-in"></i></button>
+        <button class="btn sm" onclick="toggleCamPanel('viewportPanel')"><i class="ti ti-palette"></i></button>
+      </div>
+      <!-- Camera angle panel -->
+      <div class="cam-panel" id="camAnglePanel" style="display:none">
+        <div class="cam-panel-title">Camera Angle</div>
+        <div class="cam-row"><label>rotX</label><input type="range" id="camRotX" min="-1.57" max="1.57" step="0.01" value="-0.4" oninput="syncNum('camRotX','camRotXN');applyCam()"><input type="number" id="camRotXN" value="-0.40" step="0.01" oninput="syncSlider('camRotX','camRotXN');applyCam()"></div>
+        <div class="cam-row"><label>rotY</label><input type="range" id="camRotY" min="-3.14" max="3.14" step="0.01" value="0.2" oninput="syncNum('camRotY','camRotYN');applyCam()"><input type="number" id="camRotYN" value="0.20" step="0.01" oninput="syncSlider('camRotY','camRotYN');applyCam()"></div>
+        <div class="cam-row"><label>Zoom</label><input type="range" id="camZoom" min="0.3" max="4" step="0.05" value="1" oninput="syncNum('camZoom','camZoomN');applyCam()"><input type="number" id="camZoomN" value="1.00" step="0.05" oninput="syncSlider('camZoom','camZoomN');applyCam()"></div>
+        <button class="btn sm primary" style="width:100%;margin-top:8px" onclick="saveDefaultAngle()"><i class="ti ti-device-floppy"></i> Save as default</button>
+      </div>
+      <!-- Zoom speed panel -->
+      <div class="cam-panel" id="camZoomPanel" style="display:none">
+        <div class="cam-panel-title">Scroll Zoom Speed</div>
+        <div class="cam-row"><label>Speed</label><input type="range" id="zoomSpd" min="0.001" max="0.1" step="0.001" value="0.01" oninput="syncNum('zoomSpd','zoomSpdN');saveZoomSpeed()"><input type="number" id="zoomSpdN" value="0.010" min="0.001" max="0.1" step="0.001" oninput="syncSlider('zoomSpd','zoomSpdN');saveZoomSpeed()"></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Lower = slower. Default: 0.01</div>
+      </div>
+      <!-- Viewport panel -->
+      <div class="cam-panel" id="viewportPanel" style="display:none">
+        <div class="cam-panel-title">Viewport</div>
+        <div class="cam-row">
+          <label>Background</label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+            <div onclick="setBg(0x18181b,this)" style="width:24px;height:24px;border-radius:4px;background:#18181b;border:2px solid var(--accent);cursor:pointer"></div>
+            <div onclick="setBg(0x444444,this)" style="width:24px;height:24px;border-radius:4px;background:#444;border:1px solid var(--border2);cursor:pointer"></div>
+            <div onclick="setBg(0x888888,this)" style="width:24px;height:24px;border-radius:4px;background:#888;border:1px solid var(--border2);cursor:pointer"></div>
+            <div onclick="setBg(0xcccccc,this)" style="width:24px;height:24px;border-radius:4px;background:#ccc;border:1px solid var(--border2);cursor:pointer"></div>
+            <div onclick="setBg(0xffffff,this)" style="width:24px;height:24px;border-radius:4px;background:#fff;border:1px solid var(--border2);cursor:pointer"></div>
+          </div>
+        </div>
+      </div>
+      <button onclick="resetView()" class="btn sm" style="position:absolute;top:10px;left:50%;transform:translateX(-50%)"><i class="ti ti-rotate-2"></i> Reset Camera</button>
+      <div class="preview-label">Drag to rotate · Scroll to zoom</div>
+    </div>
+  </main>
+</div>
+
+<script src="../config.js" onerror="console.warn('config.js missing')"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+<script src="data.js?v=3.5.67"></script>
+<script src="3mf.js?v=3.5.67"></script>
+<script src="render.js?v=3.5.67"></script>
+</body>
+</html>

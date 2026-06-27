@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Davey Paper Delivery</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #1a2744;
+      --gold: #f5a623;
+      --gold-dark: #d98e0f;
+      --cream: #faf7f0;
+      --muted: #6b7280;
+    }
+
+    body { font-family: 'Poppins', sans-serif; }
+
+    /* Reusable centred content container */
+    .inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 3.5rem;
+    }
+
+    /* ── LOGO ── */
+    .logo {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .logo-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 5px;
+    }
+
+    .logo-lines span {
+      display: block;
+      background: var(--gold);
+      border-radius: 2px;
+      height: 3px;
+    }
+
+    .logo-lines span:nth-child(1) { width: 20px; }
+    .logo-lines span:nth-child(2) { width: 14px; }
+    .logo-lines span:nth-child(3) { width: 20px; }
+
+    .logo-text {
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      background: var(--navy);
+      overflow: hidden;
+      min-height: 520px;
+    }
+
+    /* Photo bleeds to right edge of screen */
+    .hero-photo {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 55%;
+      height: 100%;
+    }
+
+    .hero-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Gradient fades photo into the navy on its left side */
+    .hero-photo::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to right, var(--navy) 0%, transparent 45%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .hero .inner {
+      position: relative;
+      z-index: 2;
+      min-height: 520px;
+      display: flex;
+      flex-direction: column;
+      padding-top: 3rem;
+      padding-bottom: 3rem;
+    }
+
+    .hero-logo { margin-bottom: 3rem; }
+
+    .hero-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+
+    .hero-body h1 {
+      font-size: 3.8rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.1rem;
+      max-width: 480px;
+    }
+
+    .hero-body p {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.65;
+      margin-bottom: 2rem;
+      max-width: 360px;
+    }
+
+    .btn-hero {
+      display: inline-block;
+      background: var(--gold);
+      border: 2px solid var(--gold);
+      color: var(--navy);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 0.75rem 1.8rem;
+      border-radius: 6px;
+      text-decoration: none;
+      align-self: flex-start;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn-hero:hover { background: var(--gold-dark); border-color: var(--gold-dark); }
+
+    /* ── CARDS ── */
+    .cards-section {
+      background: #fff;
+      padding: 2.5rem 0 3.5rem;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 1.75rem 1.5rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      box-shadow: 0 8px 28px rgba(26,39,68,0.12);
+      transform: translateY(-3px);
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      margin-bottom: 1rem;
+    }
+
+    .card-icon svg {
+      width: 100%;
+      height: 100%;
+      stroke: var(--gold);
+      fill: none;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 0.5rem;
+    }
+
+    .card p {
+      font-size: 0.83rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── QUOTE SECTION ── */
+    .quote-section {
+      background: var(--cream);
+      padding: 5rem 0;
+    }
+
+    .quote-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    .quote-left blockquote {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.2rem;
+      font-style: italic;
+      color: var(--navy);
+      line-height: 1.4;
+      margin-bottom: 2rem;
+    }
+
+    .btn-gold {
+      display: inline-block;
+      background: var(--gold);
+      color: var(--navy);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 0.65rem 1.5rem;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+
+    .btn-gold:hover { background: var(--gold-dark); }
+
+    .quote-photo {
+      width: 320px;
+      height: 320px;
+      border-radius: 14px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .quote-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--navy);
+      padding: 3rem 0;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr;
+      gap: 2.5rem;
+      align-items: start;
+    }
+
+    .footer-brand .logo { margin-bottom: 0.75rem; }
+
+    .footer-brand p {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.6;
+    }
+
+    footer h4 {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 0.85rem;
+    }
+
+    footer ul { list-style: none; }
+    footer ul li { margin-bottom: 0.5rem; }
+
+    footer ul a {
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      font-size: 0.88rem;
+      transition: color 0.2s;
+    }
+
+    footer ul a:hover { color: var(--gold); }
+  </style>
+</head>
+<body>
+
+  <!-- HERO — full-width navy, photo bleeds to right screen edge -->
+  <section class="hero">
+    <div class="hero-photo">
+      <img
+        src="https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80"
+        alt="Newspaper on a doorstep at dawn"
+      />
+    </div>
+    <div class="inner">
+      <a href="#" class="logo hero-logo">
+        <div class="logo-lines"><span></span><span></span><span></span></div>
+        <div class="logo-text">Davey Paper<br/>Delivery</div>
+      </a>
+      <div class="hero-body">
+        <h1>Your Morning,<br/>Delivered.</h1>
+        <p>Fresh newspapers and magazines delivered to your driveway before you wake up.</p>
+        <a href="#contact" class="btn-hero">Start Your Delivery</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CARDS — full-width white -->
+  <section class="cards-section">
+    <div class="inner">
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="7" y1="8" x2="17" y2="8"/>
+              <line x1="7" y1="12" x2="14" y2="12"/>
+              <line x1="7" y1="16" x2="11" y2="16"/>
+            </svg>
+          </div>
+          <h3>Same-Day Delivery</h3>
+          <p>Australian newspaper and magazine home delivery service.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              <circle cx="12" cy="9" r="2.5"/>
+            </svg>
+          </div>
+          <h3>Local Area Service</h3>
+          <p>Australian newspaper and magazine home delivery service.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="8" y1="3" x2="8" y2="21"/>
+              <line x1="11" y1="8" x2="18" y2="8"/>
+              <line x1="11" y1="12" x2="18" y2="12"/>
+              <line x1="11" y1="16" x2="18" y2="16"/>
+            </svg>
+          </div>
+          <h3>All Your Favourites</h3>
+          <p>Australian newspaper and magazine home delivery service.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE — full-width cream -->
+  <section class="quote-section">
+    <div class="inner">
+      <div class="quote-grid">
+        <div class="quote-left">
+          <blockquote>"Wake up with your favourite newspapers and magazines delivered to your driveway."</blockquote>
+          <a href="#contact" class="btn-gold">Start Your Delivery</a>
+        </div>
+        <div class="quote-photo">
+          <img
+            src="https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80"
+            alt="Newspapers on a front porch"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER — full-width navy -->
+  <footer id="contact">
+    <div class="inner">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="#" class="logo">
+            <div class="logo-lines"><span></span><span></span><span></span></div>
+            <div class="logo-text">Davey Paper<br/>Delivery</div>
+          </a>
+          <p>Delivering since day one.</p>
+        </div>
+        <div>
+          <h4>Services</h4>
+          <ul>
+            <li><a href="#">Newspaper Delivery</a></li>
+            <li><a href="#">Magazine Delivery</a></li>
+            <li><a href="#">Business Delivery</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Contact us</h4>
+          <ul>
+            <li><a href="#">123 Some Home</a></li>
+            <li><a href="#">01 257 8800</a></li>
+            <li><a href="#">website.com</a></li>
+            <li><a href="#">delivery.com</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
