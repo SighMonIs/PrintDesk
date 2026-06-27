@@ -363,7 +363,7 @@ function renderTable(){
     const isBadgeCat=cat&&cat.name.toLowerCase().includes('name badge');
     const badgeBtn=isBadgeCat?`<button class="icon-btn" title="Generate Badge" onclick="generateBadge('/badge/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''})}')"><i class="ti ti-badge"></i></button>`:'';
     const optHtml=optLines.length?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px">${l}</div>`).join(''):'';
-    return`<tr class="${isFirst?'group-first':''} ${altClass} ${hasNote?'has-note':''}">
+    return`<tr class="${isFirst?'group-first':'inner-row'} ${altClass} ${hasNote?'has-note':''}">
       <td class="card-order-num" style="padding:7px 8px">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
       <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
       <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)">${isFirst?`<span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span>`:''}
