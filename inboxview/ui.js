@@ -1488,7 +1488,6 @@ function renderInboxList(list) {
     const statusText = {Pending:'var(--amber)',Printing:'var(--blue)',Complete:'var(--green)','On Hold':'var(--orange)',Cancelled:'var(--red)'}[status]||'var(--muted)';
 
     return '<div class="inbox-card ' + blClass + (isSelected ? ' selected' : '') + '" onclick="showInboxDetail(\'' + esc(oid) + '\')">'
-      + '<div class="inbox-card-avatar" style="background:' + avatarColor + '">' + initials + '</div>'
       + '<div class="inbox-card-content">'
       + '<div class="inbox-card-row1">'
       + '<span class="inbox-card-customer">' + (esc(first.customer) || '?') + '</span>'
