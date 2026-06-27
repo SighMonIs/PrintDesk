@@ -224,21 +224,15 @@ function buildBadge() {
     }
   }
 
-  // Keychain: red outline base spanning full z-height + torus loop on right side
+  // Keychain: torus ring attached to right edge of badge
   const _kbc = getBackingConfig();
   if (_kbc?.type === 'keychain' && layerConfig.length > 0) {
-    const redLayer = layerConfig[0];
-    const colour = parseInt(redLayer.hex.replace('#', ''), 16);
-    const redPoly = clipperOffset(unioned, redLayer.border);
-    const outers = redPoly.filter(p => ClipperLib.Clipper.Orientation(p));
-    const shapes = outers.map(o => new THREE.Shape(o.map(p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY)))));
-    const baseGeo = new THREE.ExtrudeGeometry(shapes, { depth: z, bevelEnabled: false });
-    const mat = new THREE.MeshPhongMaterial({ color: colour, shininess: 40 });
-    badgeGroup.add(new THREE.Mesh(baseGeo, mat));
-
-    const { width: redW } = bboxCentre(redPoly);
-    const rightEdge = redW / 2;
-    const majorR = 9, tubeR = 1;
+    const baseLayer = layerConfig[0];
+    const colour = parseInt(baseLayer.hex.replace('#', ''), 16);
+    const outerPoly = clipperOffset(unioned, baseLayer.border > 0 ? baseLayer.border : 0);
+    const { width: badgeW } = bboxCentre(outerPoly.length ? outerPoly : unioned);
+    const rightEdge = badgeW / 2;
+    const majorR = 9, tubeR = 1.5;
     const torusGeo = new THREE.TorusGeometry(majorR, tubeR, 16, 32);
     torusGeo.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI / 2));
     torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(rightEdge + 1 + majorR, 0, z / 2));
