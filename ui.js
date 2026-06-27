@@ -54,9 +54,7 @@ async function selectOrderStatus(orderId, newStatus, optEl){
   for(const row of rows){ row.status=newStatus; }
   updateStats(); renderTable();
   try{
-    for(const row of rows){
-      await sbUpsert('orders',{id:row.id,order_id:row.orderId,customer:row.customer,address:row.address,delivery:row.delivery,payment:row.payment,cat_id:row.catId,qty:row.qty,price:row.price,total:row.total,status:newStatus,date:row.date,notes:row.notes,options:row.options});
-    }
+    await sbUpsert('orders', rows.map(row=>({id:row.id,order_id:row.orderId,customer:row.customer,customer_id:row.customer_id||null,address:row.address,delivery:row.delivery,payment:row.payment,cat_id:row.catId,qty:row.qty,price:row.price,total:row.total,status:newStatus,date:row.date,notes:row.notes,options:row.options})));
     setStatus('ok','All items updated');
   }catch(e){ setStatus('err','Save failed'); }
 }
@@ -1071,6 +1069,7 @@ async function updateStatus(orderId,rowId,newStatus,sel){
     // Update status via Supabase upsert
     await sbUpsert('orders', {
       id: row.id, order_id: row.orderId, customer: row.customer,
+      customer_id: row.customer_id||null,
       address: row.address, delivery: row.delivery, payment: row.payment,
       cat_id: row.catId, qty: row.qty,
       price: row.price, total: row.total, status: newStatus,
