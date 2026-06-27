@@ -196,10 +196,13 @@ function renderTable(){
   if(!list.length){tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;return;}
 
   const seen=new Set();
+  let groupIdx=0;
   const isMobile = window.innerWidth <= 640;
 
   tbody.innerHTML=list.map(o=>{
-    const isFirst=!seen.has(o.orderId);seen.add(o.orderId);
+    const isFirst=!seen.has(o.orderId);
+    if(isFirst){ if(seen.size>0) groupIdx++; seen.add(o.orderId); }
+    const altClass=groupIdx%2===1?'row-alt':'';
     const cat=cats.find(c=>String(c.id)===String(o.catId));
     const bc='b-'+(o.status||'pending').toLowerCase();
     const orderNum=orderNumFromId(o.orderId);
@@ -360,7 +363,7 @@ function renderTable(){
     const isBadgeCat=cat&&cat.name.toLowerCase().includes('name badge');
     const badgeBtn=isBadgeCat?`<button class="icon-btn" title="Generate Badge" onclick="generateBadge('/badge/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''})}')"><i class="ti ti-badge"></i></button>`:'';
     const optHtml=optLines.length?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px">${l}</div>`).join(''):'';
-    return`<tr class="${isFirst?'group-first':''}">
+    return`<tr class="${isFirst?'group-first':''} ${altClass}">
       <td class="card-order-num" style="padding:7px 8px">${isFirst?`<span class="order-id-badge">${orderNum}</span>`:''}</td>
       <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${isFirst?esc(o.customer)||'—':''}</td>
       <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)">${isFirst?`<span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span>`:''}
@@ -378,7 +381,7 @@ function renderTable(){
         ${isFirst?`<button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
         <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>`:''}
       </td>
-    </tr>${hasNote?`<tr class="note-inline-row">
+    </tr>${hasNote?`<tr class="note-inline-row ${altClass}">
       <td colspan="3"></td>
       <td colspan="6" class="note-inline-cell"><i class="ti ti-notes" style="font-size:12px;margin-right:5px;opacity:0.5;flex-shrink:0"></i>${esc(o.notes)}</td>
       <td colspan="2"></td>
