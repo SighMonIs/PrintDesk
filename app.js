@@ -829,8 +829,8 @@ async function badgeWidthCheck(idx) {
   if (!textEl) return;
 
   const warnEl = document.getElementById(`bww-${idx}`);
-  const text = textEl.value.trim().toUpperCase();
-  if (!text) {
+  const rawVal = textEl.value.trim();
+  if (!rawVal) {
     textEl.style.outline = '';
     delete textEl.dataset.badgeWidth;
     if (warnEl) warnEl.style.display = 'none';
@@ -841,18 +841,28 @@ async function badgeWidthCheck(idx) {
   try { await _ensureBadgeFont(); } catch(e) { return; }
 
   const fsize = _badgeAssetCache?.fsize || 49;
-  const bb = _badgeFont.getPath(text, 0, 0, fsize).getBoundingBox();
-  const textWidth = bb.x2 - bb.x1;
-  textEl.dataset.badgeWidth = textWidth.toFixed(4);
+  const isMulti = textOpt.multi_item;
+  const names = isMulti
+    ? rawVal.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+    : [rawVal.trim().toUpperCase()];
+
+  // Width of widest name (drives backing restrictions)
+  const widths = names.map(n => {
+    const bb = _badgeFont.getPath(n, 0, 0, fsize).getBoundingBox();
+    return { name: n, w: bb.x2 - bb.x1 };
+  });
+  const maxWidth = Math.max(...widths.map(x => x.w));
+  textEl.dataset.badgeWidth = maxWidth.toFixed(4);
 
   let anyDisabled = false;
   let currentInvalid = false;
+  const selectedMinW = backingEl ? _badgeBackingMinWidth(backingEl.value) : 0;
 
   if (backingEl) {
     Array.from(backingEl.options).forEach(opt => {
       if (!opt.value) return;
       const minW = _badgeBackingMinWidth(opt.value);
-      const fits = textWidth >= minW;
+      const fits = maxWidth >= minW;
       opt.disabled = !fits;
       opt.style.color = fits ? '' : 'var(--muted)';
       if (!fits) anyDisabled = true;
@@ -864,12 +874,16 @@ async function badgeWidthCheck(idx) {
     }
   }
 
-  if (anyDisabled) {
-    textEl.style.outline = '2px solid var(--red,#e55)';
-    if (warnEl) {
-      warnEl.textContent = `Name width (${textWidth.toFixed(1)}mm) — some backing options are not available`;
-      warnEl.style.display = '';
+  if (anyDisabled || (isMulti && widths.some(x => x.w < selectedMinW))) {
+    const tooNarrow = widths.filter(x => x.w < selectedMinW);
+    let msg;
+    if (isMulti && tooNarrow.length) {
+      msg = `Too short for selected backing: ${tooNarrow.map(x => x.name).join(', ')}`;
+    } else {
+      msg = `Name width (${maxWidth.toFixed(1)}mm) — some backing options are not available`;
     }
+    textEl.style.outline = '2px solid var(--red,#e55)';
+    if (warnEl) { warnEl.textContent = msg; warnEl.style.display = ''; }
   } else {
     textEl.style.outline = '';
     if (warnEl) warnEl.style.display = 'none';
