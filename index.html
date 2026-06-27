@@ -274,14 +274,6 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </div>
     </div>
 
-    <div class="models-section">
-      <div class="models-hdr">
-        <span class="models-label">Items</span>
-        <input type="text" id="itemFilter" placeholder="Filter items…" oninput="filterModelRows(this.value)" style="display:none;height:28px;padding:0 8px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);flex:1;min-width:0;margin:0 8px">
-        <button class="btn sm" onclick="addModelRow()"><i class="ti ti-plus"></i> Add item</button>
-      </div>
-      <div class="model-rows" id="modelRows"></div>
-    </div>
     <div class="modal-actions">
       <div class="order-total-inline">
         <span class="order-total-lbl">Total</span>
@@ -290,6 +282,14 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn primary" id="saveBtn" onclick="saveOrder()"><i class="ti ti-check"></i> Save Order</button>
+    </div>
+    <div class="models-section">
+      <div class="models-hdr">
+        <span class="models-label">Items</span>
+        <input type="text" id="itemFilter" placeholder="Filter items…" oninput="filterModelRows(this.value)" style="display:none;height:28px;padding:0 8px;font-size:12px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);flex:1;min-width:0;margin:0 8px">
+        <button class="btn sm" onclick="addModelRow()"><i class="ti ti-plus"></i> Add item</button>
+      </div>
+      <div class="model-rows" id="modelRows"></div>
     </div>
   </div>
 </div>
