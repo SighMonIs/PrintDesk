@@ -402,13 +402,28 @@ function renderTable(){
       // Summary row: customer info + order-level status dropdown
       const orderRows=list.filter(r=>r.orderId===o.orderId);
       const catTotals={};
+      const seenColours=new Set();
       orderRows.forEach(r=>{
         const name=(cats.find(c=>c.id===r.catId)||{}).name||'Unknown';
         catTotals[name]=(catTotals[name]||0)+(r.qty||1);
+        if(r.options){
+          r.options.split('||').forEach(p=>{
+            const idx=p.indexOf(':');
+            if(idx<0) return;
+            const key=p.slice(0,idx).trim().toLowerCase();
+            if(key.includes('colour')||key.includes('color')){
+              p.slice(idx+1).trim().split('|').forEach(cn=>{if(cn.trim())seenColours.add(cn.trim());});
+            }
+          });
+        }
       });
       const itemSummaryHtml=Object.entries(catTotals).map(([name,qty])=>
         `<div style="font-size:10px;color:var(--muted);line-height:1.6">${qty}× ${name}</div>`
       ).join('');
+      const colourSwatchSummary=seenColours.size?`<div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center;margin-top:2px">${[...seenColours].map(name=>{
+        const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
+        return`<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${c?c.code:'#ccc'};border:1px solid rgba(255,255,255,0.15)" title="${esc(name)}"></span>`;
+      }).join('')}</div>`:'';
       const orderStat=o.status||'Pending';
       const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
         <button class="status-dd-btn b-${orderStat.toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('order-${esc(o.orderId)}',this)">
@@ -425,7 +440,8 @@ function renderTable(){
         <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${esc(o.customer)||'—'}</td>
         <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
         <td style="padding:7px 8px;vertical-align:middle">${itemSummaryHtml}</td>
-        <td colspan="3"></td>
+        <td style="padding:7px 8px;vertical-align:middle">${colourSwatchSummary}</td>
+        <td colspan="2"></td>
         <td style="padding:4px 8px;text-align:right;font-size:10px;color:var(--muted);white-space:nowrap;vertical-align:middle">Applies to entire order</td>
         <td data-label="Status" style="padding:4px 6px;text-align:center">${orderStatusDd}</td>
         <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
