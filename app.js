@@ -609,7 +609,12 @@ function initCustomerAutocomplete(){
   input.addEventListener('input', ()=>{
     const q = input.value.trim().toLowerCase();
     document.getElementById('f-customer-id').value='';
-    if(q.length<1){ list.style.display='none'; return; }
+    const panel = document.getElementById('newCustomerPanel');
+    if(q.length<1){
+      list.style.display='none';
+      if(panel) panel.style.display='none';
+      return;
+    }
     const matches = customers.filter(c=>c.name.toLowerCase().includes(q)).slice(0,6);
     if(!matches.length){ list.style.display='none'; return; }
     list.innerHTML = matches.map(c=>`
@@ -623,51 +628,36 @@ function initCustomerAutocomplete(){
     list.style.display='';
   });
 
-  input.addEventListener('blur', ()=>setTimeout(()=>list.style.display='none',150));
+  input.addEventListener('blur', ()=>setTimeout(()=>{
+    list.style.display='none';
+    const name = input.value.trim();
+    const customerId = document.getElementById('f-customer-id').value;
+    const panel = document.getElementById('newCustomerPanel');
+    if(panel){
+      panel.style.display = (name && !customerId) ? '' : 'none';
+    }
+  }, 150));
 }
 
 function selectCustomer(id, name, address){
   document.getElementById('f-customer').value=name;
   document.getElementById('f-customer-id').value=id;
   document.getElementById('customerSuggestions').style.display='none';
-  // Pre-fill address if field is empty
   if(address && !document.getElementById('f-address').value){
     document.getElementById('f-address').value=address;
   }
   updateAddrRefreshBtn();
-  // Hide the + button once a customer is linked
-  const createBtn = document.getElementById('createCustomerBtn');
-  if(createBtn) createBtn.style.display='none';
+  const panel = document.getElementById('newCustomerPanel');
+  if(panel) panel.style.display='none';
 }
 
-function toggleNewCustomerPanel(){
-  const panel  = document.getElementById('newCustomerPanel');
-  const btn    = document.getElementById('createCustomerBtn');
-  const isOpen = panel.style.display !== 'none';
-  if(isOpen){
-    // Close panel
-    panel.style.display = 'none';
-    btn.style.borderColor = '';
-    btn.style.color = '';
-  } else {
-    // Open panel — check name is entered first
-    const name = document.getElementById('f-customer').value.trim();
-    if(!name){ alert('Enter a customer name first.'); return; }
-    // Check if already exists
-    const existing = customers.find(c=>c.name.toLowerCase()===name.toLowerCase());
-    if(existing){
-      selectCustomer(existing.id, existing.name, existing.address);
-      return;
-    }
-    panel.style.display = '';
-    btn.style.borderColor = 'var(--green)';
-    btn.style.color = 'var(--green)';
-    // Pre-fill notes hint if editing an order with an address
-    const addr = document.getElementById('f-address')?.value.trim();
-    const notesEl = document.getElementById('nc-notes');
-    if(addr && notesEl && !notesEl.value) notesEl.placeholder = 'Address will be copied from order…';
-    document.getElementById('nc-email').focus();
-  }
+function showNewCustomerPanel(){
+  const panel = document.getElementById('newCustomerPanel');
+  if(!panel) return;
+  panel.style.display = '';
+  const addr = document.getElementById('f-address')?.value.trim();
+  const notesEl = document.getElementById('nc-notes');
+  if(addr && notesEl && !notesEl.value) notesEl.placeholder = 'Address will be copied from order…';
 }
 
 async function createCustomerInline(){
@@ -689,10 +679,7 @@ async function createCustomerInline(){
     customers.sort((a,b)=>a.name.localeCompare(b.name));
     selectCustomer(row.id, row.name, address);
     setStatus('ok','Customer created');
-    // Close panel
     document.getElementById('newCustomerPanel').style.display='none';
-    const btn = document.getElementById('createCustomerBtn');
-    if(btn){ btn.style.borderColor=''; btn.style.color=''; }
   }catch(e){ alert('Failed to create customer: '+e.message); }
 }
 

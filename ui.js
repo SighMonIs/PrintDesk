@@ -750,9 +750,7 @@ function openAddModal(){
   const fPayment = document.getElementById('f-payment');
   fPayment.innerHTML = getActivePaymentOptions().map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
   fPayment.value = getActivePaymentOptions()[0]?.name||'No';
-  // New order: show + button, update refresh state
-  const createBtn = document.getElementById('createCustomerBtn');
-  if(createBtn) createBtn.style.display='';
+  document.getElementById('newCustomerPanel').style.display='none';
   updateAddrRefreshBtn();
   const today=todayDMY();
   document.getElementById('f-date').value=today;
@@ -768,9 +766,8 @@ function openEdit(orderId){
   document.getElementById('modalTitle').textContent='Edit Order';
   document.getElementById('f-customer').value=first.customer;
   document.getElementById('f-customer-id').value=first.customer_id||'';
-  // Show + button only when order has no linked customer record yet
-  const createBtn = document.getElementById('createCustomerBtn');
-  if(createBtn) createBtn.style.display = first.customer_id ? 'none' : '';
+  // Auto-show new customer panel for orders not yet linked to a customer record
+  document.getElementById('newCustomerPanel').style.display = first.customer_id ? 'none' : '';
   updateAddrRefreshBtn();
   document.getElementById('f-address').value=first.address||'';
   if(first.address){document.getElementById('f-address').classList.add('validated');document.getElementById('addrTick').style.display='';}
@@ -796,11 +793,9 @@ function closeModal(){
   document.querySelectorAll('.model-row.row-error').forEach(el=>el.classList.remove('row-error'));
   document.querySelectorAll('.opt-row.opt-error').forEach(el=>el.classList.remove('opt-error'));
   document.querySelectorAll('.colour-picker-wrap.cp-error').forEach(el=>el.classList.remove('cp-error'));
-  // Reset new customer panel
   const panel = document.getElementById('newCustomerPanel');
   if(panel) panel.style.display='none';
-  const btn = document.getElementById('createCustomerBtn');
-  if(btn){ btn.style.borderColor=''; btn.style.color=''; }
+  ['nc-email','nc-phone','nc-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 }
 
 function validateOrder(){

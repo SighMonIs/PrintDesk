@@ -216,7 +216,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing by Claude</span>
     </div>
     <div class="footer-line">
-      <span id="footerVersion">v3.5.12</span>
+      <span id="footerVersion">v3.5.13</span>
       <span class="footer-sep">·</span>
       <span id="statusMsg" class="footer-status">Loading…</span>
     </div>
@@ -236,13 +236,10 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     <div class="field-row">
       <div class="field">
         <label>Customer name</label>
-        <div style="position:relative;display:flex;gap:6px">
-          <div style="position:relative;flex:1">
-            <input id="f-customer" type="text" placeholder="Search or enter name…" autocomplete="off"
-              oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
-            <div id="customerSuggestions" class="colour-picker-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:9999;max-height:200px;overflow-y:auto"></div>
-          </div>
-          <button class="btn icon-only" id="createCustomerBtn" onclick="toggleNewCustomerPanel()" title="Create new customer" style="flex-shrink:0"><i class="ti ti-user-plus"></i></button>
+        <div style="position:relative">
+          <input id="f-customer" type="text" placeholder="Search existing or type a new name…" autocomplete="off"
+            oninput="this.closest('.field').classList.remove('field-error');this.closest('.field').querySelector('.field-error-msg')?.remove()">
+          <div id="customerSuggestions" class="colour-picker-list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:9999;max-height:200px;overflow-y:auto"></div>
         </div>
         <input type="hidden" id="f-customer-id">
       </div>
@@ -253,7 +250,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
     <!-- New customer details panel -->
     <div id="newCustomerPanel" style="display:none;background:rgba(92,184,122,0.06);border:1px solid rgba(92,184,122,0.25);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:500;color:var(--green);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px"><i class="ti ti-user-plus" style="margin-right:6px"></i>New customer details</div>
+      <div style="font-size:11px;font-weight:500;color:var(--green);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px"><i class="ti ti-user-plus" style="margin-right:6px"></i>New customer — add details</div>
       <div class="field-row">
         <div class="field"><label>Email</label><input type="email" id="nc-email" placeholder="optional"></div>
         <div class="field"><label>Phone</label><input type="tel" id="nc-phone" placeholder="optional"></div>
