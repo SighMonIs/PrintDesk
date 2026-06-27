@@ -483,6 +483,21 @@ function openCustomersModal(){
   renderCustomerList();
   document.getElementById('customersModal').classList.add('open');
 }
+
+function viewCustomer(id){
+  renderCustomerList();
+  document.getElementById('customersModal').classList.add('open');
+  setTimeout(()=>{
+    const cards = document.querySelectorAll('#customersList .customer-card');
+    const idx = customers.findIndex(c=>String(c.id)===String(id));
+    if(idx>=0 && cards[idx]){
+      cards[idx].scrollIntoView({block:'center',behavior:'smooth'});
+      cards[idx].style.transition='box-shadow 0.3s';
+      cards[idx].style.boxShadow='0 0 0 2px var(--accent)';
+      setTimeout(()=>cards[idx].style.boxShadow='',1800);
+    }
+  }, 50);
+}
 function closeCustomersModal(){ document.getElementById('customersModal').classList.remove('open'); }
 
 function renderCustomerList(filter=''){

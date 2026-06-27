@@ -437,7 +437,7 @@ function renderTable(){
       </div>`;
       const summaryRow=`<tr class="group-first order-summary-row ${altClass}">
         <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
-        <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${esc(o.customer)||'—'}</td>
+        <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${o.customer_id?`<a href="#" onclick="viewCustomer('${esc(o.customer_id)}');return false;" style="color:inherit;text-decoration:none;border-bottom:1px solid var(--border2)">${esc(o.customer)}</a>`:esc(o.customer)||'—'}</td>
         <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
         <td style="padding:7px 8px;vertical-align:middle">${itemSummaryHtml}</td>
         <td style="padding:7px 8px;vertical-align:middle">${colourSwatchSummary}</td>
@@ -467,7 +467,7 @@ function renderTable(){
     // Single-item order — original layout
     return`<tr class="group-first ${altClass} ${hasNote?'has-note':''}">
       <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
-      <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${esc(o.customer)||'—'}</td>
+      <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${o.customer_id?`<a href="#" onclick="viewCustomer('${esc(o.customer_id)}');return false;" style="color:inherit;text-decoration:none;border-bottom:1px solid var(--border2)">${esc(o.customer)}</a>`:esc(o.customer)||'—'}</td>
       <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
       ${itemCells}
       <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
