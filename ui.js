@@ -50,7 +50,7 @@ async function selectOrderStatus(orderId, newStatus, optEl){
   const btn = list?.closest('.status-dd-wrap')?.querySelector('.status-dd-btn');
   if(btn){ btn.className='status-dd-btn b-'+newStatus.toLowerCase().replace(' ','-'); btn.innerHTML=newStatus+' <i class="ti ti-chevron-down"></i>'; }
   list?.querySelectorAll('.status-dd-opt').forEach(o=>o.classList.toggle('active',o.textContent.trim()===newStatus));
-  const rows = orders.filter(r=>r.orderId===orderId);
+  const rows = orders.filter(r=>String(r.orderId)===String(orderId));
   for(const row of rows){ row.status=newStatus; }
   updateStats(); renderTable();
   try{
