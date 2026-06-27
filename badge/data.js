@@ -32,7 +32,7 @@ async function doLogin(){
 }
 
 async function restoreSession(){
-  const t=localStorage.getItem('badge2_token')||localStorage.getItem('pd_token'); if(!t) return false;
+  const t=localStorage.getItem('badge2_token')||localStorage.getItem('pd_access_token')||localStorage.getItem('pd_token'); if(!t) return false;
   try{
     const res=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+t}});
     if(!res.ok) return false;
