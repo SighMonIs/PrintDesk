@@ -51,7 +51,7 @@ tbody tr:hover,
 tbody tr.has-note:hover + tr.note-inline-row,
 tbody tr:has(+ tr.note-inline-row:hover){background:#272730;}
 tbody tr.inner-row td:nth-child(-n+3){border-top:none;}
-tbody td{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:top;}
+tbody td{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
 td.mono{font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:12px;}
 tr.group-first td{}
 .note-inline-row td{border-top:none;border-bottom:none;padding:0;}
