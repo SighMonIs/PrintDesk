@@ -132,7 +132,7 @@ function badgeBuild3MF(objects, name) {
     let verts='', tris='';
     for (let i=0;i<pos.count;i++) verts+=`   <vertex x="${pos.getX(i).toFixed(4)}" y="${pos.getY(i).toFixed(4)}" z="${pos.getZ(i).toFixed(4)}"/>\n`;
     if (idx) { for (let i=0;i<idx.count;i+=3) tris+=`   <triangle v1="${idx.getX(i)}" v2="${idx.getX(i+1)}" v3="${idx.getX(i+2)}"/>\n`; }
-    else { for (let i=0;i<pos.count;i+=3) tris+=`   <triangle v1="${i}" v2="${i+1}" v3="${i+2}"/>\n`; }
+    else     { for (let i=0;i<pos.count;i+=3) tris+=`   <triangle v1="${i}" v2="${i+1}" v3="${i+2}"/>\n`; }
     objXml+=`  <object id="${obj.id}" type="${obj.negative?'other':'model'}" name="${obj.name}">\n   <mesh>\n    <vertices>\n${verts}    </vertices>\n    <triangles>\n${tris}    </triangles>\n   </mesh>\n  </object>\n`;
     comps+=`    <component objectid="${obj.id}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n`;
   });
@@ -142,7 +142,10 @@ function badgeBuild3MF(objects, name) {
   let parts='';
   objects.forEach(obj => { parts+=`    <part id="${obj.id}" subtype="${obj.negative?'negative_part':'normal_part'}">\n      <metadata key="name" value="${obj.name}"/>\n      <metadata key="extruder" value="${obj.extruder}"/>\n    </part>\n`; });
   const modelSettings=`<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <object id="${wId}">\n    <metadata key="name" value="${name}"/>\n    <metadata key="extruder" value="1"/>\n${parts}  </object>\n</config>`;
-  return { modelXml, modelSettings };
+  const filamentColours=objects.filter(o=>!o.negative).map(o=>o.colour);
+  const n=filamentColours.length;
+  const projectSettings=JSON.stringify({from:'project',name:'project_settings',version:'02.04.00.70',printer_model:'Bambu Lab H2C',printer_settings_id:'Bambu Lab H2C 0.4 nozzle',filament_colour:filamentColours,filament_multi_colour:filamentColours,filament_type:Array(n).fill('PLA'),filament_settings_id:Array(n).fill('Bambu PLA Basic @BBL H2C'),filament_vendor:Array(n).fill('Bambu Lab'),filament_is_support:Array(n).fill('0'),filament_ids:Array(n).fill('GFA00')});
+  return { modelXml, modelSettings, projectSettings };
 }
 
 function badgeCrc32(data) {
@@ -151,28 +154,24 @@ function badgeCrc32(data) {
   return(c^0xFFFFFFFF)>>>0;
 }
 
-function badgeBuildZip({modelXml, modelSettings}) {
+function badgeBuildZip({modelXml, modelSettings, projectSettings}) {
   const enc=new TextEncoder();
   const files=[
-    {name:'[Content_Types].xml', data:enc.encode('<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>')},
-    {name:'_rels/.rels', data:enc.encode('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel" Target="/3D/model.model"/></Relationships>')},
-    {name:'3D/model.model', data:enc.encode(modelXml)},
-    {name:'Metadata/Slic3r_PE_model.config', data:enc.encode(modelSettings)},
+    {name:'[Content_Types].xml', data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="application/xml"/><Default Extension="json" ContentType="application/json"/></Types>`)},
+    {name:'_rels/.rels', data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/><Relationship Target="/Metadata/model_settings.config" Id="rel1" Type="http://schemas.bambulab.com/package/2021/model-settings"/><Relationship Target="/Metadata/project_settings.config" Id="rel2" Type="http://schemas.bambulab.com/package/2021/project-settings"/></Relationships>`)},
+    {name:'3D/3dmodel.model', data:enc.encode(modelXml)},
+    {name:'Metadata/model_settings.config', data:enc.encode(modelSettings)},
+    {name:'Metadata/project_settings.config', data:enc.encode(projectSettings)},
   ];
-  const parts=[], cd=[];
-  let off=0;
+  const parts=[], cd=[]; let off=0;
   for (const f of files) {
-    const fn=enc.encode(f.name), crc=badgeCrc32(f.data);
-    const lh=new Uint8Array(30+fn.length);
-    const lv=new DataView(lh.buffer);
-    lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0,true);lv.setUint16(8,0,true);lv.setUint16(10,0,true);lv.setUint16(12,0,true);lv.setUint32(14,crc,true);lv.setUint32(18,f.data.length,true);lv.setUint32(22,f.data.length,true);lv.setUint16(26,fn.length,true);lv.setUint16(28,0,true);
-    lh.set(fn,30);
-    parts.push(lh,f.data);
-    const ce=new Uint8Array(46+fn.length), cv=new DataView(ce.buffer);
-    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0,true);cv.setUint16(10,0,true);cv.setUint16(12,0,true);cv.setUint16(14,0,true);cv.setUint32(18,crc,true);cv.setUint32(22,f.data.length,true);cv.setUint32(26,f.data.length,true);cv.setUint16(30,fn.length,true);cv.setUint16(32,0,true);cv.setUint16(34,0,true);cv.setUint16(36,0,true);cv.setUint16(38,0,true);cv.setUint32(42,off,true);
-    ce.set(fn,46);
-    cd.push(ce);
-    off+=lh.length+f.data.length;
+    const nb=enc.encode(f.name), d=f.data, crc=badgeCrc32(d);
+    const loc=new Uint8Array(30+nb.length+d.length), dv=new DataView(loc.buffer);
+    dv.setUint32(0,0x04034b50,true);dv.setUint16(4,20,true);dv.setUint16(6,0,true);dv.setUint16(8,0,true);dv.setUint16(10,0,true);dv.setUint16(12,0,true);dv.setUint32(14,crc,true);dv.setUint32(18,d.length,true);dv.setUint32(22,d.length,true);dv.setUint16(26,nb.length,true);dv.setUint16(28,0,true);
+    loc.set(nb,30); loc.set(d,30+nb.length); parts.push(loc);
+    const ce=new Uint8Array(46+nb.length), cv=new DataView(ce.buffer);
+    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0,true);cv.setUint16(10,0,true);cv.setUint16(12,0,true);cv.setUint16(14,0,true);cv.setUint32(16,crc,true);cv.setUint32(20,d.length,true);cv.setUint32(24,d.length,true);cv.setUint16(28,nb.length,true);cv.setUint16(30,0,true);cv.setUint16(32,0,true);cv.setUint16(34,0,true);cv.setUint16(36,0,true);cv.setUint32(38,0,true);cv.setUint32(42,off,true);
+    ce.set(nb,46); cd.push(ce); off+=loc.length;
   }
   const cdSize=cd.reduce((s,c)=>s+c.length,0);
   const eocd=new Uint8Array(22), ev=new DataView(eocd.buffer);
