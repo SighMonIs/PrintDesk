@@ -1742,7 +1742,6 @@ function _renderViewCustomers(filter) {
     var av = _avatarColor(c.name);
     var ini = _initials(c.name);
     return '<div class="inbox-card' + (isSelected?' selected':'') + '" onclick="_showCustomerDetail(\'' + esc(String(c.id)) + '\')">'
-      + '<div class="inbox-card-avatar" style="background:' + av + '">' + ini + '</div>'
       + '<div class="inbox-card-content">'
       + '<div class="inbox-card-row1"><span class="inbox-card-customer">' + esc(c.name) + '</span>'
       + (ordCount ? '<span class="inbox-card-num">' + ordCount + ' order' + (ordCount!==1?'s':'') + '</span>' : '')
@@ -1772,7 +1771,6 @@ function _showCustomerDetail(customerId) {
   var html = '<div class="inbox-detail">'
     + '<div class="inbox-detail-header">'
     + '<div class="inbox-detail-header-top">'
-    + '<div class="inbox-card-avatar" style="background:'+av+';width:44px;height:44px;font-size:16px">'+ini+'</div>'
     + '<div style="flex:1;min-width:0">'
     + '<div class="inbox-detail-customer">' + esc(c.name) + '</div>'
     + (c.email?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc(c.email)+'</div>':'')
