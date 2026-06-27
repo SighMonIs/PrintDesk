@@ -26,7 +26,7 @@ function selectStatus(orderId, rowId, newStatus, optEl){
   const wrap = list?.closest('.status-dd-wrap');
   const btn  = wrap?.querySelector('.status-dd-btn');
   if(btn){
-    btn.className = 'status-dd-btn b-'+newStatus.toLowerCase();
+    btn.className = 'status-dd-btn b-'+newStatus.toLowerCase().replace(' ','-');
     btn.innerHTML = newStatus + ' <i class="ti ti-chevron-down"></i>';
   }
   // Update active dot
@@ -223,7 +223,7 @@ function renderTable(){
     if(isFirst){ if(seen.size>0) groupIdx++; seen.add(o.orderId); }
     const altClass=groupIdx%2===1?'row-alt':'';
     const cat=cats.find(c=>String(c.id)===String(o.catId));
-    const bc='b-'+(o.status||'pending').toLowerCase();
+    const bc='b-'+(o.status||'pending').toLowerCase().replace(' ','-');
     const orderNum=orderNumFromId(o.orderId);
     const hasNote=!!o.notes.trim();
     const prevMade=wasPreviouslyMade(o, madeSet);
@@ -248,12 +248,12 @@ function renderTable(){
     }).filter(Boolean).join(' · ');
 
     const statusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
-      <button class="status-dd-btn b-${(o.status||'pending').toLowerCase()}" onclick="toggleStatusDd('${o.id}',this)">
+      <button class="status-dd-btn b-${(o.status||'pending').toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('${o.id}',this)">
         ${o.status||'Pending'} <i class="ti ti-chevron-down"></i>
       </button>
       <div class="status-dd-list" id="sdd-${o.id}">
         ${['Pending','Printing','Complete','On Hold','Cancelled'].map(s=>`
-          <div class="status-dd-opt b-${s.toLowerCase()}${o.status===s?' active':''}"
+          <div class="status-dd-opt b-${s.toLowerCase().replace(' ','-')}${o.status===s?' active':''}"
             onclick="selectStatus('${esc(o.orderId)}','${esc(o.id)}','${s}',this)">${s}</div>`).join('')}
       </div>
     </div>`;
@@ -1055,7 +1055,7 @@ async function updateStatus(orderId,rowId,newStatus,sel){
   }catch(e){
     // Revert on failure
     row.status=prevStatus;
-    if(sel){ sel.className=(sel.classList.contains('status-dd-btn')?'status-dd-btn':'status-select')+' b-'+prevStatus.toLowerCase(); }
+    if(sel){ sel.className=(sel.classList.contains('status-dd-btn')?'status-dd-btn':'status-select')+' b-'+prevStatus.toLowerCase().replace(' ','-'); }
     setStatus('err','Update failed: '+e.message);
     alert('Status save failed: '+e.message);
   }finally{
