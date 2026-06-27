@@ -626,7 +626,18 @@ function initCustomerAutocomplete(){
   const list  = document.getElementById('customerSuggestions');
   if(!input||!list) return;
 
+  let acMatches=[], acIdx=-1;
+
+  function acHighlight(idx){
+    acIdx=idx;
+    list.querySelectorAll('.customer-suggestion').forEach((el,i)=>{
+      el.classList.toggle('ac-active', i===acIdx);
+      if(i===acIdx) el.scrollIntoView({block:'nearest'});
+    });
+  }
+
   input.addEventListener('input', ()=>{
+    acIdx=-1;
     const q = input.value.trim().toLowerCase();
     document.getElementById('f-customer-id').value='';
     const panel = document.getElementById('newCustomerPanel');
@@ -634,11 +645,12 @@ function initCustomerAutocomplete(){
       list.style.display='none';
       if(panel) panel.style.display='none';
       updateCustomerBorder();
+      acMatches=[];
       return;
     }
-    const matches = customers.filter(c=>c.name.toLowerCase().includes(q)).slice(0,6);
-    if(!matches.length){ list.style.display='none'; return; }
-    list.innerHTML = matches.map(c=>`
+    acMatches = customers.filter(c=>c.name.toLowerCase().includes(q)).slice(0,6);
+    if(!acMatches.length){ list.style.display='none'; return; }
+    list.innerHTML = acMatches.map(c=>`
       <div class="cp-option customer-suggestion" onmousedown="selectCustomer('${esc(c.id)}','${esc(c.name)}','${esc(c.address)}')">
         <div class="customer-avatar" style="width:24px;height:24px;font-size:11px;flex-shrink:0">${esc(c.name[0]?.toUpperCase()||'?')}</div>
         <div>
@@ -649,8 +661,21 @@ function initCustomerAutocomplete(){
     list.style.display='';
   });
 
+  input.addEventListener('keydown', e=>{
+    if(list.style.display==='none'||!acMatches.length) return;
+    if(e.key==='ArrowDown'){ e.preventDefault(); acHighlight(Math.min(acIdx+1,acMatches.length-1)); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); acHighlight(Math.max(acIdx-1,0)); }
+    else if(e.key==='Enter' && acIdx>=0){
+      e.preventDefault();
+      const c=acMatches[acIdx];
+      selectCustomer(c.id, c.name, c.address);
+    }
+    else if(e.key==='Escape'){ list.style.display='none'; acIdx=-1; }
+  });
+
   input.addEventListener('blur', ()=>setTimeout(()=>{
     list.style.display='none';
+    acIdx=-1;
     const name = input.value.trim();
     const customerId = document.getElementById('f-customer-id').value;
     const panel = document.getElementById('newCustomerPanel');
