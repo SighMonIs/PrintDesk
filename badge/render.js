@@ -164,24 +164,24 @@ function updateBackingCoords() {
   wrapSpinners(document.getElementById('accordionBody'));
 }
 
-function onBackingCoordChange() {
-  const x = parseFloat(document.getElementById('bcX')?.value);
-  const y = parseFloat(document.getElementById('bcY')?.value);
-  const z = parseFloat(document.getElementById('bcZ')?.value);
+function resetBackingOverride() { backingOverride = null; scheduleRender(); }
+
+function onBackingCoordChange(field) {
   const val = document.getElementById('backingSelect')?.value;
+  const v   = parseFloat(document.getElementById(field === 'x' ? 'bcX' : field === 'y' ? 'bcY' : 'bcZ')?.value);
+  if (isNaN(v)) return;
   if (val === 'Round Magnet') {
-    const changed = !isNaN(x) ? x : (!isNaN(y) ? y : null);
-    if (changed !== null) {
-      const dEl = document.getElementById('rndMagDiam');
-      if (dEl) dEl.value = changed;
+    if (field === 'x' || field === 'y') {
+      const dEl = document.getElementById('rndMagDiam'); if (dEl) dEl.value = v;
+    } else {
+      const dEl = document.getElementById('rndMagDepth'); if (dEl) dEl.value = v;
     }
-    if (!isNaN(z)) { const dEl = document.getElementById('rndMagDepth'); if (dEl) dEl.value = z; }
     saveRndMagSettings();
-  } else {
-    backingOverride = {};
-    if (!isNaN(x)) backingOverride.w = x;
-    if (!isNaN(y)) backingOverride.h = y;
-    if (!isNaN(z)) backingOverride.d = z;
+  } else if (val !== 'Keychain') {
+    backingOverride = backingOverride || {};
+    if (field === 'x') backingOverride.w = v;
+    else if (field === 'y') backingOverride.h = v;
+    else backingOverride.d = v;
   }
   scheduleRender();
 }
