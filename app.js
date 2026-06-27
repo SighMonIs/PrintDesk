@@ -731,10 +731,70 @@ function revertToCustomerAddress(){
 }
 
 // ── Badge export ───────────────────────────────────────────
-function generateBadge(url){
-  setStatus('spin','Generating badge&hellip;');
-  window.open(url+'&autoExport=1','_blank','width=400,height=300,menubar=no,toolbar=no,location=no,status=no');
-  setTimeout(()=>setStatus('ok','Badge download started'), 3000);
+// ── Badge generation (inline, no popup) ───────────────────────
+let _badgeDepsLoaded = false;
+async function _loadBadgeDeps() {
+  if (_badgeDepsLoaded) return;
+  const load = src => new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src;
+    s.onload = res; s.onerror = rej; document.head.appendChild(s);
+  });
+  await load('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
+  await load('https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js');
+  await load('https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
+  await load('/badge/generate.js');
+  _badgeDepsLoaded = true;
+}
+
+let _badgeModelCache = null;
+async function _loadBadgeModel() {
+  if (_badgeModelCache) return _badgeModelCache;
+  const models = await sbGet('badge_models', '?archived=eq.false&order=name&limit=1');
+  if (!models.length) throw new Error('No badge models found');
+  const model = models[0];
+  const layers = await sbGet('badge_model_layers', `?model_id=eq.${model.id}&order=layer_order`);
+  const layerConfig = layers.map((l, i) => ({
+    id: l.id, hex: l.colour_hex, colourId: l.colour_id,
+    border: l.border_mm, depth: l.thickness_mm,
+    hasSlot: i === 0, isText: !l.filled,
+  }));
+  _badgeModelCache = { model, layerConfig };
+  return _badgeModelCache;
+}
+
+async function generateBadge(url) {
+  setStatus('spin', 'Generating badge&hellip;');
+  try {
+    const params = new URLSearchParams(url.includes('?') ? url.split('?')[1] : url);
+    const name = (params.get('name') || 'NAME').toUpperCase();
+    const backing = params.get('backing') || 'Magnet';
+    const colourStr = params.get('colours') || '';
+
+    await _loadBadgeDeps();
+    const { layerConfig: baseConfig } = await _loadBadgeModel();
+
+    // Clone layerConfig and apply colour overrides from order options
+    const layerConfig = baseConfig.map(l => ({ ...l }));
+    if (colourStr) {
+      colourStr.split('|').map(s => s.trim()).forEach((colName, i) => {
+        if (i >= layerConfig.length) return;
+        const c = colours.find(c => c.name.toLowerCase() === colName.toLowerCase());
+        if (c) { layerConfig[i].hex = c.code; layerConfig[i].colourId = c.id; }
+      });
+    }
+
+    const font = await badgeLoadFont();
+    const zip = badgeGenerate3MF({ name, layerConfig, backing, font });
+    const filename = name + '.3mf';
+    const b = new Blob([zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u; a.download = filename; a.click();
+    URL.revokeObjectURL(u);
+    setStatus('ok', 'Badge downloaded: ' + filename);
+  } catch(e) {
+    setStatus('err', 'Badge failed: ' + e.message);
+  }
 }
 
 // ── Stats modal ────────────────────────────────────────────
