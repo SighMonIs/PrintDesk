@@ -401,8 +401,8 @@ function renderTable(){
     if(isMulti && isFirst){
       // Summary row: customer info + order-level status dropdown
       const orderStat=o.status||'Pending';
-      const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:3px;letter-spacing:0.3px">all ${orderItemCount[o.orderId]} items</div>
+      const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:7px">
+        <span style="font-size:10px;color:var(--muted);letter-spacing:0.3px;white-space:nowrap">Applies to entire order</span>
         <button class="status-dd-btn b-${orderStat.toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('order-${esc(o.orderId)}',this)">
           ${orderStat} <i class="ti ti-chevron-down"></i>
         </button>
