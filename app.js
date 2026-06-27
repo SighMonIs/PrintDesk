@@ -891,6 +891,87 @@ async function _loadBadgeAssets() {
   return _badgeAssetCache;
 }
 
+let _batchItems = null;
+
+function openBadgeBatchModal(items) {
+  _batchItems = items;
+  document.getElementById('badgeBatchCount').textContent = `${items.length} badges found in this order`;
+  document.getElementById('badgeBatchCountA').textContent = items.length;
+  document.getElementById('badgeBatchModal').classList.add('open');
+}
+
+function closeBadgeBatchModal() {
+  document.getElementById('badgeBatchModal').classList.remove('open');
+}
+
+function _buildOuterZip(entries) {
+  const enc = new TextEncoder();
+  const crc32 = d => { let c=0xFFFFFFFF; for(let i=0;i<d.length;i++){c^=d[i];for(let j=0;j<8;j++)c=(c>>>1)^(c&1?0xEDB88320:0);} return(c^0xFFFFFFFF)>>>0; };
+  const parts = [], cd = []; let off = 0;
+  for (const { name, data } of entries) {
+    const nb = enc.encode(name), crc = crc32(data);
+    const loc = new Uint8Array(30 + nb.length + data.length), dv = new DataView(loc.buffer);
+    dv.setUint32(0,0x04034b50,true); dv.setUint16(4,20,true); dv.setUint16(6,0,true); dv.setUint16(8,0,true); dv.setUint16(10,0,true); dv.setUint16(12,0,true); dv.setUint32(14,crc,true); dv.setUint32(18,data.length,true); dv.setUint32(22,data.length,true); dv.setUint16(26,nb.length,true); dv.setUint16(28,0,true);
+    loc.set(nb,30); loc.set(data,30+nb.length); parts.push(loc);
+    const ce = new Uint8Array(46 + nb.length), cv = new DataView(ce.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true); cv.setUint16(8,0,true); cv.setUint16(10,0,true); cv.setUint16(12,0,true); cv.setUint16(14,0,true); cv.setUint32(16,crc,true); cv.setUint32(20,data.length,true); cv.setUint32(24,data.length,true); cv.setUint16(28,nb.length,true); cv.setUint16(30,0,true); cv.setUint16(32,0,true); cv.setUint16(34,0,true); cv.setUint16(36,0,true); cv.setUint32(38,0,true); cv.setUint32(42,off,true);
+    ce.set(nb,46); cd.push(ce); off += loc.length;
+  }
+  const cdSize = cd.reduce((s,c) => s+c.length, 0);
+  const eocd = new Uint8Array(22), ev = new DataView(eocd.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(4,0,true); ev.setUint16(6,0,true); ev.setUint16(8,entries.length,true); ev.setUint16(10,entries.length,true); ev.setUint32(12,cdSize,true); ev.setUint32(16,off,true); ev.setUint16(20,0,true);
+  const all = [...parts,...cd,eocd]; const res = new Uint8Array(all.reduce((s,p)=>s+p.length,0)); let p=0; for(const a of all){res.set(a,p);p+=a.length;} return res;
+}
+
+async function generateAllBadgesZip(items) {
+  if (!items || !items.length) return;
+  const total = items.length;
+  setStatus('spin', `Generating ${total} badges&hellip;`);
+  try {
+    await _loadBadge3mfDeps();
+    const assets = await _loadBadgeAssets();
+    if (!_badgeFont) {
+      _badgeFont = await new Promise((res, rej) =>
+        opentype.load(assets.fontPath, (err, f) => err ? rej(err) : res(f))
+      );
+    }
+    const entries = []; const skipped = [];
+    for (let i = 0; i < items.length; i++) {
+      const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
+      setStatus('spin', `Generating badge ${i + 1} of ${total}&hellip;`);
+      const name = (rawName || 'NAME').toUpperCase();
+      const layerConfig = assets.layerConfig.map(l => ({ ...l }));
+      if (colourStr) {
+        colourStr.split('|').map(s => s.trim()).forEach((colName, idx) => {
+          if (idx >= layerConfig.length) return;
+          const c = colours.find(c => c.name.toLowerCase() === colName.toLowerCase());
+          if (c) { layerConfig[idx].hex = c.code; layerConfig[idx].colourId = c.id; }
+        });
+      }
+      const backing = _badgeBuildBacking(backingStr);
+      if (backing) {
+        const bb2 = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
+        if (bb2.x2 - bb2.x1 < (backing.type === 'round' ? backing.diameter : (backing.w || 0))) {
+          skipped.push(name); continue;
+        }
+      }
+      const result = generate3MF({ name, layerConfig, backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate });
+      entries.push({ name: result.filename, data: result.zip });
+    }
+    setStatus('spin', 'Building ZIP&hellip;');
+    const zipData = _buildOuterZip(entries);
+    const b = new Blob([zipData], { type: 'application/zip' });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u; a.download = 'badges.zip'; a.click(); URL.revokeObjectURL(u);
+    const skipMsg = skipped.length ? ` — skipped: ${skipped.join(', ')}` : '';
+    setStatus('ok', `${entries.length} of ${total} badges downloaded as ZIP${skipMsg}`);
+  } catch(e) {
+    console.error('Generate badges ZIP error:', e);
+    setStatus('err', 'Badge ZIP failed: ' + e.message);
+  }
+}
+
 async function generateAllBadges(items) {
   if (!items || !items.length) return;
   const total = items.length;
