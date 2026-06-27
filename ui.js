@@ -409,7 +409,7 @@ function renderTable(){
         for(let q=0;q<qty;q++) acc.push({name:rOpts['Text']||'',backing:rOpts['Backing']||'',colours:rOpts['Colours']||''});
         return acc;
       },[]);
-      const allBadgesBtn=badgeItems.length>1?`<button class="icon-btn" title="Generate all ${badgeItems.length} badges" onclick="openBadgeBatchModal(${esc(JSON.stringify(badgeItems))})"><i class="ti ti-badges"></i></button>`:'';
+      const allBadgesBtn=badgeItems.length>1?`<button class="icon-btn" title="Generate all ${badgeItems.length} badges" onclick="openBadgeBatchModal(${esc(JSON.stringify(badgeItems))},${esc(JSON.stringify(o.customer||'badges'))})"><i class="ti ti-badges"></i></button>`:'';
       const catTotals={};
       const seenColours=new Set();
       orderRows.forEach(r=>{

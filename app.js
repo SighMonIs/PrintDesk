@@ -892,9 +892,11 @@ async function _loadBadgeAssets() {
 }
 
 let _batchItems = null;
+let _batchCustomer = 'badges';
 
-function openBadgeBatchModal(items) {
+function openBadgeBatchModal(items, customer) {
   _batchItems = items;
+  _batchCustomer = (customer || 'badges').trim();
   document.getElementById('badgeBatchCount').textContent = `${items.length} badges found in this order`;
   document.getElementById('badgeBatchCountA').textContent = items.length;
   document.getElementById('badgeBatchChoose').style.display = '';
@@ -996,8 +998,9 @@ async function generateAllBadgesZip(items) {
     const b = new Blob([zipData], { type: 'application/zip' });
     const u = URL.createObjectURL(b);
     const a = document.createElement('a');
-    a.href = u; a.download = 'badges.zip'; a.click(); URL.revokeObjectURL(u);
-    _batchShowDone(`${entries.length} of ${total} badges downloaded as badges.zip`, skipped);
+    const zipName = (_batchCustomer.replace(/[^a-z0-9 _-]/gi, '').trim() || 'badges') + '.zip';
+    a.href = u; a.download = zipName; a.click(); URL.revokeObjectURL(u);
+    _batchShowDone(`${entries.length} of ${total} badges downloaded as ${zipName}`, skipped);
   } catch(e) {
     console.error('Generate badges ZIP error:', e);
     _batchShowError(e.message);
