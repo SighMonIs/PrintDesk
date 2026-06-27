@@ -775,8 +775,8 @@ function addModelRow(d){
   el.innerHTML=`
     <div class="model-row-top">
       <div class="mf"><label>Category</label><select id="mc-${idx}" onchange="catChanged(${idx})">${catOptions(d.catId)}</select></div>
-      <div class="mf"><label>Qty</label><input type="number" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"></div>
-      <div class="mf"><label>Price ($)</label><input type="number" id="mp-${idx}" value="${d.price||''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"></div>
+      <div class="mf"><label>Qty</label><div class="stepper"><button type="button" class="step-btn" onclick="stepVal('mq-${idx}',-1,1,1)">−</button><input type="number" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"><button type="button" class="step-btn" onclick="stepVal('mq-${idx}',1,1,1)">+</button></div></div>
+      <div class="mf"><label>Price ($)</label><div class="stepper"><button type="button" class="step-btn" onclick="stepVal('mp-${idx}',-0.5,0,0.5)">−</button><input type="number" id="mp-${idx}" value="${d.price||''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"><button type="button" class="step-btn" onclick="stepVal('mp-${idx}',0.5,0,0.5)">+</button></div></div>
       <button class="rm-btn" onclick="removeModel(this)" title="Remove item"><i class="ti ti-x"></i></button>
     </div>
     <div class="model-options" id="mo-${idx}"></div>
@@ -801,6 +801,14 @@ function catChanged(idx){
   }
   document.getElementById('opts-'+idx).value='';
   renderModelOpts(idx,catId,'');
+}
+
+function stepVal(id, delta, min, step){
+  const el=document.getElementById(id);
+  if(!el) return;
+  const val=parseFloat(el.value)||0;
+  el.value=Math.max(min,Math.round((val+delta*step)*1000)/1000);
+  el.dispatchEvent(new Event('input'));
 }
 
 function calcTotal(){
