@@ -1420,21 +1420,49 @@ document.addEventListener('click', e=>{
 
 // -- Inbox view -----------------------------------------------------
 let _inboxSelectedOrderId = null;
+let _inboxTab = 'all';
+
+function setInboxTab(tab) {
+  _inboxTab = tab;
+  document.querySelectorAll('.inbox-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  renderTable();
+}
+
+function _avatarColor(name) {
+  const palette = ['#5b9cf6','#5cb87a','#e8a93a','#e07c3a','#9b8af6','#e05c5c','#3ab8b8','#c47ab8'];
+  let h = 0;
+  for (let i = 0; i < (name||'').length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return palette[Math.abs(h) % palette.length];
+}
+
+function _initials(name) {
+  if (!name) return '?';
+  const p = name.trim().split(/\s+/);
+  return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : name[0].toUpperCase();
+}
 
 function renderInboxList(list) {
   const el = document.getElementById('inboxList');
   if (!el) return;
 
+  // Apply tab filter
+  let filtered = list;
+  if (_inboxTab === 'pending')  filtered = list.filter(r => (r.status||'Pending') === 'Pending');
+  if (_inboxTab === 'printing') filtered = list.filter(r => r.status === 'Printing');
+  if (_inboxTab === 'complete') filtered = list.filter(r => r.status === 'Complete');
+
   const orderIds = [];
   const orderMap = new Map();
-  list.forEach(row => {
+  filtered.forEach(row => {
     const oid = String(row.orderId);
     if (!orderMap.has(oid)) { orderIds.push(oid); orderMap.set(oid, []); }
     orderMap.get(oid).push(row);
   });
 
   if (!orderIds.length) {
-    el.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-inbox"></i>No orders</div>';
+    el.innerHTML = '<div class=”inbox-empty-state”><i class=”ti ti-inbox”></i>No orders</div>';
     _inboxClearDetailIfGone(orderIds);
     return;
   }
@@ -1452,14 +1480,23 @@ function renderInboxList(list) {
     }).filter(Boolean))].join(', ');
     const itemLabel = rows.length === 1 ? '1 item' : rows.length + ' items';
     const orderNum = orderNumFromId(oid);
-    return '<div class="inbox-card ' + blClass + (isSelected ? ' selected' : '') + '" onclick="showInboxDetail(\'' + esc(oid) + '\')">'
-      + '<div class="inbox-card-top">'
-      + '<div class=”inbox-card-customer”>' + (esc(first.customer) || '?') + '</div>'
-      + '<div class=”inbox-card-num”>' + orderNum + '</div>'
+    const avatarColor = _avatarColor(first.customer || '');
+    const initials = _initials(first.customer || '');
+    const statusColor = {Pending:'rgba(232,169,58,0.15)',Printing:'rgba(91,156,246,0.15)',Complete:'rgba(92,184,122,0.15)','On Hold':'rgba(224,124,58,0.15)',Cancelled:'rgba(224,92,92,0.15)'}[status]||'rgba(136,136,133,0.15)';
+    const statusText = {Pending:'var(--amber)',Printing:'var(--blue)',Complete:'var(--green)','On Hold':'var(--orange)',Cancelled:'var(--red)'}[status]||'var(--muted)';
+
+    return '<div class=”inbox-card ' + blClass + (isSelected ? ' selected' : '') + '” onclick=”showInboxDetail(\'' + esc(oid) + '\')”>'
+      + '<div class=”inbox-card-avatar” style=”background:' + avatarColor + '”>' + initials + '</div>'
+      + '<div class=”inbox-card-content”>'
+      + '<div class=”inbox-card-row1”>'
+      + '<span class=”inbox-card-customer”>' + (esc(first.customer) || '?') + '</span>'
+      + '<span class=”inbox-card-num”>' + orderNum + '</span>'
       + '</div>'
-      + '<div class=”inbox-card-meta”>'
-      + '<div class=”inbox-card-cats”>' + (esc(catNames) || '?') + ' &middot; ' + itemLabel + '</div>'
-      + '<div class="inbox-card-total">$' + total.toFixed(2) + '</div>'
+      + '<div class=”inbox-card-subject”>' + (esc(catNames) || '?') + ' &middot; ' + itemLabel + '</div>'
+      + '<div class=”inbox-card-footer”>'
+      + '<span class=”inbox-card-status” style=”background:' + statusColor + ';color:' + statusText + '”>' + status + '</span>'
+      + '<span class=”inbox-card-total”>$' + total.toFixed(2) + '</span>'
+      + '</div>'
       + '</div>'
       + '</div>';
   }).join('');
