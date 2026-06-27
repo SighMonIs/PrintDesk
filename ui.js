@@ -424,7 +424,7 @@ function renderTable(){
       }).join('')}</div>`:'';
       const orderStat=o.status||'Pending';
       const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
-        <button class="status-dd-btn b-${orderStat.toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('order-${esc(o.orderId)}',this)">
+        <button class="status-dd-btn order-status-dd b-${orderStat.toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('order-${esc(o.orderId)}',this)">
           ${orderStat} <i class="ti ti-chevron-down"></i>
         </button>
         <div class="status-dd-list" id="sdd-order-${esc(o.orderId)}">
