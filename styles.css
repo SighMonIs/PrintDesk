@@ -51,8 +51,10 @@ tbody td{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowr
 td.mono{font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:12px;}
 tr.group-first td{}
 .note-inline-row:hover{background:inherit!important;}
-.note-inline-cell{padding:0 8px 7px 8px!important;font-size:12px;color:var(--muted);display:flex;align-items:flex-start;border-bottom:none;white-space:pre-wrap;line-height:1.5;}
-.note-inline-row td{border-bottom:none;}
+.note-inline-row td{border-bottom:1px solid var(--border);padding:0;}
+.note-inline-cell{padding:0 8px 7px 8px;font-size:12px;color:var(--muted);display:flex;align-items:flex-start;white-space:pre-wrap;line-height:1.5;}
+tbody tr.has-note{border-bottom:none;}
+tbody tr.has-note td{border-bottom:none;}
 
 .badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:2px;text-transform:uppercase;letter-spacing:0.3px;}
 .b-pending  {background:rgba(232,169,58,0.15);color:var(--amber);border:1px solid rgba(232,169,58,0.3);}
