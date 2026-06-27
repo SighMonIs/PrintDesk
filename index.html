@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=3.5.15">
+<link rel="stylesheet" href="styles.css?v=3.5.16">
 
 <script>
 // Fallback if config.js missing
@@ -170,6 +170,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <label class="filter-check"><input type="checkbox" data-filter="status" value="Pending" checked onchange="renderTable();updateFilterCount()"> Pending</label>
         <label class="filter-check"><input type="checkbox" data-filter="status" value="Printing" checked onchange="renderTable();updateFilterCount()"> Printing</label>
         <label class="filter-check"><input type="checkbox" data-filter="status" value="Complete" checked onchange="renderTable();updateFilterCount()"> Complete</label>
+        <label class="filter-check"><input type="checkbox" data-filter="status" value="On Hold" checked onchange="renderTable();updateFilterCount()"> On Hold</label>
         <label class="filter-check"><input type="checkbox" data-filter="status" value="Cancelled" checked onchange="renderTable();updateFilterCount()"> Cancelled</label>
         <div class="filter-section-title" style="margin-top:10px">Category</div>
         <div id="filterCatChecks"></div>
@@ -203,7 +204,6 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
           <th style="width:80px" data-key="total" >Total</th>
           <th style="width:78px;text-align:center" data-key="status" >Status</th>
           <th style="width:40px">$</th>
-          <th style="width:40px">Note</th>
           <th style="width:66px;text-align:right">Actions</th>
         </tr>
       </thead>
@@ -216,7 +216,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing by Claude</span>
     </div>
     <div class="footer-line">
-      <span id="footerVersion">v3.5.15</span>
+      <span id="footerVersion">v3.5.16</span>
       <span class="footer-sep">·</span>
       <span id="statusMsg" class="footer-status">Loading…</span>
     </div>
@@ -546,8 +546,8 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<script src="api.js?v=3.5.15"></script>
-<script src="ui.js?v=3.5.15"></script>
-<script src="app.js?v=3.5.15"></script>
+<script src="api.js?v=3.5.16"></script>
+<script src="ui.js?v=3.5.16"></script>
+<script src="app.js?v=3.5.16"></script>
 </body>
 </html>

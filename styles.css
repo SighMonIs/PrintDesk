@@ -4,7 +4,7 @@
   --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
   --text:#e8e8e6;--muted:#888885;
   --accent:#e8d5a3;--accent2:#c4a96b;
-  --green:#5cb87a;--blue:#5b9cf6;--amber:#e8a93a;--red:#e05c5c;
+  --green:#5cb87a;--blue:#5b9cf6;--amber:#e8a93a;--red:#e05c5c;--orange:#e07c3a;
   --radius:2px;--radius-lg:2px;
   --tbl-odd:#161618;--tbl-head:#1e1e22;
 }
@@ -50,12 +50,17 @@ tbody tr:hover{background:#272730;}
 tbody td{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:top;}
 td.mono{font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:12px;}
 tr.group-first td{}
+.note-inline-row{background:inherit;}
+.note-inline-row:hover{background:inherit!important;}
+.note-inline-cell{padding:0 8px 7px 8px!important;font-size:12px;color:var(--muted);display:flex;align-items:flex-start;border-bottom:none;white-space:pre-wrap;line-height:1.5;}
+.note-inline-row td{border-bottom:none;}
 
 .badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:2px;text-transform:uppercase;letter-spacing:0.3px;}
 .b-pending  {background:rgba(232,169,58,0.15);color:var(--amber);border:1px solid rgba(232,169,58,0.3);}
 .b-printing {background:rgba(91,156,246,0.15);color:var(--blue); border:1px solid rgba(91,156,246,0.3);}
 .b-complete {background:rgba(92,184,122,0.15);color:var(--green);border:1px solid rgba(92,184,122,0.3);}
 .b-cancelled{background:rgba(224,92,92,0.15); color:var(--red);  border:1px solid rgba(224,92,92,0.3);}
+.b-on-hold  {background:rgba(224,124,58,0.15);color:var(--orange);border:1px solid rgba(224,124,58,0.3);}
 
 .status-select{
   font-size:10px;font-weight:600;
@@ -76,6 +81,7 @@ tr.group-first td{}
 .status-select.b-printing {background:rgba(91,156,246,0.15); color:#5b9cf6;border-color:rgba(91,156,246,0.4);}
 .status-select.b-complete {background:rgba(92,184,122,0.15); color:#5cb87a;border-color:rgba(92,184,122,0.4);}
 .status-select.b-cancelled{background:rgba(224,92,92,0.15);  color:#e05c5c;border-color:rgba(224,92,92,0.4);}
+.status-select.b-on-hold  {background:rgba(224,124,58,0.15); color:#e07c3a;border-color:rgba(224,124,58,0.4);}
 .status-select option{background:var(--surface2);color:var(--text);font-size:12px;}
 
 .order-id-badge{font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:10px;color:var(--muted);background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;display:inline-block;}
@@ -637,6 +643,7 @@ thead th.sortable{user-select:none;}
 .status-dd-btn.b-printing {background:rgba(91,156,246,0.15);color:#5b9cf6;border-color:rgba(91,156,246,0.4);}
 .status-dd-btn.b-complete {background:rgba(92,184,122,0.15);color:#5cb87a;border-color:rgba(92,184,122,0.4);}
 .status-dd-btn.b-cancelled{background:rgba(224,92,92,0.15); color:#e05c5c;border-color:rgba(224,92,92,0.4);}
+.status-dd-btn.b-on-hold  {background:rgba(224,124,58,0.15);color:#e07c3a;border-color:rgba(224,124,58,0.4);}
 .status-dd-btn i{font-size:10px;}
 .status-dd-list{
   position:fixed;
@@ -658,6 +665,7 @@ thead th.sortable{user-select:none;}
 .status-dd-opt.b-printing {background:rgba(91,156,246,0.15);color:#5b9cf6;border-color:rgba(91,156,246,0.4);}
 .status-dd-opt.b-complete {background:rgba(92,184,122,0.15);color:#5cb87a;border-color:rgba(92,184,122,0.4);}
 .status-dd-opt.b-cancelled{background:rgba(224,92,92,0.15); color:#e05c5c;border-color:rgba(224,92,92,0.4);}
+.status-dd-opt.b-on-hold  {background:rgba(224,124,58,0.15);color:#e07c3a;border-color:rgba(224,124,58,0.4);}
 .status-dd-opt.active{outline:2px solid var(--text);outline-offset:1px;}
 
 /* ── Accent swatch grid (filament colours) ── */

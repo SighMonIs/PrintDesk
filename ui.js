@@ -230,7 +230,7 @@ function renderTable(){
         ${o.status||'Pending'} <i class="ti ti-chevron-down"></i>
       </button>
       <div class="status-dd-list" id="sdd-${o.id}">
-        ${['Pending','Printing','Complete','Cancelled'].map(s=>`
+        ${['Pending','Printing','Complete','On Hold','Cancelled'].map(s=>`
           <div class="status-dd-opt b-${s.toLowerCase()}${o.status===s?' active':''}"
             onclick="selectStatus('${esc(o.orderId)}','${esc(o.id)}','${s}',this)">${s}</div>`).join('')}
       </div>
@@ -374,12 +374,15 @@ function renderTable(){
         ${statusDd}
       </td>
       <td data-label="$" style="padding:7px 6px;text-align:center">${isFirst?`<span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span>`:''}</td>
-      <td data-label="Note" style="padding:7px 6px">${noteHtml}</td>
       <td class="card-actions" style="display:flex;gap:3px;padding:5px 6px;justify-content:flex-end">
         ${isFirst?`<button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
         <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>`:''}
       </td>
-    </tr>`;
+    </tr>${hasNote?`<tr class="note-inline-row">
+      <td colspan="3"></td>
+      <td colspan="6" class="note-inline-cell"><i class="ti ti-notes" style="font-size:12px;margin-right:5px;opacity:0.5;flex-shrink:0"></i>${esc(o.notes)}</td>
+      <td colspan="2"></td>
+    </tr>`:''}`;
   }).join('');
 }
 
