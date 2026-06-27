@@ -790,17 +790,19 @@ async function badgeWidthCheck(idx) {
 
   const catOpts   = opts.filter(o => String(o.catId) === String(catId));
   const textOpt   = catOpts.find(o => o.display === 'text');
-  const backingOpt = catOpts.find(o => o.name.toLowerCase() === 'backing');
+  const backingOpt = catOpts.find(o => o.name.toLowerCase().includes('backing'));
   if (!textOpt) return;
 
   const textEl    = document.getElementById(`ov-${idx}-${textOpt.id}`);
   const backingEl = backingOpt ? document.getElementById(`ov-${idx}-${backingOpt.id}`) : null;
   if (!textEl) return;
 
+  const warnEl = document.getElementById(`bww-${idx}`);
   const text = textEl.value.trim().toUpperCase();
   if (!text) {
     textEl.style.outline = '';
-    textEl.removeAttribute('title');
+    delete textEl.dataset.badgeWidth;
+    if (warnEl) warnEl.style.display = 'none';
     if (backingEl) Array.from(backingEl.options).forEach(o => { o.disabled = false; o.style.color = ''; });
     return;
   }
@@ -810,6 +812,7 @@ async function badgeWidthCheck(idx) {
   const fsize = _badgeAssetCache?.fsize || 49;
   const bb = _badgeFont.getPath(text, 0, 0, fsize).getBoundingBox();
   const textWidth = bb.x2 - bb.x1;
+  textEl.dataset.badgeWidth = textWidth.toFixed(4);
 
   let anyDisabled = false;
   let currentInvalid = false;
@@ -832,10 +835,13 @@ async function badgeWidthCheck(idx) {
 
   if (anyDisabled) {
     textEl.style.outline = '2px solid var(--red,#e55)';
-    textEl.title = `Badge width (${textWidth.toFixed(1)}mm) limits the backing options available`;
+    if (warnEl) {
+      warnEl.textContent = `Name width (${textWidth.toFixed(1)}mm) — some backing options are not available`;
+      warnEl.style.display = '';
+    }
   } else {
     textEl.style.outline = '';
-    textEl.removeAttribute('title');
+    if (warnEl) warnEl.style.display = 'none';
   }
 }
 
@@ -917,6 +923,7 @@ async function generateAllBadges(items) {
         const bb2 = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
         if (bb2.x2 - bb2.x1 < (backing.type === 'round' ? backing.diameter : (backing.w || 0))) {
           console.warn(`Skipping "${name}" — too narrow for ${backingStr}`);
+          files.push({ zip: null, filename: null, skipped: name });
           continue;
         }
       }
@@ -929,17 +936,20 @@ async function generateAllBadges(items) {
     }
 
     // Download sequentially with a small delay so the browser can handle each
-    setStatus('spin', `Downloading ${total} badges&hellip;`);
-    for (let i = 0; i < files.length; i++) {
-      const { zip, filename } = files[i];
+    const toDownload = files.filter(f => !f.skipped);
+    const skipped = files.filter(f => f.skipped).map(f => f.skipped);
+    setStatus('spin', `Downloading ${toDownload.length} badges&hellip;`);
+    for (let i = 0; i < toDownload.length; i++) {
+      const { zip, filename } = toDownload[i];
       const b = new Blob([zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
       const u = URL.createObjectURL(b);
       const a = document.createElement('a');
       a.href = u; a.download = filename; a.click();
       URL.revokeObjectURL(u);
-      await new Promise(r => setTimeout(r, 150));
+      await new Promise(r => setTimeout(r, 250));
     }
-    setStatus('ok', `${total} badges downloaded`);
+    const skipMsg = skipped.length ? ` — skipped: ${skipped.join(', ')}` : '';
+    setStatus('ok', `${toDownload.length} of ${total} badges downloaded${skipMsg}`);
   } catch(e) {
     console.error('Generate all badges error:', e);
     setStatus('err', 'Badge batch failed: ' + e.message);

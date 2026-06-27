@@ -564,7 +564,8 @@ function renderModelOpts(idx, catId, savedOpts){
       const capsStyle=opt.force_caps?'text-transform:uppercase':'';
       const badgeCheck=isBadgeCat?`;badgeWidthCheck(${idx})`:'';
       const capsHandler=opt.force_caps?`this.value=this.value.toUpperCase();collectOpts(${idx})${badgeCheck}`:`collectOpts(${idx})${badgeCheck}`;
-      return`<div class="opt-row"><label>${esc(opt.name)}</label><input type="text" id="ov-${idx}-${opt.id}" value="${esc(opt.force_caps&&val?val.toUpperCase():val)}" placeholder="Enter ${esc(opt.name).toLowerCase()}…" style="${capsStyle}" oninput="${capsHandler}"></div>`;
+      const warnDiv=isBadgeCat?`<div class="badge-width-warn" id="bww-${idx}" style="display:none"></div>`:'';
+      return`<div class="opt-row"><label>${esc(opt.name)}</label><input type="text" id="ov-${idx}-${opt.id}" value="${esc(opt.force_caps&&val?val.toUpperCase():val)}" placeholder="Enter ${esc(opt.name).toLowerCase()}…" style="${capsStyle}" oninput="${capsHandler}"></div>${warnDiv}`;
     } else {
       // dropdown
       const items=opt.options.split(',').map(s=>s.trim()).filter(Boolean);
