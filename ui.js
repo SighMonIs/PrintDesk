@@ -410,8 +410,7 @@ function renderTable(){
         `<div style="font-size:10px;color:var(--muted);line-height:1.6">${qty}× ${name}</div>`
       ).join('');
       const orderStat=o.status||'Pending';
-      const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:7px">
-        <span style="font-size:10px;color:var(--muted);letter-spacing:0.3px;white-space:nowrap">Applies to entire order</span>
+      const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
         <button class="status-dd-btn b-${orderStat.toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('order-${esc(o.orderId)}',this)">
           ${orderStat} <i class="ti ti-chevron-down"></i>
         </button>
@@ -425,8 +424,9 @@ function renderTable(){
         <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
         <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}"><div>${esc(o.customer)||'—'}</div>${itemSummaryHtml}</td>
         <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span></span></td>
-        <td colspan="5"></td>
-        <td data-label="Status" style="padding:4px 6px;text-align:center;overflow:visible;white-space:nowrap">${orderStatusDd}</td>
+        <td colspan="4"></td>
+        <td style="padding:4px 8px;text-align:right;font-size:10px;color:var(--muted);white-space:nowrap;vertical-align:middle">Applies to entire order</td>
+        <td data-label="Status" style="padding:4px 6px;text-align:center">${orderStatusDd}</td>
         <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
         <td class="card-actions" style="padding:5px 6px"><div style="display:flex;gap:3px;justify-content:flex-end">
           <button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
