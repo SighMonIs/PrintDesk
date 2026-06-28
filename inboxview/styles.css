@@ -1,10 +1,13 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 
 /* ── Centered app shell ──────────────────────────────────── */
-body{overflow:hidden;background:var(--bg);}
+body{overflow:hidden;background:#1f1f1f;margin:0;padding:0;}
 #mainApp{
-  max-width:1200px;margin:0 auto;
-  position:relative;height:100vh;overflow:hidden;
+  max-width:1200px;margin:10px auto;
+  position:relative;height:calc(100vh - 20px);
+  overflow:hidden;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,0.1);
 }
 
 /* ── Inbox 3-col layout ──────────────────────────────────── */
@@ -192,7 +195,7 @@ body{overflow:hidden;background:var(--bg);}
 .inbox-empty-state i{font-size:32px;display:block;margin-bottom:10px;opacity:0.4;}
 
 :root{
-  --bg:#141414;--surface:#1e1e1e;--surface2:#272727;--surface3:#313131;
+  --bg:#131313;--surface:#1a1a1a;--surface2:#232323;--surface3:#2e2e2e;
   --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.11);
   --text:#e8e8e6;--muted:#808080;
   --accent:#e8d5a3;--accent2:#c4a96b;
@@ -705,11 +708,11 @@ thead th.sortable{user-select:none;}
 .sidebar-close-btn:hover{color:var(--text);}
 
 /* Nav items */
-.sidebar-nav{flex:1;padding:6px 6px;overflow-y:auto;overflow-x:hidden;}
-.sidebar-bottom{padding:6px 6px;}
+.sidebar-nav{flex:1;padding:6px 8px;overflow-y:auto;overflow-x:hidden;}
+.sidebar-bottom{padding:6px 8px;}
 .sidebar-item{
   display:flex;align-items:center;gap:12px;
-  width:100%;padding:9px 10px;
+  width:100%;padding:11px 10px;
   background:transparent;border:none;cursor:pointer;
   color:var(--muted);font-size:13px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
   font-weight:500;white-space:nowrap;border-radius:8px;
@@ -720,8 +723,12 @@ thead th.sortable{user-select:none;}
 .sidebar-item:hover{background:var(--surface2);color:var(--text);}
 .sidebar-item.active{background:var(--surface2);color:var(--text);}
 .sidebar-item.active i{color:var(--accent);}
-.sidebar-item.primary-item{color:var(--accent);}
-.sidebar-item.primary-item:hover{background:rgba(232,213,163,0.08);color:var(--accent);}
+.sidebar-item.primary-item{
+  color:var(--bg);background:var(--accent);
+  border-radius:8px;margin-bottom:4px;font-weight:600;
+}
+.sidebar-item.primary-item i{color:var(--bg);}
+.sidebar-item.primary-item:hover{background:var(--accent2);color:var(--bg);}
 .sidebar-item.sidebar-logout:hover{color:var(--red);background:rgba(224,92,92,0.08);}
 
 /* Sidebar count badge */

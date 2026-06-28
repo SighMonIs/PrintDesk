@@ -1897,24 +1897,115 @@ function _statCard(label, val, icon, color) {
 }
 
 // Settings view
+var _selectedSettingsCat = null;
+var _SETTINGS_CATS = [
+  {id:'payment',  icon:'ti-credit-card', title:'Payment Options',      desc:'Manage payment methods and revenue tracking'},
+  {id:'cats',     icon:'ti-category',    title:'Categories & Options',  desc:'Product categories and their options'},
+  {id:'colours',  icon:'ti-brush',       title:'Colour Library',        desc:'Available colour swatches'},
+  {id:'users',    icon:'ti-users',       title:'Users',                 desc:'Invite and manage app users'},
+  {id:'app',      icon:'ti-settings',    title:'App Settings',          desc:'Notifications, accent colour and more'},
+];
+
 function _renderViewSettings() {
   _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Settings</span></div>');
-  var detail = document.getElementById('inboxDetail');
-  if (detail) detail.innerHTML = '<div class="inbox-detail" style="max-width:560px">'
-    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Settings</div></div></div>'
-    + '<div style="display:flex;flex-direction:column;gap:10px">'
-    + _settingsCard('ti-settings','App Settings','Payment options, notifications, accent colour','openSettings()')
-    + _settingsCard('ti-category','Categories &amp; Options','Manage product categories and their options','openCatModal()')
-    + _settingsCard('ti-brush','Colour Library','Manage available colour swatches','openColourModal()')
-    + '</div></div>';
+  var list = document.getElementById('inboxList');
+  list.innerHTML = _SETTINGS_CATS.map(function(cat) {
+    var sel = cat.id === _selectedSettingsCat;
+    return '<div class="inbox-card' + (sel?' selected':'') + '" onclick="_showSettingsDetail(\'' + cat.id + '\')">'
+      + '<div class="inbox-card-content">'
+      + '<div class="inbox-card-row1"><span class="inbox-card-customer"><i class="ti ' + cat.icon + '" style="margin-right:7px;opacity:0.7"></i>' + cat.title + '</span></div>'
+      + '<div class="inbox-card-subject">' + cat.desc + '</div>'
+      + '</div></div>';
+  }).join('');
+  if (_selectedSettingsCat) {
+    _showSettingsDetail(_selectedSettingsCat);
+  } else {
+    var detail = document.getElementById('inboxDetail');
+    if (detail) detail.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-settings"></i><p>Select a category</p></div>';
+  }
 }
 
-function _settingsCard(icon, title, desc, onclick) {
-  return '<div class="inbox-item-card" style="cursor:pointer;padding:14px 16px" onclick="'+onclick+'">'
-    + '<div class="inbox-item-right">'
-    + '<div class="inbox-item-cat"><i class="ti '+icon+'" style="margin-right:6px"></i>'+title+'</div>'
-    + '<div style="font-size:11px;color:var(--muted);margin-top:4px">'+desc+'</div>'
-    + '</div></div>';
+function _showSettingsDetail(catId) {
+  _selectedSettingsCat = catId;
+  document.querySelectorAll('#inboxList .inbox-card').forEach(function(el) {
+    el.classList.toggle('selected', (el.getAttribute('onclick')||'').includes("'" + catId + "'"));
+  });
+  var detail = document.getElementById('inboxDetail');
+  if (!detail) return;
+
+  if (catId === 'payment') {
+    var rows = paymentOptions.map(function(p, i) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)">'
+        + '<span style="flex:1;font-weight:500;color:' + (p.archived?'var(--muted)':'var(--text)') + (p.archived?';text-decoration:line-through':'') + '">' + esc(p.name) + '</span>'
+        + '<span style="font-size:10px;color:var(--muted);padding:2px 7px;background:var(--surface2);border-radius:10px">' + (p.showRevenue?'revenue':'no revenue') + '</span>'
+        + '<button class="btn sm" onclick="_settingsToggleRevenue(' + i + ')" title="Toggle revenue tracking"><i class="ti ti-currency-dollar"></i></button>'
+        + '<button class="btn sm" onclick="_settingsToggleArchive(' + i + ')" title="' + (p.archived?'Restore':'Archive') + '"><i class="ti ti-' + (p.archived?'eye':'eye-off') + '"></i></button>'
+        + '</div>';
+    }).join('');
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Payment Options</div></div></div>'
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">' + rows + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="btn sm" onclick="_settingsAddPayment()"><i class="ti ti-plus"></i> Add Option</button>'
+      + '<button class="btn sm" onclick="openSettings()"><i class="ti ti-external-link"></i> Full Settings</button>'
+      + '</div></div>';
+  } else if (catId === 'cats') {
+    var catRows = cats.filter(function(c){return !c.archived;}).map(function(c) {
+      var n = new Set(orders.filter(function(r){return String(r.catId)===String(c.id);}).map(function(r){return r.orderId;})).size;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">'
+        + '<span style="flex:1;font-weight:500;color:var(--text)">' + esc(c.name) + '</span>'
+        + '<span style="font-family:monospace;font-size:11px;color:var(--muted)">$' + c.price.toFixed(2) + '</span>'
+        + '<span style="font-size:10px;color:var(--muted);padding:2px 7px;background:var(--surface2);border-radius:10px">' + n + ' orders</span>'
+        + '</div>';
+    }).join('');
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Categories &amp; Options</div></div></div>'
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px">' + (catRows||'<div style="padding:16px;color:var(--muted)">No categories</div>') + '</div>'
+      + '<button class="btn sm" onclick="openCatModal()"><i class="ti ti-external-link"></i> Open Category Editor</button>'
+      + '</div>';
+  } else if (catId === 'colours') {
+    var colRows = colours.map(function(c) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border)">'
+        + '<div style="width:22px;height:22px;border-radius:50%;background:' + esc(c.code) + ';border:1px solid rgba(255,255,255,0.1);flex-shrink:0"></div>'
+        + '<span style="flex:1;font-weight:500;color:var(--text)">' + esc(c.name) + '</span>'
+        + '<span style="font-family:monospace;font-size:10px;color:var(--muted)">' + esc(c.code) + '</span>'
+        + '</div>';
+    }).join('');
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Colour Library</div></div></div>'
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;max-height:400px;overflow-y:auto;margin-bottom:12px">' + (colRows||'<div style="padding:16px;color:var(--muted)">No colours</div>') + '</div>'
+      + '<button class="btn sm" onclick="openColourModal()"><i class="ti ti-external-link"></i> Open Colour Editor</button>'
+      + '</div>';
+  } else if (catId === 'users') {
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Users</div></div></div>'
+      + '<button class="btn sm" onclick="openUsersModal()"><i class="ti ti-external-link"></i> Manage Users</button>'
+      + '</div>';
+  } else if (catId === 'app') {
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">App Settings</div></div></div>'
+      + '<button class="btn sm" onclick="openSettings()"><i class="ti ti-external-link"></i> Open App Settings</button>'
+      + '</div>';
+  }
+}
+
+function _settingsToggleRevenue(i) {
+  paymentOptions[i].showRevenue = !paymentOptions[i].showRevenue;
+  savePaymentOptions();
+  _showSettingsDetail('payment');
+}
+function _settingsToggleArchive(i) {
+  paymentOptions[i].archived = !paymentOptions[i].archived;
+  savePaymentOptions();
+  _showSettingsDetail('payment');
+}
+function _settingsAddPayment() {
+  var name = prompt('Payment option name:');
+  if (!name || !name.trim()) return;
+  var isRevenue = confirm('Does this payment option generate revenue?');
+  paymentOptions.push({name:name.trim(), archived:false, showRevenue:isRevenue});
+  savePaymentOptions();
+  _showSettingsDetail('payment');
 }
 
 // Users view
