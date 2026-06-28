@@ -231,6 +231,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
   const objects = [];
 
   for (let i = 0; i < layerConfig.length; i++) {
+    if (keychain && i >= 2) continue;
     const layer = layerConfig[i];
     let geo;
     const slotD = (layer.hasSlot && !keychain) ? (backing?.d ?? 2) : 0;
