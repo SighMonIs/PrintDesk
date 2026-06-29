@@ -298,33 +298,35 @@ function buildBadge() {
       outerDPath.push(toClip(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
     }
     if (softenOuter) {
-      // Outward fillets: arcs dip PAST y=±outerR at the badge junction (visible outside badge)
-      // so the ring flares outward where it meets the badge body.
       if (isRight) {
-        outerDPath.push(toClip(badgeEdge + ofr, outerR));
-        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, outerR), 0°→90° CCW — rises above outerR
-          const a = (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
+        // flat top, stop before corner
+        outerDPath.push(toClip(extendX + ofr, outerR));
+        // top-left corner: centre (extendX+ofr, outerR-ofr), sweep 90°→180°
+        for (let i = 0; i <= Nfo; i++) {
+          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(extendX + ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
         }
-        outerDPath.push(toClip(extendX,  outerR + ofr));
-        outerDPath.push(toClip(extendX, -outerR - ofr));
-        outerDPath.push(toClip(badgeEdge, -outerR - ofr));
-        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, -outerR), 270°→360° CCW — dips below −outerR
-          const a = -Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
+        // flat left side
+        outerDPath.push(toClip(extendX, -outerR + ofr));
+        // bottom-left corner: centre (extendX+ofr, -outerR+ofr), sweep 180°→270°
+        for (let i = 0; i <= Nfo; i++) {
+          const a = Math.PI + (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(extendX + ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
         }
       } else {
-        outerDPath.push(toClip(badgeEdge - ofr, -outerR));
-        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, -outerR), 180°→270° CCW — dips below −outerR
-          const a = Math.PI + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
+        // flat bottom, stop before corner
+        outerDPath.push(toClip(extendX - ofr, -outerR));
+        // bottom-right corner: centre (extendX-ofr, -outerR+ofr), sweep 270°→360°
+        for (let i = 0; i <= Nfo; i++) {
+          const a = 3 * Math.PI / 2 + (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(extendX - ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
         }
-        outerDPath.push(toClip(extendX, -outerR - ofr));
-        outerDPath.push(toClip(extendX,  outerR + ofr));
-        outerDPath.push(toClip(badgeEdge, outerR + ofr));
-        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, outerR), 90°→180° CCW — rises above outerR
-          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
+        // flat right side
+        outerDPath.push(toClip(extendX, outerR - ofr));
+        // top-right corner: centre (extendX-ofr, outerR-ofr), sweep 0°→90°
+        for (let i = 0; i <= Nfo; i++) {
+          const a = (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(extendX - ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
         }
       }
     } else {
