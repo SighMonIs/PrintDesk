@@ -170,6 +170,8 @@ async function loadModels(){
   models=await sbGet('badge_models','?archived=eq.false&order=name');
   const sel=document.getElementById('modelSelect');
   sel.innerHTML=MODEL_TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('');
+  const saved=localStorage.getItem('badge2_modelType');
+  if(saved && MODEL_TYPES.find(t=>t.id===saved)) sel.value=saved;
   await loadModel();
 }
 
