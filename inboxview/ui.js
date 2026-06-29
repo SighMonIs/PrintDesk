@@ -52,7 +52,7 @@ async function selectOrderStatus(orderId, newStatus, optEl){
   list?.querySelectorAll('.status-dd-opt').forEach(o=>o.classList.toggle('active',o.textContent.trim()===newStatus));
   const rows = orders.filter(r=>String(r.orderId)===String(orderId));
   for(const row of rows){ row.status=newStatus; }
-  updateStats(); renderTable();
+  renderTable();
   try{
     await sbUpsert('orders', rows.map(row=>({id:row.id,order_id:row.orderId,customer:row.customer,customer_id:row.customer_id||null,address:row.address,delivery:row.delivery,payment:row.payment,cat_id:row.catId,qty:row.qty,price:row.price,total:row.total,status:newStatus,date:row.date,notes:row.notes,options:row.options})));
     setStatus('ok','All items updated');
@@ -89,66 +89,6 @@ function wasPreviouslyMade(o, madeSet){
 }
 
 // ── Render table ───────────────────────────────────────────
-
-function updateStats(){
-  // ── Box 1: Total items by category ──────────────────────
-  document.getElementById('s-total').textContent = orders.length;
-  const catCounts={};
-  orders.forEach(o=>{
-    const cat=cats.find(c=>String(c.id)===String(o.catId));
-    const name=cat?cat.name:'Unknown';
-    catCounts[name]=(catCounts[name]||0)+1;
-  });
-  document.getElementById('s-cat-breakdown').innerHTML =
-    Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>
-      `<div class="stat-break-row"><span class="stat-break-label">${esc(name)}</span><span class="stat-break-val">${count}</span></div>`
-    ).join('');
-
-  // ── Box 2: Pending / Printing ────────────────────────────
-  document.getElementById('s-pending').textContent  = orders.filter(o=>o.status==='Pending').length;
-  document.getElementById('s-printing').textContent = orders.filter(o=>o.status==='Printing').length;
-
-  // ── Box 3: Completed + Name Badge breakdown ──────────────
-  const completed=orders.filter(o=>o.status==='Complete');
-  document.getElementById('s-completed').textContent = completed.length;
-  // Find Name Badge category
-  const badgeCat=cats.find(c=>c.name.toLowerCase().includes('name badge'));
-  if(badgeCat){
-    const badgeOrders=completed.filter(o=>String(o.catId)===String(badgeCat.id));
-    const pinCount=badgeOrders.filter(o=>o.options&&o.options.toLowerCase().includes('pin')).length;
-    const magCount=badgeOrders.filter(o=>o.options&&o.options.toLowerCase().includes('magnet')).length;
-    document.getElementById('s-badge-breakdown').innerHTML =
-      `<div class="stat-break-row"><span class="stat-break-label">Pin</span><span class="stat-break-val">${pinCount}</span></div>`+
-      `<div class="stat-break-row"><span class="stat-break-label">Magnet</span><span class="stat-break-val">${magCount}</span></div>`;
-  } else {
-    document.getElementById('s-badge-breakdown').innerHTML='';
-  }
-
-  // ── Box 4: Payment breakdown ─────────────────────────────
-  // Use unique orderIds for per-order payment (payment is per order not per item)
-  const seenOrders={};
-  completed.forEach(o=>{
-    if(!seenOrders[o.orderId]){
-      const pay=(o.payment&&o.payment.trim())?o.payment.trim():'No';
-      seenOrders[o.orderId]={payment:pay,total:0};
-    }
-    seenOrders[o.orderId].total+=o.total;
-  });
-  const payBreakdown={No:0,Free:0,Simon:0,Wade:0};
-  const payRevenue={Simon:0,Wade:0};
-  Object.values(seenOrders).forEach(({payment,total})=>{
-    const p=payment||'No';
-    if(p==='No') payBreakdown.No++;
-    else if(p==='Free') payBreakdown.Free++;
-    else if(p==='Simon'){payBreakdown.Simon++;payRevenue.Simon+=total;}
-    else if(p==='Wade'){payBreakdown.Wade++;payRevenue.Wade+=total;}
-  });
-  document.getElementById('s-payment-breakdown').innerHTML =
-    `<div class="stat-break-row"><span class="stat-break-label">No</span><span class="stat-break-val">${payBreakdown.No}</span></div>`+
-    `<div class="stat-break-row"><span class="stat-break-label">Free</span><span class="stat-break-val">${payBreakdown.Free}</span></div>`+
-    `<div class="stat-break-row"><span class="stat-break-label">Simon</span><span class="stat-break-val">$${payRevenue.Simon.toFixed(2)}</span></div>`+
-    `<div class="stat-break-row"><span class="stat-break-label">Wade</span><span class="stat-break-val">$${payRevenue.Wade.toFixed(2)}</span></div>`;
-}
 
 function uniqueOrderCount(){return new Set(orders.map(o=>o.orderId)).size;}
 
@@ -204,8 +144,6 @@ function renderTable(){
     const bNum=parseInt(String(b.orderId).replace(/^O0*/,''))||0;
     return aNum-bNum;
   });
-
-  updateStats();
 
   const tbody=document.getElementById('tbody');
   if(!list.length){tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;renderInboxList([]);return;}
@@ -495,7 +433,6 @@ function renderTable(){
 }
 
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function updateSortArrow(){ updateSortUI(); }
 function sortBy(k){
   if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}
   savePreferences();
@@ -511,11 +448,6 @@ function initAutocomplete(){
   if(acInst) return;
   acInst = true;
   attachGooglePlaces(input, document.getElementById('addrTick'));
-}
-
-function attachNominatim(input, tickEl){
-  // Now uses Google Maps Places instead of Nominatim
-  attachGooglePlaces(input, tickEl);
 }
 
 function attachGooglePlaces(input, tickEl){
@@ -539,9 +471,6 @@ function attachGooglePlaces(input, tickEl){
   });
 }
 
-async function fetchNominatim(q, input, list, tickEl){
-  // No longer used — kept as stub to avoid reference errors
-}
 
 // ── Model rows ─────────────────────────────────────────────
 function catOptions(selId){
@@ -656,8 +585,7 @@ function ddChanged(idx,optId){
 }
 
 function availableColours(){
-  // Only show colours marked as available
-  return colours.filter(c=>c.available===true||String(c.available).toLowerCase()==='true'||c.available==='TRUE');
+  return colours.filter(c=>c.available);
 }
 
 function buildColourPicker(id, selectedName, onChangeFn){
@@ -752,10 +680,6 @@ function getColourCode(name){
   if(!name)return'transparent';
   const c=colours.find(c=>c.name===name);
   return c?c.code:'transparent';
-}
-
-function layerChanged(idx,optId,layerNum,val){
-  collectOpts(idx);
 }
 
 // Collect all option values for a model row into a pipe-separated string
@@ -1212,7 +1136,6 @@ async function updateStatus(orderId,rowId,newStatus,sel){
   const prevStatus=row.status;
   // Update local state
   row.status=newStatus;
-  updateStats();
   try{
     // Update status via Supabase upsert
     await sbUpsert('orders', {
