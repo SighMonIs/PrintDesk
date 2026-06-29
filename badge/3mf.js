@@ -228,6 +228,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
   const { offX, offY, width: bboxWidth } = _badgeBboxCentre(unioned);
 
   let zOff = 0;
+  let zAfterRed = 0;
   const objects = [];
 
   for (let i = 0; i < layerConfig.length; i++) {
@@ -257,6 +258,27 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, zOff));
     objects.push({ geo, name: _BADGE_LAYER_NAMES[i] || `layer${i+1}`, colour: layer.hex, extruder: i+1, id: objects.length+1 });
     zOff += slotD + layer.depth;
+    if (keychain && i === 0) zAfterRed = zOff;
+  }
+
+  // Keychain frame: red outline (red shape minus yellow shape), 3mm thick, starts at top of red layer
+  if (keychain && layerConfig.length >= 2) {
+    const redLayer    = layerConfig[0];
+    const yellowLayer = layerConfig[1];
+    const redPoly     = redLayer.border    > 0 ? _badgeClipperOffset(unioned, redLayer.border)    : unioned;
+    const yellowPoly  = yellowLayer.border > 0 ? _badgeClipperOffset(unioned, yellowLayer.border) : unioned;
+    const redOuters    = redPoly.filter(p => ClipperLib.Clipper.Orientation(p));
+    const yellowOuters = yellowPoly.filter(p => ClipperLib.Clipper.Orientation(p));
+    const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE - offX, offY - p.Y / _BADGE_SCALE);
+    const shapes = redOuters.map(outer => {
+      const shape = new THREE.Shape(outer.map(toVec2));
+      for (const inner of yellowOuters) shape.holes.push(new THREE.Path([...inner].reverse().map(toVec2)));
+      return shape;
+    });
+    let frameGeo = new THREE.ExtrudeGeometry(shapes, { depth: 3, bevelEnabled: false });
+    frameGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, zAfterRed));
+    frameGeo = _badgeMergeVerticesForExport(frameGeo);
+    objects.push({ geo: frameGeo, name: 'Keychain_Frame', colour: redLayer.hex, extruder: objects.length + 1, id: objects.length + 1 });
   }
 
   if (keychain && layerConfig.length > 0) {

@@ -206,6 +206,7 @@ function buildBadge() {
 
   const isKeychain = getBackingConfig()?.type === 'keychain';
 
+  let zAfterRed = 0;
   let z = 0;
   for (let i = 0; i < layerConfig.length; i++) {
     if (isKeychain && i >= 2) continue;
@@ -225,6 +226,28 @@ function buildBadge() {
       addLayer(unioned, layer.border, offX, offY, colour, layer.depth, z, false);
       z += layer.depth;
     }
+    if (isKeychain && i === 0) zAfterRed = z;
+  }
+
+  // Keychain frame: red outline (red shape minus yellow shape), 3mm thick, starts at top of red layer
+  if (isKeychain && layerConfig.length >= 2) {
+    const redLayer    = layerConfig[0];
+    const yellowLayer = layerConfig[1];
+    const redColour   = parseInt(redLayer.hex.replace('#', ''), 16);
+    const redPoly     = redLayer.border    > 0 ? clipperOffset(unioned, redLayer.border)    : unioned;
+    const yellowPoly  = yellowLayer.border > 0 ? clipperOffset(unioned, yellowLayer.border) : unioned;
+    const redOuters    = redPoly.filter(p => ClipperLib.Clipper.Orientation(p));
+    const yellowOuters = yellowPoly.filter(p => ClipperLib.Clipper.Orientation(p));
+    const toVec2 = p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY));
+    const shapes = redOuters.map(outer => {
+      const shape = new THREE.Shape(outer.map(toVec2));
+      for (const inner of yellowOuters) shape.holes.push(new THREE.Path([...inner].reverse().map(toVec2)));
+      return shape;
+    });
+    const frameGeo  = new THREE.ExtrudeGeometry(shapes, { depth: 3, bevelEnabled: false });
+    const frameMesh = new THREE.Mesh(frameGeo, new THREE.MeshPhongMaterial({ color: redColour, shininess: 40 }));
+    frameMesh.position.z = zAfterRed;
+    badgeGroup.add(frameMesh);
   }
 
   // Keychain: torus ring attached to right edge of badge
