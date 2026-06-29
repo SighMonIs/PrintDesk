@@ -28,6 +28,15 @@ body{overflow:hidden;background:#1f1f1f;margin:0;padding:0;}
   border-right:1px solid var(--border);
   display:flex;flex-direction:column;
   overflow:hidden;background:var(--bg);
+  position:relative;
+}
+.col-resize-handle{
+  position:absolute;top:0;right:-3px;bottom:0;width:6px;
+  cursor:col-resize;z-index:200;
+  transition:background 0.15s;
+}
+.col-resize-handle:hover,.col-resize-handle.dragging{
+  background:var(--accent);opacity:0.35;
 }
 .inbox-list-header{
   padding:12px 12px 0;border-bottom:1px solid var(--border);

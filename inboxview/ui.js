@@ -2034,3 +2034,50 @@ function updateSidebarBadges() {
   if (colBadge) colBadge.textContent = colours.filter(function(c){return c.available!==false;}).length;
   if (catBadge) catBadge.textContent = cats.filter(function(c){return !c.archived;}).length;
 }
+
+// ── Column resize ─────────────────────────────────────────
+function initColResize() {
+  function makeHandle(el, getW, setW) {
+    var h = document.createElement('div');
+    h.className = 'col-resize-handle';
+    el.appendChild(h);
+    h.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      var startX = e.clientX, startW = getW();
+      h.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      function onMove(e) { setW(startW + e.clientX - startX); }
+      function onUp() {
+        h.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // Sidebar (col 1)
+  var sidebar = document.querySelector('.sidebar');
+  if (sidebar) {
+    makeHandle(sidebar, function() {
+      return parseInt(getComputedStyle(sidebar).width);
+    }, function(w) {
+      w = Math.max(44, Math.min(280, w));
+      document.documentElement.style.setProperty('--sidebar-collapsed', w + 'px');
+      document.documentElement.style.setProperty('--sidebar-expanded', Math.max(w + 80, 160) + 'px');
+    });
+  }
+
+  // List col (col 2)
+  var listCol = document.querySelector('.inbox-list-col');
+  if (listCol) {
+    makeHandle(listCol, function() { return listCol.offsetWidth; }, function(w) {
+      w = Math.max(200, Math.min(600, w));
+      listCol.style.width = w + 'px';
+    });
+  }
+}

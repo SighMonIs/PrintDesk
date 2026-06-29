@@ -273,6 +273,7 @@ function showApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = '';
   initSidebar();
+  initColResize();
   setTimeout(updateSortUI, 100);
   loadAll();
 }
