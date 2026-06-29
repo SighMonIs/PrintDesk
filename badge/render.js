@@ -249,17 +249,17 @@ function buildBadge() {
     badgeGroup.add(frameMesh);
   }
 
-  // Keychain: torus ring attached to right edge of badge
+  // Keychain: torus ring attached to top edge of badge
   const _kbc = getBackingConfig();
   if (_kbc?.type === 'keychain' && layerConfig.length > 0) {
     const baseLayer = layerConfig[0];
     const colour = parseInt(baseLayer.hex.replace('#', ''), 16);
     const outerPoly = clipperOffset(unioned, baseLayer.border > 0 ? baseLayer.border : 0);
-    const { width: badgeW } = bboxCentre(outerPoly.length ? outerPoly : unioned);
-    const rightEdge = badgeW / 2;
+    const { height: badgeH } = bboxCentre(outerPoly.length ? outerPoly : unioned);
+    const topEdge = badgeH / 2;
     const majorR = 6.75, tubeR = 1.125;
     const torusGeo = new THREE.TorusGeometry(majorR, tubeR, 16, 32);
-    torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(rightEdge + 1 + majorR, 0, z / 2));
+    torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, topEdge + majorR, z / 2));
     badgeGroup.add(new THREE.Mesh(torusGeo, new THREE.MeshPhongMaterial({ color: colour, shininess: 40 })));
   }
 }

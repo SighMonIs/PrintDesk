@@ -287,11 +287,11 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const baseGeo = _badgeBuildSolidExtrusionMesh(redOuters, zOff, offX, offY);
 
     const redBbox = _badgeBboxCentre(redPoly);
-    const rightEdge = redBbox.width / 2;
+    const topEdge = redBbox.height / 2;
     const majorR = 6.75, tubeR = 0.75;
 
     const torusGeo = new THREE.TorusGeometry(majorR, tubeR, 16, 32);
-    torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(rightEdge + 1 + majorR, 0, zOff / 2));
+    torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, topEdge + majorR, zOff / 2));
 
     const kcGeo = _badgeMergeVerticesForExport(_badgeConcatGeos(baseGeo, torusGeo));
     objects.push({ geo: kcGeo, name: 'Keychain_Base', colour: redLayer.hex, extruder: 1, id: objects.length + 1, skipFilamentSlot: true });
