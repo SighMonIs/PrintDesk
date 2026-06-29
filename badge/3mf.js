@@ -286,7 +286,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const redOuters = redPoly.filter(p => ClipperLib.Clipper.Orientation(p));
     const baseGeo = _badgeBuildSolidExtrusionMesh(redOuters, zOff, offX, offY);
 
-    const outerR = 7.5, innerR = 5, ringDepth = 2;
+    const outerR = 7.5, ringDepth = 2;
 
     // Find leftmost badge boundary within the ring's height band
     let badgeLeftAtCenter = Infinity;
@@ -313,21 +313,11 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     outerDPath.push(toClip3mf(extendX, -outerR));
     outerDPath.push(toClip3mf(extendX,  outerR));
 
-    // Inner D-shape (same winding, EvenOdd fill makes it a hole)
-    const innerDPath = [];
-    for (let i = 0; i <= N3mf; i++) {
-      const a = Math.PI / 2 + (Math.PI * i / N3mf);
-      innerDPath.push(toClip3mf(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
-    }
-    innerDPath.push(toClip3mf(extendX, -innerR));
-    innerDPath.push(toClip3mf(extendX,  innerR));
-
     const clipperDiff = new ClipperLib.Clipper();
     clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
-    clipperDiff.AddPath(innerDPath, ClipperLib.PolyType.ptSubject, true);
     clipperDiff.AddPaths(redPoly, ClipperLib.PolyType.ptClip, true);
     const diffResult = new ClipperLib.Paths();
-    clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftEvenOdd, ClipperLib.PolyFillType.pftNonZero);
+    clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
 
     if (diffResult.length) {
       const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE - offX, offY - p.Y / _BADGE_SCALE);

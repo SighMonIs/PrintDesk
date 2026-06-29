@@ -256,7 +256,7 @@ function buildBadge() {
     const colour = parseInt(baseLayer.hex.replace('#', ''), 16);
     const outerPoly = clipperOffset(unioned, baseLayer.border > 0 ? baseLayer.border : 0);
     const outerPolyPts = outerPoly.length ? outerPoly : unioned;
-    const outerR = 7.5, innerR = 5, ringDepth = 2;
+    const outerR = 7.5, ringDepth = 2;
 
     // Find leftmost badge boundary within the ring's height band
     let badgeLeftAtCenter = Infinity;
@@ -283,21 +283,11 @@ function buildBadge() {
     outerDPath.push(toClip(extendX, -outerR)); // bottom-right into badge
     outerDPath.push(toClip(extendX,  outerR)); // top-right into badge
 
-    // Inner D-shape (same winding, EvenOdd fill makes it a hole)
-    const innerDPath = [];
-    for (let i = 0; i <= N; i++) {
-      const a = Math.PI / 2 + (Math.PI * i / N);
-      innerDPath.push(toClip(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
-    }
-    innerDPath.push(toClip(extendX, -innerR));
-    innerDPath.push(toClip(extendX,  innerR));
-
     const clipperDiff = new ClipperLib.Clipper();
     clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
-    clipperDiff.AddPath(innerDPath, ClipperLib.PolyType.ptSubject, true);
     clipperDiff.AddPaths(outerPolyPts, ClipperLib.PolyType.ptClip, true);
     const diffResult = new ClipperLib.Paths();
-    clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftEvenOdd, ClipperLib.PolyFillType.pftNonZero);
+    clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
 
     if (diffResult.length) {
       const toVec2 = p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY));
