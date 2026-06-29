@@ -323,30 +323,30 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     }
     if (softenOuter3mf) {
       if (isRight3mf) {
-        outerDPath.push(toClip3mf(bx3mf + ofr3mf, outerR));
-        for (let i = 0; i <= Nfo3mf; i++) { // centre (bx, outerR), 0°→-90° CW
+        outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf, outerR));
+        for (let i = 0; i <= Nfo3mf; i++) { // centre (badgeEdge, outerR), 0°→-90° CW
           const a = -(Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(bx3mf + ofr3mf * Math.cos(a), outerR + ofr3mf * Math.sin(a)));
+          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf * Math.cos(a), outerR + ofr3mf * Math.sin(a)));
         }
         outerDPath.push(toClip3mf(extendX,  outerR - ofr3mf));
         outerDPath.push(toClip3mf(extendX, -outerR + ofr3mf));
-        outerDPath.push(toClip3mf(bx3mf, -outerR + ofr3mf));
-        for (let i = 0; i <= Nfo3mf; i++) { // centre (bx, -outerR), 90°→0° CW
+        outerDPath.push(toClip3mf(badgeEdge3mf, -outerR + ofr3mf));
+        for (let i = 0; i <= Nfo3mf; i++) { // centre (badgeEdge, -outerR), 90°→0° CW
           const a = Math.PI / 2 - (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(bx3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf * Math.sin(a)));
+          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf * Math.sin(a)));
         }
       } else {
-        outerDPath.push(toClip3mf(bx3mf - ofr3mf, -outerR));
-        for (let i = 0; i <= Nfo3mf; i++) { // centre (bx, -outerR), 180°→90° CW
+        outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf, -outerR));
+        for (let i = 0; i <= Nfo3mf; i++) { // centre (badgeEdge, -outerR), 180°→90° CW
           const a = Math.PI - (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(bx3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf * Math.sin(a)));
+          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf * Math.sin(a)));
         }
         outerDPath.push(toClip3mf(extendX, -outerR + ofr3mf));
         outerDPath.push(toClip3mf(extendX,  outerR - ofr3mf));
-        outerDPath.push(toClip3mf(bx3mf, outerR - ofr3mf));
-        for (let i = 0; i <= Nfo3mf; i++) { // centre (bx, outerR), 270°→180° CW
+        outerDPath.push(toClip3mf(badgeEdge3mf, outerR - ofr3mf));
+        for (let i = 0; i <= Nfo3mf; i++) { // centre (badgeEdge, outerR), 270°→180° CW
           const a = 3 * Math.PI / 2 - (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(bx3mf + ofr3mf * Math.cos(a), outerR + ofr3mf * Math.sin(a)));
+          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf * Math.cos(a), outerR + ofr3mf * Math.sin(a)));
         }
       }
     } else {

@@ -298,34 +298,33 @@ function buildBadge() {
       outerDPath.push(toClip(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
     }
     if (softenOuter) {
-      // Concave fillets: arc centre sits AT the corner point, curving inward into the ring material
+      // Fillets centred at badgeEdge ± outerR — the actual ring-badge junction corners.
+      // Arc curves the top/bottom edges of the ring inward as they meet the badge body.
       if (isRight) {
-        // arc ends at top (90°) → flat top → concave top-left fillet → into badge → concave bottom-left fillet → flat bottom
-        outerDPath.push(toClip(bx + ofr, outerR));
-        for (let i = 0; i <= Nfo; i++) { // centre (bx, outerR), 0°→−90° CW
+        outerDPath.push(toClip(badgeEdge + ofr, outerR));
+        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, outerR), 0°→−90° CW
           const a = -(Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(bx + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
+          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
         }
         outerDPath.push(toClip(extendX,  outerR - ofr));
         outerDPath.push(toClip(extendX, -outerR + ofr));
-        outerDPath.push(toClip(bx, -outerR + ofr));
-        for (let i = 0; i <= Nfo; i++) { // centre (bx, -outerR), 90°→0° CW
+        outerDPath.push(toClip(badgeEdge, -outerR + ofr));
+        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, -outerR), 90°→0° CW
           const a = Math.PI / 2 - (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(bx + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
+          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
         }
       } else {
-        // arc ends at bottom (270°) → flat bottom → concave bottom-right fillet → into badge → concave top-right fillet → flat top
-        outerDPath.push(toClip(bx - ofr, -outerR));
-        for (let i = 0; i <= Nfo; i++) { // centre (bx, -outerR), 180°→90° CW
+        outerDPath.push(toClip(badgeEdge - ofr, -outerR));
+        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, -outerR), 180°→90° CW
           const a = Math.PI - (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(bx + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
+          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
         }
         outerDPath.push(toClip(extendX, -outerR + ofr));
         outerDPath.push(toClip(extendX,  outerR - ofr));
-        outerDPath.push(toClip(bx, outerR - ofr));
-        for (let i = 0; i <= Nfo; i++) { // centre (bx, outerR), 270°→180° CW
+        outerDPath.push(toClip(badgeEdge, outerR - ofr));
+        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, outerR), 270°→180° CW
           const a = 3 * Math.PI / 2 - (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(bx + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
+          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
         }
       }
     } else {
