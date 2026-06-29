@@ -209,7 +209,6 @@ function buildBadge() {
   let zAfterRed = 0;
   let z = 0;
   for (let i = 0; i < layerConfig.length; i++) {
-    if (isKeychain && i >= 2) continue;
     const layer  = layerConfig[i];
     const colour = parseInt(layer.hex.replace('#', ''), 16);
 
