@@ -298,35 +298,33 @@ function buildBadge() {
       outerDPath.push(toClip(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
     }
     if (softenOuter) {
-      // Convex fillets at badgeEdge — arc curves outward at the ring-badge junction,
-      // smoothly blending the top/bottom of the ring into the badge body.
+      // Outward fillets: arcs dip PAST y=±outerR at the badge junction (visible outside badge)
+      // so the ring flares outward where it meets the badge body.
       if (isRight) {
-        // arc ends at top → flat top stop → convex top fillet → into badge → convex bottom fillet → flat bottom
         outerDPath.push(toClip(badgeEdge + ofr, outerR));
-        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge+ofr, outerR-ofr), 90°→180° CCW
-          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge + ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
+        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, outerR), 0°→90° CCW — rises above outerR
+          const a = (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
         }
-        outerDPath.push(toClip(extendX,  outerR - ofr));
-        outerDPath.push(toClip(extendX, -outerR + ofr));
-        outerDPath.push(toClip(badgeEdge, -outerR + ofr));
-        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge+ofr, -outerR+ofr), 180°→270° CCW
-          const a = Math.PI + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge + ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
+        outerDPath.push(toClip(extendX,  outerR + ofr));
+        outerDPath.push(toClip(extendX, -outerR - ofr));
+        outerDPath.push(toClip(badgeEdge, -outerR - ofr));
+        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, -outerR), 270°→360° CCW — dips below −outerR
+          const a = -Math.PI / 2 + (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
         }
       } else {
-        // arc ends at bottom → flat bottom stop → convex bottom fillet → into badge → convex top fillet → flat top
         outerDPath.push(toClip(badgeEdge - ofr, -outerR));
-        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge-ofr, -outerR+ofr), 270°→360° CCW
-          const a = -Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge - ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
+        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, -outerR), 180°→270° CCW — dips below −outerR
+          const a = Math.PI + (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
         }
-        outerDPath.push(toClip(extendX, -outerR + ofr));
-        outerDPath.push(toClip(extendX,  outerR - ofr));
-        outerDPath.push(toClip(badgeEdge, outerR - ofr));
-        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge-ofr, outerR-ofr), 0°→90° CCW
-          const a = (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge - ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
+        outerDPath.push(toClip(extendX, -outerR - ofr));
+        outerDPath.push(toClip(extendX,  outerR + ofr));
+        outerDPath.push(toClip(badgeEdge, outerR + ofr));
+        for (let i = 0; i <= Nfo; i++) { // centre (badgeEdge, outerR), 90°→180° CCW — rises above outerR
+          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(badgeEdge + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
         }
       }
     } else {
