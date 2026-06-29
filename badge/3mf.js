@@ -288,14 +288,18 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
 
     const redBbox = _badgeBboxCentre(redPoly);
     const leftEdge = redBbox.width / 2;
-    const majorR = 6.75, tubeR = 0.75;
-
+    const outerR = 7.5, innerR = 5, ringDepth = 2;
+    const majorR = (outerR + innerR) / 2;
+    // D-shape: left semicircle + flat right side flush with badge left edge
     const ringShape = new THREE.Shape();
-    ringShape.absarc(0, 0, majorR + tubeR, 0, Math.PI * 2, false);
+    ringShape.moveTo(majorR, outerR);
+    ringShape.lineTo(0, outerR);
+    ringShape.absarc(0, 0, outerR, Math.PI / 2, -Math.PI / 2, false);
+    ringShape.lineTo(majorR, -outerR);
+    ringShape.closePath();
     const ringHole = new THREE.Path();
-    ringHole.absarc(0, 0, majorR - tubeR, 0, Math.PI * 2, true);
+    ringHole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
     ringShape.holes.push(ringHole);
-    const ringDepth = tubeR * 2;
     let ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: ringDepth, bevelEnabled: false });
     ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-leftEdge - majorR, 0, zOff / 2 - ringDepth / 2));
     ringGeo = _badgeMergeVerticesForExport(ringGeo);
