@@ -255,11 +255,19 @@ function buildBadge() {
     const baseLayer = layerConfig[0];
     const colour = parseInt(baseLayer.hex.replace('#', ''), 16);
     const outerPoly = clipperOffset(unioned, baseLayer.border > 0 ? baseLayer.border : 0);
-    const { width: badgeW } = bboxCentre(outerPoly.length ? outerPoly : unioned);
-    const leftEdge = badgeW / 2;
+    const outerPolyPts = outerPoly.length ? outerPoly : unioned;
     const outerR = 7.5, innerR = 5, ringDepth = 2;
-    const majorR = (outerR + innerR) / 2; // ring centre offset so flat right edge is flush with badge
-    // D-shape: left semicircle + flat right side flush with badge left edge
+    const majorR = (outerR + innerR) / 2;
+    // Find the actual leftmost badge boundary within the ring's height range
+    let badgeLeftAtCenter = Infinity;
+    for (const path of outerPolyPts) {
+      for (const pt of path) {
+        if (Math.abs(-(pt.Y / SCALE - offY)) < outerR)
+          badgeLeftAtCenter = Math.min(badgeLeftAtCenter, pt.X / SCALE - offX);
+      }
+    }
+    if (!isFinite(badgeLeftAtCenter)) { const { width: w } = bboxCentre(outerPolyPts); badgeLeftAtCenter = -w / 2; }
+    // D-shape: left semicircle + flat right side flush with badge left edge at ring height
     const ringShape = new THREE.Shape();
     ringShape.moveTo(majorR, outerR);
     ringShape.lineTo(0, outerR);
@@ -270,7 +278,7 @@ function buildBadge() {
     ringHole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
     ringShape.holes.push(ringHole);
     const ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: ringDepth, bevelEnabled: false });
-    ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-leftEdge - majorR, 0, z / 2 - ringDepth / 2));
+    ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(badgeLeftAtCenter - majorR, 0, z / 2 - ringDepth / 2));
     badgeGroup.add(new THREE.Mesh(ringGeo, new THREE.MeshPhongMaterial({ color: colour, shininess: 40 })));
   }
 }

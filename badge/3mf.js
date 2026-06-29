@@ -286,11 +286,18 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const redOuters = redPoly.filter(p => ClipperLib.Clipper.Orientation(p));
     const baseGeo = _badgeBuildSolidExtrusionMesh(redOuters, zOff, offX, offY);
 
-    const redBbox = _badgeBboxCentre(redPoly);
-    const leftEdge = redBbox.width / 2;
     const outerR = 7.5, innerR = 5, ringDepth = 2;
     const majorR = (outerR + innerR) / 2;
-    // D-shape: left semicircle + flat right side flush with badge left edge
+    // Find actual leftmost badge boundary within ring height range
+    let badgeLeftAtCenter = Infinity;
+    for (const path of redPoly) {
+      for (const pt of path) {
+        if (Math.abs(offY - pt.Y / _BADGE_SCALE) < outerR)
+          badgeLeftAtCenter = Math.min(badgeLeftAtCenter, pt.X / _BADGE_SCALE - offX);
+      }
+    }
+    if (!isFinite(badgeLeftAtCenter)) badgeLeftAtCenter = -_badgeBboxCentre(redPoly).width / 2;
+    // D-shape: left semicircle + flat right side flush with badge left edge at ring height
     const ringShape = new THREE.Shape();
     ringShape.moveTo(majorR, outerR);
     ringShape.lineTo(0, outerR);
@@ -301,7 +308,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     ringHole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
     ringShape.holes.push(ringHole);
     let ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: ringDepth, bevelEnabled: false });
-    ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-leftEdge - majorR, 0, zOff / 2 - ringDepth / 2));
+    ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(badgeLeftAtCenter - majorR, 0, zOff / 2 - ringDepth / 2));
     ringGeo = _badgeMergeVerticesForExport(ringGeo);
 
     const kcGeo = _badgeMergeVerticesForExport(_badgeConcatGeos(baseGeo, ringGeo));
