@@ -41,8 +41,11 @@ function saveHoleSettings() {
 }
 
 function saveAlignKeychainHole() {
-  const val = document.getElementById('alignKeychainHole')?.checked ? '1' : '0';
-  localStorage.setItem('badge2_alignKeychainHole', val);
+  localStorage.setItem('badge2_alignKeychainHole', document.getElementById('alignKeychainHole')?.checked ? '1' : '0');
+}
+
+function saveSoftenRingEdges() {
+  localStorage.setItem('badge2_softenRingEdges', document.getElementById('softenRingEdges')?.checked ? '1' : '0');
 }
 
 // ── Supabase ──────────────────────────────────────────────────
@@ -182,6 +185,8 @@ async function loadModel(){
   if(holeWidthEl) holeWidthEl.value=localStorage.getItem('badge2_holeWidth')||'3';
   const alignEl=document.getElementById('alignKeychainHole');
   if(alignEl) alignEl.checked=localStorage.getItem('badge2_alignKeychainHole')==='1';
+  const softenEl=document.getElementById('softenRingEdges');
+  if(softenEl) softenEl.checked=localStorage.getItem('badge2_softenRingEdges')==='1';
 
   updateAdvancedPanel(typeId);
 

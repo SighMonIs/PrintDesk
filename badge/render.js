@@ -284,19 +284,57 @@ function buildBadge() {
     const extendX     = isRight ? badgeEdge + keychainDist - outerR : badgeEdge - keychainDist + outerR;
     const toClip      = (wx, wy) => ({ X: Math.round((wx + offX) * SCALE), Y: Math.round((offY - wy) * SCALE) });
 
-    // Outer D-shape: semicircle on the far side + flat top/bottom extending into badge
-    const N = 48;
+    // Outer D-shape: semicircle on the far side + flat sides extending into badge
+    const N = 48, Nfo = 8;
+    const ofr = 1.5; // outer fillet radius (mm)
+    const softenOuter = document.getElementById('softenRingEdges')?.checked
+                     || localStorage.getItem('badge2_softenRingEdges') === '1';
+    // badge-side x where fillets are centred (just outside the badge edge)
+    const bx = isRight ? badgeEdge + keychainDist : badgeEdge - keychainDist;
+
     const outerDPath = [];
     for (let i = 0; i <= N; i++) {
       const a = isRight ? -Math.PI / 2 + (Math.PI * i / N) : Math.PI / 2 + (Math.PI * i / N);
       outerDPath.push(toClip(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
     }
-    if (isRight) {
-      outerDPath.push(toClip(extendX,  outerR)); // top-left into badge
-      outerDPath.push(toClip(extendX, -outerR)); // bottom-left into badge
+    if (softenOuter) {
+      if (isRight) {
+        // arc ends at top (90°) → flat top → top-left fillet → into badge → bottom-left fillet → flat bottom
+        outerDPath.push(toClip(bx + ofr, outerR));
+        for (let i = 0; i <= Nfo; i++) { // top-left fillet: 90°→180°
+          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(bx + ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
+        }
+        outerDPath.push(toClip(extendX, outerR - ofr));
+        outerDPath.push(toClip(extendX, -outerR + ofr));
+        outerDPath.push(toClip(bx, -outerR + ofr));
+        for (let i = 0; i <= Nfo; i++) { // bottom-left fillet: 180°→270°
+          const a = Math.PI + (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(bx + ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
+        }
+      } else {
+        // arc ends at bottom (270°) → flat bottom → bottom-right fillet → into badge → top-right fillet → flat top
+        outerDPath.push(toClip(bx - ofr, -outerR));
+        for (let i = 0; i <= Nfo; i++) { // bottom-right fillet: 270°→360°
+          const a = -Math.PI / 2 + (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(bx - ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
+        }
+        outerDPath.push(toClip(extendX, -outerR + ofr));
+        outerDPath.push(toClip(extendX,  outerR - ofr));
+        outerDPath.push(toClip(bx, outerR - ofr));
+        for (let i = 0; i <= Nfo; i++) { // top-right fillet: 0°→90°
+          const a = (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(bx - ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
+        }
+      }
     } else {
-      outerDPath.push(toClip(extendX, -outerR)); // bottom-right into badge
-      outerDPath.push(toClip(extendX,  outerR)); // top-right into badge
+      if (isRight) {
+        outerDPath.push(toClip(extendX,  outerR));
+        outerDPath.push(toClip(extendX, -outerR));
+      } else {
+        outerDPath.push(toClip(extendX, -outerR));
+        outerDPath.push(toClip(extendX,  outerR));
+      }
     }
 
     // Helper: sample badge boundary x at a given world-y
