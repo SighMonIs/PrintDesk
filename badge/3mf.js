@@ -287,7 +287,6 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const baseGeo = _badgeBuildSolidExtrusionMesh(redOuters, zOff, offX, offY);
 
     const outerR = 7.5, innerR = 5, ringDepth = 2;
-    const majorR = (outerR + innerR) / 2;
 
     // Find actual leftmost badge boundary within ring height range
     let badgeLeftAtCenter = Infinity;
@@ -299,22 +298,27 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     }
     if (!isFinite(badgeLeftAtCenter)) badgeLeftAtCenter = -_badgeBboxCentre(redPoly).width / 2;
 
-    const ringCenterX = badgeLeftAtCenter - majorR;
+    // Push center right so both outer and inner edges overlap badge, giving solid connection
+    const ringCenterX = badgeLeftAtCenter - outerR + 4;
     const ringCX = Math.round((ringCenterX + offX) * _BADGE_SCALE);
     const ringCY = Math.round(offY * _BADGE_SCALE);
 
-    // Outer circle as Clipper polygon
+    // Annular ring as two Clipper paths (outer CW, inner CCW = hole), then DIFFERENCE clips badge boundary
     const outerCirclePath = Array.from({ length: 64 }, (_, i) => {
       const a = (2 * Math.PI * i) / 64;
       return { X: Math.round(ringCX + outerR * Math.cos(a) * _BADGE_SCALE), Y: Math.round(ringCY + outerR * Math.sin(a) * _BADGE_SCALE) };
     });
+    const innerCirclePath = Array.from({ length: 64 }, (_, i) => {
+      const a = -(2 * Math.PI * i) / 64;
+      return { X: Math.round(ringCX + innerR * Math.cos(a) * _BADGE_SCALE), Y: Math.round(ringCY + innerR * Math.sin(a) * _BADGE_SCALE) };
+    });
 
-    // DIFFERENCE: outer circle minus badge body → right edge conforms to badge outline
     const clipperDiff = new ClipperLib.Clipper();
     clipperDiff.AddPath(outerCirclePath, ClipperLib.PolyType.ptSubject, true);
+    clipperDiff.AddPath(innerCirclePath, ClipperLib.PolyType.ptSubject, true);
     clipperDiff.AddPaths(redPoly, ClipperLib.PolyType.ptClip, true);
     const diffResult = new ClipperLib.Paths();
-    clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+    clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftEvenOdd, ClipperLib.PolyFillType.pftNonZero);
 
     if (diffResult.length) {
       const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE - offX, offY - p.Y / _BADGE_SCALE);
@@ -323,9 +327,6 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
       const shapes = ringOuters.map(outer => {
         const shape = new THREE.Shape(outer.map(toVec2));
         for (const h of ringHoles) shape.holes.push(new THREE.Path(h.map(toVec2)));
-        const hole = new THREE.Path();
-        hole.absarc(ringCenterX, 0, innerR, 0, Math.PI * 2, true);
-        shape.holes.push(hole);
         return shape;
       });
       let ringGeo = new THREE.ExtrudeGeometry(shapes, { depth: ringDepth, bevelEnabled: false });
