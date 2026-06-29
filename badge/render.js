@@ -289,8 +289,8 @@ function buildBadge() {
       const a = Math.PI / 2 + (Math.PI * i / N);
       innerDPath.push(toClip(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
     }
-    innerDPath.push(toClip(ringCenterX + innerR, -innerR));
-    innerDPath.push(toClip(ringCenterX + innerR,  innerR));
+    innerDPath.push(toClip(ringCenterX + 3, -innerR));
+    innerDPath.push(toClip(ringCenterX + 3,  innerR));
 
     const clipperDiff = new ClipperLib.Clipper();
     clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);

@@ -319,8 +319,8 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
       const a = Math.PI / 2 + (Math.PI * i / N3mf);
       innerDPath.push(toClip3mf(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
     }
-    innerDPath.push(toClip3mf(ringCenterX + innerR, -innerR));
-    innerDPath.push(toClip3mf(ringCenterX + innerR,  innerR));
+    innerDPath.push(toClip3mf(ringCenterX + 3, -innerR));
+    innerDPath.push(toClip3mf(ringCenterX + 3,  innerR));
 
     const clipperDiff = new ClipperLib.Clipper();
     clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
