@@ -288,7 +288,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
 
     const outerR = 7.5, innerR = 5, ringDepth = 2;
 
-    // Find actual leftmost badge boundary within ring height range
+    // Find leftmost badge boundary within the ring's height band
     let badgeLeftAtCenter = Infinity;
     for (const path of redPoly) {
       for (const pt of path) {
@@ -298,24 +298,33 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     }
     if (!isFinite(badgeLeftAtCenter)) badgeLeftAtCenter = -_badgeBboxCentre(redPoly).width / 2;
 
-    // Push center right so both outer and inner edges overlap badge, giving solid connection
-    const ringCenterX = badgeLeftAtCenter - outerR + 4;
-    const ringCX = Math.round((ringCenterX + offX) * _BADGE_SCALE);
-    const ringCY = Math.round(offY * _BADGE_SCALE);
+    // Ring arc center: outerR left of badge so arc left edge = badgeLeft - 2*outerR
+    const ringCenterX = badgeLeftAtCenter - outerR;
+    const extendX    = badgeLeftAtCenter + 6;
+    const toClip3mf  = (wx, wy) => ({ X: Math.round((wx + offX) * _BADGE_SCALE), Y: Math.round((offY - wy) * _BADGE_SCALE) });
 
-    // Annular ring as two Clipper paths (outer CW, inner CCW = hole), then DIFFERENCE clips badge boundary
-    const outerCirclePath = Array.from({ length: 64 }, (_, i) => {
-      const a = (2 * Math.PI * i) / 64;
-      return { X: Math.round(ringCX + outerR * Math.cos(a) * _BADGE_SCALE), Y: Math.round(ringCY + outerR * Math.sin(a) * _BADGE_SCALE) };
-    });
-    const innerCirclePath = Array.from({ length: 64 }, (_, i) => {
-      const a = -(2 * Math.PI * i) / 64;
-      return { X: Math.round(ringCX + innerR * Math.cos(a) * _BADGE_SCALE), Y: Math.round(ringCY + innerR * Math.sin(a) * _BADGE_SCALE) };
-    });
+    // Outer D-shape: left semicircle (90°→270°) + flat top/bottom extending into badge
+    const N3mf = 48;
+    const outerDPath = [];
+    for (let i = 0; i <= N3mf; i++) {
+      const a = Math.PI / 2 + (Math.PI * i / N3mf);
+      outerDPath.push(toClip3mf(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
+    }
+    outerDPath.push(toClip3mf(extendX, -outerR));
+    outerDPath.push(toClip3mf(extendX,  outerR));
+
+    // Inner D-shape (same winding, EvenOdd fill makes it a hole)
+    const innerDPath = [];
+    for (let i = 0; i <= N3mf; i++) {
+      const a = Math.PI / 2 + (Math.PI * i / N3mf);
+      innerDPath.push(toClip3mf(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
+    }
+    innerDPath.push(toClip3mf(extendX, -innerR));
+    innerDPath.push(toClip3mf(extendX,  innerR));
 
     const clipperDiff = new ClipperLib.Clipper();
-    clipperDiff.AddPath(outerCirclePath, ClipperLib.PolyType.ptSubject, true);
-    clipperDiff.AddPath(innerCirclePath, ClipperLib.PolyType.ptSubject, true);
+    clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
+    clipperDiff.AddPath(innerDPath, ClipperLib.PolyType.ptSubject, true);
     clipperDiff.AddPaths(redPoly, ClipperLib.PolyType.ptClip, true);
     const diffResult = new ClipperLib.Paths();
     clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftEvenOdd, ClipperLib.PolyFillType.pftNonZero);

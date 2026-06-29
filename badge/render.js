@@ -258,7 +258,7 @@ function buildBadge() {
     const outerPolyPts = outerPoly.length ? outerPoly : unioned;
     const outerR = 7.5, innerR = 5, ringDepth = 2;
 
-    // Find actual leftmost badge boundary within ring height range
+    // Find leftmost badge boundary within the ring's height band
     let badgeLeftAtCenter = Infinity;
     for (const path of outerPolyPts) {
       for (const pt of path) {
@@ -268,24 +268,33 @@ function buildBadge() {
     }
     if (!isFinite(badgeLeftAtCenter)) { const { width: w } = bboxCentre(outerPolyPts); badgeLeftAtCenter = -w / 2; }
 
-    // Push center right so both outer and inner edges overlap badge, giving solid connection
-    const ringCenterX = badgeLeftAtCenter - outerR + 4;
-    const ringCX = Math.round((ringCenterX + offX) * SCALE);
-    const ringCY = Math.round(offY * SCALE);
+    // Ring arc center: outerR left of badge so arc left edge = badgeLeft - 2*outerR
+    const ringCenterX = badgeLeftAtCenter - outerR;
+    const extendX    = badgeLeftAtCenter + 6; // extend past badge so DIFFERENCE clips the right edge
+    const toClip     = (wx, wy) => ({ X: Math.round((wx + offX) * SCALE), Y: Math.round((offY - wy) * SCALE) });
 
-    // Annular ring as two Clipper paths (outer CW, inner CCW = hole), then DIFFERENCE clips badge boundary
-    const outerCirclePath = Array.from({ length: 64 }, (_, i) => {
-      const a = (2 * Math.PI * i) / 64;
-      return { X: Math.round(ringCX + outerR * Math.cos(a) * SCALE), Y: Math.round(ringCY + outerR * Math.sin(a) * SCALE) };
-    });
-    const innerCirclePath = Array.from({ length: 64 }, (_, i) => {
-      const a = -(2 * Math.PI * i) / 64;
-      return { X: Math.round(ringCX + innerR * Math.cos(a) * SCALE), Y: Math.round(ringCY + innerR * Math.sin(a) * SCALE) };
-    });
+    // Outer D-shape: left semicircle (90°→270°) + flat top/bottom extending into badge
+    const N = 48;
+    const outerDPath = [];
+    for (let i = 0; i <= N; i++) {
+      const a = Math.PI / 2 + (Math.PI * i / N);
+      outerDPath.push(toClip(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
+    }
+    outerDPath.push(toClip(extendX, -outerR)); // bottom-right into badge
+    outerDPath.push(toClip(extendX,  outerR)); // top-right into badge
+
+    // Inner D-shape (same winding, EvenOdd fill makes it a hole)
+    const innerDPath = [];
+    for (let i = 0; i <= N; i++) {
+      const a = Math.PI / 2 + (Math.PI * i / N);
+      innerDPath.push(toClip(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
+    }
+    innerDPath.push(toClip(extendX, -innerR));
+    innerDPath.push(toClip(extendX,  innerR));
 
     const clipperDiff = new ClipperLib.Clipper();
-    clipperDiff.AddPath(outerCirclePath, ClipperLib.PolyType.ptSubject, true);
-    clipperDiff.AddPath(innerCirclePath, ClipperLib.PolyType.ptSubject, true);
+    clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
+    clipperDiff.AddPath(innerDPath, ClipperLib.PolyType.ptSubject, true);
     clipperDiff.AddPaths(outerPolyPts, ClipperLib.PolyType.ptClip, true);
     const diffResult = new ClipperLib.Paths();
     clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftEvenOdd, ClipperLib.PolyFillType.pftNonZero);
