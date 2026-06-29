@@ -249,18 +249,24 @@ function buildBadge() {
     badgeGroup.add(frameMesh);
   }
 
-  // Keychain: torus ring attached to top edge of badge
+  // Keychain: flat ring attached to left edge of badge
   const _kbc = getBackingConfig();
   if (_kbc?.type === 'keychain' && layerConfig.length > 0) {
     const baseLayer = layerConfig[0];
     const colour = parseInt(baseLayer.hex.replace('#', ''), 16);
     const outerPoly = clipperOffset(unioned, baseLayer.border > 0 ? baseLayer.border : 0);
-    const { height: badgeH } = bboxCentre(outerPoly.length ? outerPoly : unioned);
-    const topEdge = badgeH / 2;
+    const { width: badgeW } = bboxCentre(outerPoly.length ? outerPoly : unioned);
+    const leftEdge = badgeW / 2;
     const majorR = 6.75, tubeR = 1.125;
-    const torusGeo = new THREE.TorusGeometry(majorR, tubeR, 16, 32);
-    torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, topEdge + majorR, z / 2));
-    badgeGroup.add(new THREE.Mesh(torusGeo, new THREE.MeshPhongMaterial({ color: colour, shininess: 40 })));
+    const ringShape = new THREE.Shape();
+    ringShape.absarc(0, 0, majorR + tubeR, 0, Math.PI * 2, false);
+    const ringHole = new THREE.Path();
+    ringHole.absarc(0, 0, majorR - tubeR, 0, Math.PI * 2, true);
+    ringShape.holes.push(ringHole);
+    const ringDepth = tubeR * 2;
+    const ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: ringDepth, bevelEnabled: false });
+    ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-leftEdge - majorR, 0, z / 2 - ringDepth / 2));
+    badgeGroup.add(new THREE.Mesh(ringGeo, new THREE.MeshPhongMaterial({ color: colour, shininess: 40 })));
   }
 }
 

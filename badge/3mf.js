@@ -287,13 +287,20 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const baseGeo = _badgeBuildSolidExtrusionMesh(redOuters, zOff, offX, offY);
 
     const redBbox = _badgeBboxCentre(redPoly);
-    const topEdge = redBbox.height / 2;
+    const leftEdge = redBbox.width / 2;
     const majorR = 6.75, tubeR = 0.75;
 
-    const torusGeo = new THREE.TorusGeometry(majorR, tubeR, 16, 32);
-    torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, topEdge + majorR, zOff / 2));
+    const ringShape = new THREE.Shape();
+    ringShape.absarc(0, 0, majorR + tubeR, 0, Math.PI * 2, false);
+    const ringHole = new THREE.Path();
+    ringHole.absarc(0, 0, majorR - tubeR, 0, Math.PI * 2, true);
+    ringShape.holes.push(ringHole);
+    const ringDepth = tubeR * 2;
+    let ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: ringDepth, bevelEnabled: false });
+    ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(-leftEdge - majorR, 0, zOff / 2 - ringDepth / 2));
+    ringGeo = _badgeMergeVerticesForExport(ringGeo);
 
-    const kcGeo = _badgeMergeVerticesForExport(_badgeConcatGeos(baseGeo, torusGeo));
+    const kcGeo = _badgeMergeVerticesForExport(_badgeConcatGeos(baseGeo, ringGeo));
     objects.push({ geo: kcGeo, name: 'Keychain_Base', colour: redLayer.hex, extruder: 1, id: objects.length + 1, skipFilamentSlot: true });
   }
 
