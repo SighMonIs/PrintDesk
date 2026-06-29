@@ -300,8 +300,9 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     }
     if (!isFinite(badgeEdge3mf)) badgeEdge3mf = (isRight3mf ? 1 : -1) * _badgeBboxCentre(redPoly).width / 2;
 
-    const ringCenterX = isRight3mf ? badgeEdge3mf + 4.5  : badgeEdge3mf - 4.5;
-    const extendX     = isRight3mf ? badgeEdge3mf - 6    : badgeEdge3mf + 6;
+    const keychainDist3mf = parseFloat(document.getElementById('keychainDist')?.value || localStorage.getItem('badge2_keychainDist') || '1.5');
+    const ringCenterX = isRight3mf ? badgeEdge3mf + keychainDist3mf + innerR : badgeEdge3mf - keychainDist3mf - innerR;
+    const extendX     = isRight3mf ? badgeEdge3mf - 6 : badgeEdge3mf + 6;
     const toClip3mf   = (wx, wy) => ({ X: Math.round((wx + offX) * _BADGE_SCALE), Y: Math.round((offY - wy) * _BADGE_SCALE) });
 
     // Outer D-shape
@@ -321,7 +322,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
 
     // Inner D-shape hole with 1mm fillets
     const innerDPath = [];
-    const holeR3mf = 1, innerEdgeX3mf = isRight3mf ? ringCenterX - 3 : ringCenterX + 3, Nf3mf = 8;
+    const holeR3mf = 1, innerEdgeX3mf = isRight3mf ? badgeEdge3mf + keychainDist3mf : badgeEdge3mf - keychainDist3mf, Nf3mf = 8;
     for (let i = 0; i <= N3mf; i++) {
       const a = isRight3mf ? -Math.PI / 2 + (Math.PI * i / N3mf) : Math.PI / 2 + (Math.PI * i / N3mf);
       innerDPath.push(toClip3mf(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));

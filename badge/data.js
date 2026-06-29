@@ -31,6 +31,11 @@ function saveRingSide() {
   if (typeId) localStorage.setItem('badge2_ringSide_' + typeId, val);
 }
 
+function saveKeychainDist() {
+  const val = document.getElementById('keychainDist')?.value || '1.5';
+  localStorage.setItem('badge2_keychainDist', val);
+}
+
 // ── Supabase ──────────────────────────────────────────────────
 const SB_URL=(window.CONFIG&&window.CONFIG.SUPABASE_URL)||'';
 const SB_KEY=(window.CONFIG&&window.CONFIG.SUPABASE_KEY)||'';
@@ -157,9 +162,11 @@ async function loadModel(){
   const type=MODEL_TYPES.find(t=>t.id===typeId); if(!type) return;
   currentModel=models.find(m=>m.name===type.label)||null;
 
-  // Ring side from localStorage
+  // Ring side + distance from localStorage
   const ringSideEl=document.getElementById('ringSide');
   if(ringSideEl) ringSideEl.value=localStorage.getItem('badge2_ringSide_'+typeId)||'left';
+  const keychainDistEl=document.getElementById('keychainDist');
+  if(keychainDistEl) keychainDistEl.value=localStorage.getItem('badge2_keychainDist')||'1.5';
 
   updateAdvancedPanel(typeId);
 

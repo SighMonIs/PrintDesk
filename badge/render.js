@@ -272,8 +272,10 @@ function buildBadge() {
     }
     if (!isFinite(badgeEdge)) { const { width: w } = bboxCentre(outerPolyPts); badgeEdge = isRight ? w / 2 : -w / 2; }
 
-    const ringCenterX = isRight ? badgeEdge + 4.5  : badgeEdge - 4.5;
-    const extendX     = isRight ? badgeEdge - 6    : badgeEdge + 6;
+    const keychainDist = parseFloat(document.getElementById('keychainDist')?.value || localStorage.getItem('badge2_keychainDist') || '1.5');
+    // ringCenterX is derived from the gap: innerEdge = badgeEdge ∓ keychainDist, center = innerEdge ∓ innerR
+    const ringCenterX = isRight ? badgeEdge + keychainDist + innerR : badgeEdge - keychainDist - innerR;
+    const extendX     = isRight ? badgeEdge - 6 : badgeEdge + 6;
     const toClip      = (wx, wy) => ({ X: Math.round((wx + offX) * SCALE), Y: Math.round((offY - wy) * SCALE) });
 
     // Outer D-shape: semicircle on the far side + flat top/bottom extending into badge
@@ -293,7 +295,8 @@ function buildBadge() {
 
     // Inner D-shape hole with 1mm fillets at the two badge-side corners
     const innerDPath = [];
-    const holeR = 1, innerEdgeX = isRight ? ringCenterX - 3 : ringCenterX + 3, Nf = 8;
+    // innerEdgeX is the flat badge-side edge of the hole = badgeEdge ∓ keychainDist
+    const holeR = 1, innerEdgeX = isRight ? badgeEdge + keychainDist : badgeEdge - keychainDist, Nf = 8;
     for (let i = 0; i <= N; i++) {
       const a = isRight ? -Math.PI / 2 + (Math.PI * i / N) : Math.PI / 2 + (Math.PI * i / N);
       innerDPath.push(toClip(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
