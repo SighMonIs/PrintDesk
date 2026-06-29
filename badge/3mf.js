@@ -323,30 +323,32 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     }
     if (softenOuter3mf) {
       if (isRight3mf) {
+        // top fillet: centre (badgeEdge3mf+ofr, outerR-ofr), 90°→180°
         outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf, outerR));
-        for (let i = 0; i <= Nfo3mf; i++) { // centre (badgeEdge3mf, outerR), 0°→90° CCW — rises above outerR
-          const a = (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf * Math.cos(a), outerR + ofr3mf * Math.sin(a)));
+        for (let i = 0; i <= Nfo3mf; i++) {
+          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo3mf;
+          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf + ofr3mf * Math.cos(a), outerR - ofr3mf + ofr3mf * Math.sin(a)));
         }
-        outerDPath.push(toClip3mf(extendX,  outerR + ofr3mf));
-        outerDPath.push(toClip3mf(extendX, -outerR - ofr3mf));
-        outerDPath.push(toClip3mf(badgeEdge3mf, -outerR - ofr3mf));
-        for (let i = 0; i <= Nfo3mf; i++) { // centre (badgeEdge3mf, -outerR), 270°→360° CCW — dips below −outerR
-          const a = -Math.PI / 2 + (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf * Math.sin(a)));
+        outerDPath.push(toClip3mf(extendX, outerR - ofr3mf));
+        outerDPath.push(toClip3mf(extendX, -outerR + ofr3mf));
+        // bottom fillet: centre (badgeEdge3mf+ofr, -outerR+ofr), 180°→270°
+        for (let i = 0; i <= Nfo3mf; i++) {
+          const a = Math.PI + (Math.PI / 2) * i / Nfo3mf;
+          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf + ofr3mf * Math.sin(a)));
         }
       } else {
+        // bottom fillet: centre (badgeEdge3mf-ofr, -outerR+ofr), 270°→360°
         outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf, -outerR));
-        for (let i = 0; i <= Nfo3mf; i++) { // centre (badgeEdge3mf, -outerR), 180°→270° CCW — dips below −outerR
-          const a = Math.PI + (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf * Math.sin(a)));
+        for (let i = 0; i <= Nfo3mf; i++) {
+          const a = 3 * Math.PI / 2 + (Math.PI / 2) * i / Nfo3mf;
+          outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf + ofr3mf * Math.sin(a)));
         }
-        outerDPath.push(toClip3mf(extendX, -outerR - ofr3mf));
-        outerDPath.push(toClip3mf(extendX,  outerR + ofr3mf));
-        outerDPath.push(toClip3mf(badgeEdge3mf, outerR + ofr3mf));
-        for (let i = 0; i <= Nfo3mf; i++) { // centre (badgeEdge3mf, outerR), 90°→180° CCW — rises above outerR
-          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf * Math.cos(a), outerR + ofr3mf * Math.sin(a)));
+        outerDPath.push(toClip3mf(extendX, -outerR + ofr3mf));
+        outerDPath.push(toClip3mf(extendX,  outerR - ofr3mf));
+        // top fillet: centre (badgeEdge3mf-ofr, outerR-ofr), 0°→90°
+        for (let i = 0; i <= Nfo3mf; i++) {
+          const a = (Math.PI / 2) * i / Nfo3mf;
+          outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf + ofr3mf * Math.cos(a), outerR - ofr3mf + ofr3mf * Math.sin(a)));
         }
       }
     } else {
