@@ -48,6 +48,10 @@ function saveSoftenRingEdges() {
   localStorage.setItem('badge2_softenRingEdges', document.getElementById('softenRingEdges')?.checked ? '1' : '0');
 }
 
+function saveRingEdgeRadius() {
+  localStorage.setItem('badge2_ringEdgeRadius', document.getElementById('ringEdgeRadius')?.value || '3');
+}
+
 // ── Supabase ──────────────────────────────────────────────────
 const SB_URL=(window.CONFIG&&window.CONFIG.SUPABASE_URL)||'';
 const SB_KEY=(window.CONFIG&&window.CONFIG.SUPABASE_KEY)||'';
@@ -187,6 +191,8 @@ async function loadModel(){
   if(alignEl) alignEl.checked=localStorage.getItem('badge2_alignKeychainHole')==='1';
   const softenEl=document.getElementById('softenRingEdges');
   if(softenEl) softenEl.checked=localStorage.getItem('badge2_softenRingEdges')==='1';
+  const ringEdgeRadEl=document.getElementById('ringEdgeRadius');
+  if(ringEdgeRadEl) ringEdgeRadEl.value=localStorage.getItem('badge2_ringEdgeRadius')||'3';
 
   updateAdvancedPanel(typeId);
 

@@ -286,7 +286,7 @@ function buildBadge() {
 
     // Outer D-shape: semicircle on the far side + flat sides extending into badge
     const N = 48, Nfo = 8;
-    const ofr = 1.5; // outer fillet radius (mm)
+    const ofr = parseFloat(document.getElementById('ringEdgeRadius')?.value || localStorage.getItem('badge2_ringEdgeRadius') || '3');
     const softenOuter = document.getElementById('softenRingEdges')?.checked
                      || localStorage.getItem('badge2_softenRingEdges') === '1';
     // badge-side x where fillets are centred (just outside the badge edge)

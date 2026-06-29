@@ -311,7 +311,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
 
     // Outer D-shape
     const N3mf = 48, Nfo3mf = 8;
-    const ofr3mf = 1.5;
+    const ofr3mf = parseFloat(document.getElementById('ringEdgeRadius')?.value || localStorage.getItem('badge2_ringEdgeRadius') || '3');
     const softenOuter3mf = document.getElementById('softenRingEdges')?.checked
                         || localStorage.getItem('badge2_softenRingEdges') === '1';
     const bx3mf = isRight3mf ? badgeEdge3mf + keychainDist3mf : badgeEdge3mf - keychainDist3mf;
