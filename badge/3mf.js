@@ -255,7 +255,9 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     }
 
     geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, zOff));
-    objects.push({ geo, name: _BADGE_LAYER_NAMES[i] || `layer${i+1}`, colour: layer.hex, extruder: i+1, id: objects.length+1 });
+    // Keychain: red layer is replaced by Keychain_Base below, so skip it here
+    if (!(keychain && i === 0))
+      objects.push({ geo, name: _BADGE_LAYER_NAMES[i] || `layer${i+1}`, colour: layer.hex, extruder: i+1, id: objects.length+1 });
     zOff += slotD + layer.depth;
     if (keychain && i === 0) zAfterRed = zOff;
   }
@@ -328,33 +330,26 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
       innerDPath.push(toClip3mf(rightX3mf - holeR3mf + holeR3mf * Math.cos(a), innerR - holeR3mf + holeR3mf * Math.sin(a)));
     }
 
-    // Step 1: UNION outer D-shape with badge red poly → single connected outline
+    // UNION outer D-shape with badge red poly → single connected solid outline
     const clipperUnion = new ClipperLib.Clipper();
     clipperUnion.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
     clipperUnion.AddPaths(redPoly, ClipperLib.PolyType.ptClip, true);
     const unionResult = new ClipperLib.Paths();
     clipperUnion.Execute(ClipperLib.ClipType.ctUnion, unionResult, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
 
-    // Step 2: subtract inner D-shape hole from union result
-    const clipperHole = new ClipperLib.Clipper();
-    clipperHole.AddPaths(unionResult, ClipperLib.PolyType.ptSubject, true);
-    clipperHole.AddPath(innerDPath, ClipperLib.PolyType.ptClip, true);
-    const finalPoly = new ClipperLib.Paths();
-    clipperHole.Execute(ClipperLib.ClipType.ctDifference, finalPoly, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+    // Build solid base using proven helper (no hole triangulation issues)
+    const unionOuters = unionResult.filter(p => ClipperLib.Clipper.Orientation(p));
+    let kcGeo = _badgeBuildSolidExtrusionMesh(unionOuters, zOff, offX, offY);
+    kcGeo = _badgeMergeVerticesForExport(kcGeo);
+    objects.push({ geo: kcGeo, name: 'Keychain_Base', colour: redLayer.hex, extruder: 1, id: objects.length + 1, skipFilamentSlot: true });
 
-    if (finalPoly.length) {
-      const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE - offX, offY - p.Y / _BADGE_SCALE);
-      const outers = finalPoly.filter(p =>  ClipperLib.Clipper.Orientation(p));
-      const holes  = finalPoly.filter(p => !ClipperLib.Clipper.Orientation(p));
-      const shapes = outers.map(outer => {
-        const shape = new THREE.Shape(outer.map(toVec2));
-        for (const h of holes) shape.holes.push(new THREE.Path(h.map(toVec2)));
-        return shape;
-      });
-      let kcGeo = new THREE.ExtrudeGeometry(shapes, { depth: zOff, bevelEnabled: false });
-      kcGeo = _badgeMergeVerticesForExport(kcGeo);
-      objects.push({ geo: kcGeo, name: 'Keychain_Base', colour: redLayer.hex, extruder: 1, id: objects.length + 1, skipFilamentSlot: true });
-    }
+    // Export inner D-shape as a negative part — Bambu Studio subtracts it to cut the hole
+    const innerDOuters = [innerDPath].filter(p => ClipperLib.Clipper.Orientation(p));
+    // innerDPath may be CCW in Clipper; force it to be treated as solid by reversing if needed
+    const innerDForNeg = ClipperLib.Clipper.Orientation(innerDPath) ? [innerDPath] : [innerDPath.slice().reverse()];
+    let holeGeo = _badgeBuildSolidExtrusionMesh(innerDForNeg, zOff, offX, offY);
+    holeGeo = _badgeMergeVerticesForExport(holeGeo);
+    objects.push({ geo: holeGeo, name: 'Keychain_Hole', colour: '#000000', extruder: 1, id: objects.length + 1, negative: true });
   }
 
   if (backing && objects.length > 0 && !keychain) {
