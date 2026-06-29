@@ -83,6 +83,9 @@ canvas{display:block;}
 
 /* Spinner +/- wrap */
 .spin-wrap{display:flex;align-items:center;gap:3px;}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+input[type=number]{-moz-appearance:textfield;}
 .spin-btn{width:22px;height:26px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;font-family:inherit;}
 .spin-btn:hover{background:var(--surface);border-color:rgba(255,255,255,0.22);}
 .layer-setting-row .spin-btn{width:20px;height:24px;font-size:14px;}

@@ -332,7 +332,7 @@ function buildLayerUI(){
       </div>
       ${l.isText
         ? `<div class="layer-setting-row"><label>Type</label><span style="font-size:11px;color:var(--muted)">Text layer</span></div>`
-        : `<div class="layer-setting-row"><label>Border (mm)</label><input type="number" value="${l.border}" min="0" max="20" step="0.5" onchange="layerConfig[${i}].border=+this.value;scheduleRender()"></div>`
+        : `<div class="layer-setting-row"><label>Border (mm)</label><input type="number" value="${l.border}" min="0" max="20" step="0.25" onchange="layerConfig[${i}].border=+this.value;scheduleRender()"></div>`
       }
       <div class="layer-setting-row"><label>Depth (mm)</label><input type="number" value="${l.depth}" min="0.5" max="10" step="0.5" onchange="layerConfig[${i}].depth=+this.value;scheduleRender()"></div>
     </div>`).join('');
