@@ -256,9 +256,15 @@ function buildBadge() {
     const colour = parseInt(baseLayer.hex.replace('#', ''), 16);
     const outerPoly = clipperOffset(unioned, baseLayer.border > 0 ? baseLayer.border : 0);
     const outerPolyPts = outerPoly.length ? outerPoly : unioned;
-    const outerR = 7.5, innerR = 5, ringDepth = 4;
+    const ringDepth = 4;
     const ringSide = document.getElementById('ringSide')?.value || 'left';
     const isRight  = ringSide === 'right';
+
+    const keychainDist = parseFloat(document.getElementById('keychainDist')?.value || localStorage.getItem('badge2_keychainDist') || '1.5');
+    const holeDiameter = parseFloat(document.getElementById('holeDiameter')?.value || localStorage.getItem('badge2_holeDiameter') || '10');
+    const holeWidth    = parseFloat(document.getElementById('holeWidth')?.value    || localStorage.getItem('badge2_holeWidth')    || '3');
+    const innerR = holeDiameter / 2;
+    const outerR = innerR + 2.5; // fixed 2.5mm wall thickness
 
     // Find leftmost or rightmost badge boundary within the ring's height band
     let badgeEdge = isRight ? -Infinity : Infinity;
@@ -272,10 +278,10 @@ function buildBadge() {
     }
     if (!isFinite(badgeEdge)) { const { width: w } = bboxCentre(outerPolyPts); badgeEdge = isRight ? w / 2 : -w / 2; }
 
-    const keychainDist = parseFloat(document.getElementById('keychainDist')?.value || localStorage.getItem('badge2_keychainDist') || '1.5');
-    // ringCenterX is derived from the gap: innerEdge = badgeEdge ∓ keychainDist, center = innerEdge ∓ innerR
-    const ringCenterX = isRight ? badgeEdge + keychainDist + innerR : badgeEdge - keychainDist - innerR;
-    const extendX     = isRight ? badgeEdge - 6 : badgeEdge + 6;
+    // flat side of hole fixed at badgeEdge ∓ keychainDist; ring center shifts with holeWidth
+    const ringCenterX = isRight ? badgeEdge + keychainDist + holeWidth : badgeEdge - keychainDist - holeWidth;
+    // outer flat side = innerEdge ± outerR (extends into badge for clean slicer connection)
+    const extendX     = isRight ? badgeEdge + keychainDist - outerR : badgeEdge - keychainDist + outerR;
     const toClip      = (wx, wy) => ({ X: Math.round((wx + offX) * SCALE), Y: Math.round((offY - wy) * SCALE) });
 
     // Outer D-shape: semicircle on the far side + flat top/bottom extending into badge

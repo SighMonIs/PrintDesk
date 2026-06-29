@@ -284,9 +284,14 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const redLayer = layerConfig[0];
     const redPoly = _badgeClipperOffset(unioned, redLayer.border);
 
-    const outerR = 7.5, innerR = 5;
     const ringSide3mf = document.getElementById('ringSide')?.value || 'left';
     const isRight3mf  = ringSide3mf === 'right';
+
+    const keychainDist3mf = parseFloat(document.getElementById('keychainDist')?.value || localStorage.getItem('badge2_keychainDist') || '1.5');
+    const holeDiameter3mf = parseFloat(document.getElementById('holeDiameter')?.value || localStorage.getItem('badge2_holeDiameter') || '10');
+    const holeWidth3mf    = parseFloat(document.getElementById('holeWidth')?.value    || localStorage.getItem('badge2_holeWidth')    || '3');
+    const innerR = holeDiameter3mf / 2;
+    const outerR = innerR + 2.5;
 
     // Find leftmost or rightmost badge boundary within the ring's height band
     let badgeEdge3mf = isRight3mf ? -Infinity : Infinity;
@@ -300,9 +305,8 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     }
     if (!isFinite(badgeEdge3mf)) badgeEdge3mf = (isRight3mf ? 1 : -1) * _badgeBboxCentre(redPoly).width / 2;
 
-    const keychainDist3mf = parseFloat(document.getElementById('keychainDist')?.value || localStorage.getItem('badge2_keychainDist') || '1.5');
-    const ringCenterX = isRight3mf ? badgeEdge3mf + keychainDist3mf + innerR : badgeEdge3mf - keychainDist3mf - innerR;
-    const extendX     = isRight3mf ? badgeEdge3mf - 6 : badgeEdge3mf + 6;
+    const ringCenterX = isRight3mf ? badgeEdge3mf + keychainDist3mf + holeWidth3mf : badgeEdge3mf - keychainDist3mf - holeWidth3mf;
+    const extendX     = isRight3mf ? badgeEdge3mf + keychainDist3mf - outerR : badgeEdge3mf - keychainDist3mf + outerR;
     const toClip3mf   = (wx, wy) => ({ X: Math.round((wx + offX) * _BADGE_SCALE), Y: Math.round((offY - wy) * _BADGE_SCALE) });
 
     // Outer D-shape

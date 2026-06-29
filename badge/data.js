@@ -32,8 +32,12 @@ function saveRingSide() {
 }
 
 function saveKeychainDist() {
-  const val = document.getElementById('keychainDist')?.value || '1.5';
-  localStorage.setItem('badge2_keychainDist', val);
+  localStorage.setItem('badge2_keychainDist', document.getElementById('keychainDist')?.value || '1.5');
+}
+
+function saveHoleSettings() {
+  localStorage.setItem('badge2_holeDiameter', document.getElementById('holeDiameter')?.value || '10');
+  localStorage.setItem('badge2_holeWidth',    document.getElementById('holeWidth')?.value    || '3');
 }
 
 function saveAlignKeychainHole() {
@@ -172,6 +176,10 @@ async function loadModel(){
   if(ringSideEl) ringSideEl.value=localStorage.getItem('badge2_ringSide_'+typeId)||'left';
   const keychainDistEl=document.getElementById('keychainDist');
   if(keychainDistEl) keychainDistEl.value=localStorage.getItem('badge2_keychainDist')||'1.5';
+  const holeDiamEl=document.getElementById('holeDiameter');
+  if(holeDiamEl) holeDiamEl.value=localStorage.getItem('badge2_holeDiameter')||'10';
+  const holeWidthEl=document.getElementById('holeWidth');
+  if(holeWidthEl) holeWidthEl.value=localStorage.getItem('badge2_holeWidth')||'3';
   const alignEl=document.getElementById('alignKeychainHole');
   if(alignEl) alignEl.checked=localStorage.getItem('badge2_alignKeychainHole')==='1';
 
