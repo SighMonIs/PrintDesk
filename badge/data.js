@@ -1,5 +1,36 @@
 const LAYER_NAMES = ['Red', 'Yellow', 'Black', 'Jade White'];
 
+const MODEL_TYPES = [
+  { id: 'badge-magnet',       label: 'Badge - Magnet',       backing: 'Magnet'       },
+  { id: 'badge-pin',          label: 'Badge - Pin',          backing: 'Pin'          },
+  { id: 'badge-round-magnet', label: 'Badge - Round Magnet', backing: 'Round Magnet' },
+  { id: 'keychain',           label: 'Keychain',             backing: 'Keychain'     },
+  { id: 'dog-tag',            label: 'Dog Tag',              backing: 'Magnet'       },
+  { id: 'plaque',             label: 'Plaque',               backing: 'Magnet'       },
+];
+
+function getDefaultLayerConfig() {
+  return [
+    { id: null, model_id: null, order: 0, hex: '#c0392b', colourId: null, border: 3,   depth: 1, hasSlot: true,  isText: false },
+    { id: null, model_id: null, order: 1, hex: '#f1c40f', colourId: null, border: 1.5, depth: 1, hasSlot: false, isText: false },
+    { id: null, model_id: null, order: 2, hex: '#1a1a1a', colourId: null, border: 0.5, depth: 1, hasSlot: false, isText: false },
+    { id: null, model_id: null, order: 3, hex: '#e8e8e6', colourId: null, border: 0,   depth: 1, hasSlot: false, isText: true  },
+  ];
+}
+
+function updateAdvancedPanel(typeId) {
+  const show = (id, visible) => { const el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
+  show('sectionBackingPos',  ['badge-magnet','badge-pin','dog-tag','plaque'].includes(typeId));
+  show('sectionRndMag',      typeId === 'badge-round-magnet');
+  show('sectionKeychain',    typeId === 'keychain');
+}
+
+function saveRingSide() {
+  const typeId = document.getElementById('modelSelect')?.value;
+  const val    = document.getElementById('ringSide')?.value || 'left';
+  if (typeId) localStorage.setItem('badge2_ringSide_' + typeId, val);
+}
+
 // ── Supabase ──────────────────────────────────────────────────
 const SB_URL=(window.CONFIG&&window.CONFIG.SUPABASE_URL)||'';
 const SB_KEY=(window.CONFIG&&window.CONFIG.SUPABASE_KEY)||'';
@@ -68,7 +99,12 @@ function applyUrlParams(){
     const el=document.getElementById('nameInput');
     el.value=name; localStorage.setItem('badge2_lastName',name); updateNameClear(el);
   }
-  if(backing){ const sel=document.getElementById('backingSelect'); if(sel) sel.value=backing; }
+  if(backing){
+    // Map legacy backing param to model type id
+    const map={'Magnet':'badge-magnet','Pin':'badge-pin','Round Magnet':'badge-round-magnet','Keychain':'keychain'};
+    const typeId=map[backing]||backing;
+    const sel=document.getElementById('modelSelect'); if(sel) sel.value=typeId;
+  }
   if(colourStr){
     colourStr.split('|').map(s=>s.trim()).forEach((n,i)=>{
       if(i>=layerConfig.length) return;
@@ -112,20 +148,50 @@ async function loadColours(){ colours=await sbGet('colours','?available=eq.true&
 async function loadModels(){
   models=await sbGet('badge_models','?archived=eq.false&order=name');
   const sel=document.getElementById('modelSelect');
-  sel.innerHTML=models.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
-  if(models.length) await loadModel();
+  sel.innerHTML=MODEL_TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('');
+  await loadModel();
 }
 
 async function loadModel(){
-  const id=document.getElementById('modelSelect').value;
-  currentModel=models.find(m=>m.id===id); if(!currentModel) return;
+  const typeId=document.getElementById('modelSelect').value;
+  const type=MODEL_TYPES.find(t=>t.id===typeId); if(!type) return;
+  currentModel=models.find(m=>m.name===type.label)||null;
+
+  // Ring side from localStorage
+  const ringSideEl=document.getElementById('ringSide');
+  if(ringSideEl) ringSideEl.value=localStorage.getItem('badge2_ringSide_'+typeId)||'left';
+
+  updateAdvancedPanel(typeId);
+
+  if(!currentModel){
+    layerConfig=getDefaultLayerConfig();
+    document.getElementById('fontSize').value=49;
+    document.getElementById('letterSpacing').value=0;
+    loadRndMagSettings();
+    buildLayerUI();
+    applyUrlParams();
+    loadPreviousCombos();
+    setStatus('No saved defaults — click Save to create');
+    if(!font){
+      setStatus('Loading font…');
+      opentype.load(FONT_PATH,(err,f)=>{
+        if(err){setStatus('Could not load font','err');return;}
+        font=f; setStatus(''); document.getElementById('exportBtn').disabled=false;
+        updateBackingCoords(); buildBadge();
+      });
+    } else {
+      document.getElementById('exportBtn').disabled=false;
+      updateBackingCoords(); buildBadge();
+    }
+    return;
+  }
+
   const [layers,settings,prefs]=await Promise.all([
-    sbGet('badge_model_layers',`?model_id=eq.${id}&order=layer_order`),
-    sbGet('badge_model_settings',`?model_id=eq.${id}`),
-    sbGet('badge_user_preferences',`?model_id=eq.${id}&user_id=eq.${currentUser.id}`)
+    sbGet('badge_model_layers',`?model_id=eq.${currentModel.id}&order=layer_order`),
+    sbGet('badge_model_settings',`?model_id=eq.${currentModel.id}`),
+    sbGet('badge_user_preferences',`?model_id=eq.${currentModel.id}&user_id=eq.${currentUser.id}`)
   ]);
 
-  // Map Supabase layers to badge2 format (filled=false → isText)
   layerConfig=layers.map((l,i)=>({
     id:l.id, model_id:l.model_id, order:l.layer_order,
     hex:l.colour_hex, colourId:l.colour_id,
@@ -175,16 +241,28 @@ async function loadModel(){
 }
 
 async function saveModelSettings(){
-  const id=currentModel?.id; if(!id) return;
   setStatus('Saving…');
   try{
+    const typeId=document.getElementById('modelSelect').value;
+    const type=MODEL_TYPES.find(t=>t.id===typeId); if(!type) throw new Error('Unknown model type');
     const fontSize=+document.getElementById('fontSize').value;
     const letterSpacing=+document.getElementById('letterSpacing').value;
 
-    const mRes=await sbPatch('badge_models',`?id=eq.${id}`,{font_size:fontSize});
-    if(mRes) throw new Error(mRes.message||mRes.error||'badge_models save failed');
-    currentModel.font_size=fontSize;
+    if(!currentModel){
+      // Create a new DB row for this model type
+      const created=await sbUpsert('badge_models',{name:type.label,font_size:fontSize,archived:false});
+      if(created?.code||created?.error) throw new Error(created?.message||created?.error||'badge_models create failed');
+      currentModel=created[0];
+      models.push(currentModel);
+      // Assign model_id to unsaved layers
+      for(const l of layerConfig) l.model_id=currentModel.id;
+    } else {
+      const mRes=await sbPatch('badge_models',`?id=eq.${currentModel.id}`,{font_size:fontSize});
+      if(mRes) throw new Error(mRes.message||mRes.error||'badge_models save failed');
+      currentModel.font_size=fontSize;
+    }
 
+    const id=currentModel.id;
     const existing=await sbGet('badge_model_settings',`?model_id=eq.${id}`);
     const sRes=await sbUpsert('badge_model_settings',{
       ...(existing[0]?{id:existing[0].id}:{}),
@@ -198,11 +276,13 @@ async function saveModelSettings(){
 
     for(const l of layerConfig){
       const lRes=await sbUpsert('badge_model_layers',{
-        id:l.id, model_id:l.model_id, layer_order:l.order,
+        ...(l.id?{id:l.id}:{}),
+        model_id:l.model_id||id, layer_order:l.order,
         colour_id:l.colourId||null, colour_hex:l.hex,
         border_mm:l.border, thickness_mm:l.depth, filled:!l.isText,
       });
       if(lRes?.code||lRes?.error) throw new Error(lRes.message||lRes.error||`layer ${l.order} save failed`);
+      if(!l.id&&lRes[0]) l.id=lRes[0].id;
     }
     setStatus('Saved','ok'); setTimeout(()=>setStatus(''),2000);
   }catch(e){

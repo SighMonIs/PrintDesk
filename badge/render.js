@@ -167,17 +167,17 @@ function updateBackingCoords() {
 function resetBackingOverride() { backingOverride = null; scheduleRender(); }
 
 function onBackingCoordChange(field) {
-  const val = document.getElementById('backingSelect')?.value;
+  const val = document.getElementById('modelSelect')?.value || 'badge-magnet';
   const v   = parseFloat(document.getElementById(field === 'x' ? 'bcX' : field === 'y' ? 'bcY' : 'bcZ')?.value);
   if (isNaN(v)) return;
-  if (val === 'Round Magnet') {
+  if (val === 'badge-round-magnet') {
     if (field === 'x' || field === 'y') {
       const dEl = document.getElementById('rndMagDiam'); if (dEl) dEl.value = v;
     } else {
       const dEl = document.getElementById('rndMagDepth'); if (dEl) dEl.value = v;
     }
     saveRndMagSettings();
-  } else if (val !== 'Keychain') {
+  } else if (val !== 'keychain') {
     backingOverride = backingOverride || {};
     if (field === 'x') backingOverride.w = v;
     else if (field === 'y') backingOverride.h = v;
@@ -257,54 +257,79 @@ function buildBadge() {
     const outerPoly = clipperOffset(unioned, baseLayer.border > 0 ? baseLayer.border : 0);
     const outerPolyPts = outerPoly.length ? outerPoly : unioned;
     const outerR = 7.5, innerR = 5, ringDepth = 4;
+    const ringSide = document.getElementById('ringSide')?.value || 'left';
+    const isRight  = ringSide === 'right';
 
-    // Find leftmost badge boundary within the ring's height band
-    let badgeLeftAtCenter = Infinity;
+    // Find leftmost or rightmost badge boundary within the ring's height band
+    let badgeEdge = isRight ? -Infinity : Infinity;
     for (const path of outerPolyPts) {
       for (const pt of path) {
-        if (Math.abs(-(pt.Y / SCALE - offY)) < outerR)
-          badgeLeftAtCenter = Math.min(badgeLeftAtCenter, pt.X / SCALE - offX);
+        if (Math.abs(-(pt.Y / SCALE - offY)) < outerR) {
+          const x = pt.X / SCALE - offX;
+          badgeEdge = isRight ? Math.max(badgeEdge, x) : Math.min(badgeEdge, x);
+        }
       }
     }
-    if (!isFinite(badgeLeftAtCenter)) { const { width: w } = bboxCentre(outerPolyPts); badgeLeftAtCenter = -w / 2; }
+    if (!isFinite(badgeEdge)) { const { width: w } = bboxCentre(outerPolyPts); badgeEdge = isRight ? w / 2 : -w / 2; }
 
-    // Ring arc center: outerR left of badge so arc left edge = badgeLeft - 2*outerR
-    const ringCenterX = badgeLeftAtCenter - 4.5; // positions cutout right edge 1.5mm from badge
-    const extendX    = badgeLeftAtCenter + 6;
-    const toClip     = (wx, wy) => ({ X: Math.round((wx + offX) * SCALE), Y: Math.round((offY - wy) * SCALE) });
+    const ringCenterX = isRight ? badgeEdge + 4.5  : badgeEdge - 4.5;
+    const extendX     = isRight ? badgeEdge - 6    : badgeEdge + 6;
+    const toClip      = (wx, wy) => ({ X: Math.round((wx + offX) * SCALE), Y: Math.round((offY - wy) * SCALE) });
 
-    // Outer D-shape: left semicircle (90°→270°) + flat top/bottom extending into badge
+    // Outer D-shape: semicircle on the far side + flat top/bottom extending into badge
     const N = 48;
     const outerDPath = [];
     for (let i = 0; i <= N; i++) {
-      const a = Math.PI / 2 + (Math.PI * i / N);
+      const a = isRight ? -Math.PI / 2 + (Math.PI * i / N) : Math.PI / 2 + (Math.PI * i / N);
       outerDPath.push(toClip(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
     }
-    outerDPath.push(toClip(extendX, -outerR)); // bottom-right into badge
-    outerDPath.push(toClip(extendX,  outerR)); // top-right into badge
+    if (isRight) {
+      outerDPath.push(toClip(extendX,  outerR)); // top-left into badge
+      outerDPath.push(toClip(extendX, -outerR)); // bottom-left into badge
+    } else {
+      outerDPath.push(toClip(extendX, -outerR)); // bottom-right into badge
+      outerDPath.push(toClip(extendX,  outerR)); // top-right into badge
+    }
 
-    // Inner D-shape hole with 1mm fillets at the two right corners
+    // Inner D-shape hole with 1mm fillets at the two badge-side corners
     const innerDPath = [];
-    const holeR = 1, rightX = ringCenterX + 3, Nf = 8;
+    const holeR = 1, innerEdgeX = isRight ? ringCenterX - 3 : ringCenterX + 3, Nf = 8;
     for (let i = 0; i <= N; i++) {
-      const a = Math.PI / 2 + (Math.PI * i / N);
+      const a = isRight ? -Math.PI / 2 + (Math.PI * i / N) : Math.PI / 2 + (Math.PI * i / N);
       innerDPath.push(toClip(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
     }
-    // bottom flat → stop before corner
-    innerDPath.push(toClip(rightX - holeR, -innerR));
-    // bottom-right fillet: center (rightX-holeR, -innerR+holeR), sweep 270°→360°
-    for (let i = 0; i <= Nf; i++) {
-      const a = -Math.PI / 2 + (Math.PI / 2) * i / Nf;
-      innerDPath.push(toClip(rightX - holeR + holeR * Math.cos(a), -innerR + holeR + holeR * Math.sin(a)));
+    if (isRight) {
+      // top flat → stop before corner
+      innerDPath.push(toClip(innerEdgeX + holeR, innerR));
+      // top-left fillet
+      for (let i = 0; i <= Nf; i++) {
+        const a = Math.PI / 2 + (Math.PI / 2) * i / Nf;
+        innerDPath.push(toClip(innerEdgeX + holeR + holeR * Math.cos(a), innerR - holeR + holeR * Math.sin(a)));
+      }
+      // left edge
+      innerDPath.push(toClip(innerEdgeX, -innerR + holeR));
+      // bottom-left fillet
+      for (let i = 0; i <= Nf; i++) {
+        const a = Math.PI + (Math.PI / 2) * i / Nf;
+        innerDPath.push(toClip(innerEdgeX + holeR + holeR * Math.cos(a), -innerR + holeR + holeR * Math.sin(a)));
+      }
+    } else {
+      // bottom flat → stop before corner
+      innerDPath.push(toClip(innerEdgeX - holeR, -innerR));
+      // bottom-right fillet: center (innerEdgeX-holeR, -innerR+holeR), sweep 270°→360°
+      for (let i = 0; i <= Nf; i++) {
+        const a = -Math.PI / 2 + (Math.PI / 2) * i / Nf;
+        innerDPath.push(toClip(innerEdgeX - holeR + holeR * Math.cos(a), -innerR + holeR + holeR * Math.sin(a)));
+      }
+      // right edge
+      innerDPath.push(toClip(innerEdgeX, innerR - holeR));
+      // top-right fillet: center (innerEdgeX-holeR, innerR-holeR), sweep 0°→90°
+      for (let i = 0; i <= Nf; i++) {
+        const a = (Math.PI / 2) * i / Nf;
+        innerDPath.push(toClip(innerEdgeX - holeR + holeR * Math.cos(a), innerR - holeR + holeR * Math.sin(a)));
+      }
     }
-    // right edge
-    innerDPath.push(toClip(rightX, innerR - holeR));
-    // top-right fillet: center (rightX-holeR, innerR-holeR), sweep 0°→90°
-    for (let i = 0; i <= Nf; i++) {
-      const a = (Math.PI / 2) * i / Nf;
-      innerDPath.push(toClip(rightX - holeR + holeR * Math.cos(a), innerR - holeR + holeR * Math.sin(a)));
-    }
-    // top flat closes back to arc start automatically
+    // top/bottom flat closes back to arc start automatically
 
     const clipperDiff = new ClipperLib.Clipper();
     clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
@@ -331,12 +356,12 @@ function buildBadge() {
 
 // ── Backing ────────────────────────────────────────────────────
 function getBackingConfig() {
-  const val = document.getElementById('backingSelect')?.value || 'Magnet';
+  const val = document.getElementById('modelSelect')?.value || 'badge-magnet';
   let cfg = null;
-  if (val === 'Pin')      cfg = { w: 32, h: 7,  d: 2, name: 'pin' };
-  else if (val === 'Magnet')   cfg = { w: 46, h: 14, d: 2, name: 'magnet' };
-  else if (val === 'Keychain') cfg = { type: 'keychain' };
-  else if (val === 'Round Magnet') {
+  if (val === 'badge-pin')                                   cfg = { w: 32, h: 7,  d: 2, name: 'pin' };
+  else if (['badge-magnet','dog-tag','plaque'].includes(val)) cfg = { w: 46, h: 14, d: 2, name: 'magnet' };
+  else if (val === 'keychain')                               cfg = { type: 'keychain' };
+  else if (val === 'badge-round-magnet') {
     const diam      = parseFloat(document.getElementById('rndMagDiam')?.value      || localStorage.getItem('badge2_rndDiam')      || '17.15');
     const depth     = parseFloat(document.getElementById('rndMagDepth')?.value     || localStorage.getItem('badge2_rndDepth')     || '2');
     const threshold = parseFloat(document.getElementById('rndMagThreshold')?.value || localStorage.getItem('badge2_rndThreshold') || '60');

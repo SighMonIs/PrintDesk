@@ -285,47 +285,69 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const redPoly = _badgeClipperOffset(unioned, redLayer.border);
 
     const outerR = 7.5, innerR = 5;
+    const ringSide3mf = document.getElementById('ringSide')?.value || 'left';
+    const isRight3mf  = ringSide3mf === 'right';
 
-    // Find leftmost badge boundary within the ring's height band
-    let badgeLeftAtCenter = Infinity;
+    // Find leftmost or rightmost badge boundary within the ring's height band
+    let badgeEdge3mf = isRight3mf ? -Infinity : Infinity;
     for (const path of redPoly) {
       for (const pt of path) {
-        if (Math.abs(offY - pt.Y / _BADGE_SCALE) < outerR)
-          badgeLeftAtCenter = Math.min(badgeLeftAtCenter, pt.X / _BADGE_SCALE - offX);
+        if (Math.abs(offY - pt.Y / _BADGE_SCALE) < outerR) {
+          const x = pt.X / _BADGE_SCALE - offX;
+          badgeEdge3mf = isRight3mf ? Math.max(badgeEdge3mf, x) : Math.min(badgeEdge3mf, x);
+        }
       }
     }
-    if (!isFinite(badgeLeftAtCenter)) badgeLeftAtCenter = -_badgeBboxCentre(redPoly).width / 2;
+    if (!isFinite(badgeEdge3mf)) badgeEdge3mf = (isRight3mf ? 1 : -1) * _badgeBboxCentre(redPoly).width / 2;
 
-    const ringCenterX = badgeLeftAtCenter - 4.5;
-    const extendX    = badgeLeftAtCenter + 6;
-    const toClip3mf  = (wx, wy) => ({ X: Math.round((wx + offX) * _BADGE_SCALE), Y: Math.round((offY - wy) * _BADGE_SCALE) });
+    const ringCenterX = isRight3mf ? badgeEdge3mf + 4.5  : badgeEdge3mf - 4.5;
+    const extendX     = isRight3mf ? badgeEdge3mf - 6    : badgeEdge3mf + 6;
+    const toClip3mf   = (wx, wy) => ({ X: Math.round((wx + offX) * _BADGE_SCALE), Y: Math.round((offY - wy) * _BADGE_SCALE) });
 
     // Outer D-shape
     const N3mf = 48;
     const outerDPath = [];
     for (let i = 0; i <= N3mf; i++) {
-      const a = Math.PI / 2 + (Math.PI * i / N3mf);
+      const a = isRight3mf ? -Math.PI / 2 + (Math.PI * i / N3mf) : Math.PI / 2 + (Math.PI * i / N3mf);
       outerDPath.push(toClip3mf(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
     }
-    outerDPath.push(toClip3mf(extendX, -outerR));
-    outerDPath.push(toClip3mf(extendX,  outerR));
+    if (isRight3mf) {
+      outerDPath.push(toClip3mf(extendX,  outerR));
+      outerDPath.push(toClip3mf(extendX, -outerR));
+    } else {
+      outerDPath.push(toClip3mf(extendX, -outerR));
+      outerDPath.push(toClip3mf(extendX,  outerR));
+    }
 
     // Inner D-shape hole with 1mm fillets
     const innerDPath = [];
-    const holeR3mf = 1, rightX3mf = ringCenterX + 3, Nf3mf = 8;
+    const holeR3mf = 1, innerEdgeX3mf = isRight3mf ? ringCenterX - 3 : ringCenterX + 3, Nf3mf = 8;
     for (let i = 0; i <= N3mf; i++) {
-      const a = Math.PI / 2 + (Math.PI * i / N3mf);
+      const a = isRight3mf ? -Math.PI / 2 + (Math.PI * i / N3mf) : Math.PI / 2 + (Math.PI * i / N3mf);
       innerDPath.push(toClip3mf(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
     }
-    innerDPath.push(toClip3mf(rightX3mf - holeR3mf, -innerR));
-    for (let i = 0; i <= Nf3mf; i++) {
-      const a = -Math.PI / 2 + (Math.PI / 2) * i / Nf3mf;
-      innerDPath.push(toClip3mf(rightX3mf - holeR3mf + holeR3mf * Math.cos(a), -innerR + holeR3mf + holeR3mf * Math.sin(a)));
-    }
-    innerDPath.push(toClip3mf(rightX3mf, innerR - holeR3mf));
-    for (let i = 0; i <= Nf3mf; i++) {
-      const a = (Math.PI / 2) * i / Nf3mf;
-      innerDPath.push(toClip3mf(rightX3mf - holeR3mf + holeR3mf * Math.cos(a), innerR - holeR3mf + holeR3mf * Math.sin(a)));
+    if (isRight3mf) {
+      innerDPath.push(toClip3mf(innerEdgeX3mf + holeR3mf, innerR));
+      for (let i = 0; i <= Nf3mf; i++) {
+        const a = Math.PI / 2 + (Math.PI / 2) * i / Nf3mf;
+        innerDPath.push(toClip3mf(innerEdgeX3mf + holeR3mf + holeR3mf * Math.cos(a), innerR - holeR3mf + holeR3mf * Math.sin(a)));
+      }
+      innerDPath.push(toClip3mf(innerEdgeX3mf, -innerR + holeR3mf));
+      for (let i = 0; i <= Nf3mf; i++) {
+        const a = Math.PI + (Math.PI / 2) * i / Nf3mf;
+        innerDPath.push(toClip3mf(innerEdgeX3mf + holeR3mf + holeR3mf * Math.cos(a), -innerR + holeR3mf + holeR3mf * Math.sin(a)));
+      }
+    } else {
+      innerDPath.push(toClip3mf(innerEdgeX3mf - holeR3mf, -innerR));
+      for (let i = 0; i <= Nf3mf; i++) {
+        const a = -Math.PI / 2 + (Math.PI / 2) * i / Nf3mf;
+        innerDPath.push(toClip3mf(innerEdgeX3mf - holeR3mf + holeR3mf * Math.cos(a), -innerR + holeR3mf + holeR3mf * Math.sin(a)));
+      }
+      innerDPath.push(toClip3mf(innerEdgeX3mf, innerR - holeR3mf));
+      for (let i = 0; i <= Nf3mf; i++) {
+        const a = (Math.PI / 2) * i / Nf3mf;
+        innerDPath.push(toClip3mf(innerEdgeX3mf - holeR3mf + holeR3mf * Math.cos(a), innerR - holeR3mf + holeR3mf * Math.sin(a)));
+      }
     }
 
     // Ring solid: outer D-shape MINUS badge body → only the portion outside the badge
