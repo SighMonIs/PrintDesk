@@ -283,14 +283,28 @@ function buildBadge() {
     outerDPath.push(toClip(extendX, -outerR)); // bottom-right into badge
     outerDPath.push(toClip(extendX,  outerR)); // top-right into badge
 
-    // Inner D-shape hole: same arc center, right edge straight at ringCenterX + innerR
+    // Inner D-shape hole with 1mm fillets at the two right corners
     const innerDPath = [];
+    const holeR = 1, rightX = ringCenterX + 3, Nf = 8;
     for (let i = 0; i <= N; i++) {
       const a = Math.PI / 2 + (Math.PI * i / N);
       innerDPath.push(toClip(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
     }
-    innerDPath.push(toClip(ringCenterX + 3, -innerR));
-    innerDPath.push(toClip(ringCenterX + 3,  innerR));
+    // bottom flat → stop before corner
+    innerDPath.push(toClip(rightX - holeR, -innerR));
+    // bottom-right fillet: center (rightX-holeR, -innerR+holeR), sweep 270°→360°
+    for (let i = 0; i <= Nf; i++) {
+      const a = -Math.PI / 2 + (Math.PI / 2) * i / Nf;
+      innerDPath.push(toClip(rightX - holeR + holeR * Math.cos(a), -innerR + holeR + holeR * Math.sin(a)));
+    }
+    // right edge
+    innerDPath.push(toClip(rightX, innerR - holeR));
+    // top-right fillet: center (rightX-holeR, innerR-holeR), sweep 0°→90°
+    for (let i = 0; i <= Nf; i++) {
+      const a = (Math.PI / 2) * i / Nf;
+      innerDPath.push(toClip(rightX - holeR + holeR * Math.cos(a), innerR - holeR + holeR * Math.sin(a)));
+    }
+    // top flat closes back to arc start automatically
 
     const clipperDiff = new ClipperLib.Clipper();
     clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);

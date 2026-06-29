@@ -313,14 +313,23 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     outerDPath.push(toClip3mf(extendX, -outerR));
     outerDPath.push(toClip3mf(extendX,  outerR));
 
-    // Inner D-shape hole: same arc center, right edge straight at ringCenterX + innerR
+    // Inner D-shape hole with 1mm fillets at the two right corners
     const innerDPath = [];
+    const holeR3mf = 1, rightX3mf = ringCenterX + 3, Nf3mf = 8;
     for (let i = 0; i <= N3mf; i++) {
       const a = Math.PI / 2 + (Math.PI * i / N3mf);
       innerDPath.push(toClip3mf(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
     }
-    innerDPath.push(toClip3mf(ringCenterX + 3, -innerR));
-    innerDPath.push(toClip3mf(ringCenterX + 3,  innerR));
+    innerDPath.push(toClip3mf(rightX3mf - holeR3mf, -innerR));
+    for (let i = 0; i <= Nf3mf; i++) {
+      const a = -Math.PI / 2 + (Math.PI / 2) * i / Nf3mf;
+      innerDPath.push(toClip3mf(rightX3mf - holeR3mf + holeR3mf * Math.cos(a), -innerR + holeR3mf + holeR3mf * Math.sin(a)));
+    }
+    innerDPath.push(toClip3mf(rightX3mf, innerR - holeR3mf));
+    for (let i = 0; i <= Nf3mf; i++) {
+      const a = (Math.PI / 2) * i / Nf3mf;
+      innerDPath.push(toClip3mf(rightX3mf - holeR3mf + holeR3mf * Math.cos(a), innerR - holeR3mf + holeR3mf * Math.sin(a)));
+    }
 
     const clipperDiff = new ClipperLib.Clipper();
     clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
