@@ -288,10 +288,9 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
 
     const redBbox = _badgeBboxCentre(redPoly);
     const rightEdge = redBbox.width / 2;
-    const majorR = 9, tubeR = 1;
+    const majorR = 6.75, tubeR = 0.75;
 
     const torusGeo = new THREE.TorusGeometry(majorR, tubeR, 16, 32);
-    torusGeo.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI / 2));
     torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(rightEdge + 1 + majorR, 0, zOff / 2));
 
     const kcGeo = _badgeMergeVerticesForExport(_badgeConcatGeos(baseGeo, torusGeo));

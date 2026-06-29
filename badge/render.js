@@ -257,9 +257,8 @@ function buildBadge() {
     const outerPoly = clipperOffset(unioned, baseLayer.border > 0 ? baseLayer.border : 0);
     const { width: badgeW } = bboxCentre(outerPoly.length ? outerPoly : unioned);
     const rightEdge = badgeW / 2;
-    const majorR = 9, tubeR = 1.5;
+    const majorR = 6.75, tubeR = 1.125;
     const torusGeo = new THREE.TorusGeometry(majorR, tubeR, 16, 32);
-    torusGeo.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI / 2));
     torusGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(rightEdge + 1 + majorR, 0, z / 2));
     badgeGroup.add(new THREE.Mesh(torusGeo, new THREE.MeshPhongMaterial({ color: colour, shininess: 40 })));
   }
