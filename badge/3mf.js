@@ -330,8 +330,10 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
 
     // Ring solid: outer D-shape MINUS badge body → only the portion outside the badge
     const clipperDiff = new ClipperLib.Clipper();
+    // Inset badge by 1mm so ring overlaps slightly → no gap at slicer connection
+    const redPolyInset = _badgeClipperOffset(redPoly, -1);
     clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
-    clipperDiff.AddPaths(redPoly, ClipperLib.PolyType.ptClip, true);
+    clipperDiff.AddPaths(redPolyInset.length ? redPolyInset : redPoly, ClipperLib.PolyType.ptClip, true);
     const diffResult = new ClipperLib.Paths();
     clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
 
