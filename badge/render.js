@@ -249,7 +249,7 @@ function buildBadge() {
     badgeGroup.add(frameMesh);
   }
 
-  // Keychain: flat ring attached to left edge of badge
+  // Keychain: ring whose right edge conforms to the badge left outline
   const _kbc = getBackingConfig();
   if (_kbc?.type === 'keychain' && layerConfig.length > 0) {
     const baseLayer = layerConfig[0];
@@ -258,7 +258,8 @@ function buildBadge() {
     const outerPolyPts = outerPoly.length ? outerPoly : unioned;
     const outerR = 7.5, innerR = 5, ringDepth = 2;
     const majorR = (outerR + innerR) / 2;
-    // Find the actual leftmost badge boundary within the ring's height range
+
+    // Find actual leftmost badge boundary within ring height range
     let badgeLeftAtCenter = Infinity;
     for (const path of outerPolyPts) {
       for (const pt of path) {
@@ -267,19 +268,40 @@ function buildBadge() {
       }
     }
     if (!isFinite(badgeLeftAtCenter)) { const { width: w } = bboxCentre(outerPolyPts); badgeLeftAtCenter = -w / 2; }
-    // D-shape: left semicircle + flat right side flush with badge left edge at ring height
-    const ringShape = new THREE.Shape();
-    ringShape.moveTo(majorR, outerR);
-    ringShape.lineTo(0, outerR);
-    ringShape.absarc(0, 0, outerR, Math.PI / 2, -Math.PI / 2, false);
-    ringShape.lineTo(majorR, -outerR);
-    ringShape.closePath();
-    const ringHole = new THREE.Path();
-    ringHole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
-    ringShape.holes.push(ringHole);
-    const ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: ringDepth, bevelEnabled: false });
-    ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(badgeLeftAtCenter - majorR, 0, z / 2 - ringDepth / 2));
-    badgeGroup.add(new THREE.Mesh(ringGeo, new THREE.MeshPhongMaterial({ color: colour, shininess: 40 })));
+
+    const ringCenterX = badgeLeftAtCenter - majorR;
+    const ringCX = Math.round((ringCenterX + offX) * SCALE);
+    const ringCY = Math.round(offY * SCALE);
+
+    // Outer circle as Clipper polygon
+    const outerCirclePath = Array.from({ length: 64 }, (_, i) => {
+      const a = (2 * Math.PI * i) / 64;
+      return { X: Math.round(ringCX + outerR * Math.cos(a) * SCALE), Y: Math.round(ringCY + outerR * Math.sin(a) * SCALE) };
+    });
+
+    // DIFFERENCE: outer circle minus badge body → right edge conforms to badge outline
+    const clipperDiff = new ClipperLib.Clipper();
+    clipperDiff.AddPath(outerCirclePath, ClipperLib.PolyType.ptSubject, true);
+    clipperDiff.AddPaths(outerPolyPts, ClipperLib.PolyType.ptClip, true);
+    const diffResult = new ClipperLib.Paths();
+    clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+
+    if (diffResult.length) {
+      const toVec2 = p => new THREE.Vector2(p.X / SCALE - offX, -(p.Y / SCALE - offY));
+      const ringOuters = diffResult.filter(p =>  ClipperLib.Clipper.Orientation(p));
+      const ringHoles  = diffResult.filter(p => !ClipperLib.Clipper.Orientation(p));
+      const shapes = ringOuters.map(outer => {
+        const shape = new THREE.Shape(outer.map(toVec2));
+        for (const h of ringHoles) shape.holes.push(new THREE.Path(h.map(toVec2)));
+        const hole = new THREE.Path();
+        hole.absarc(ringCenterX, 0, innerR, 0, Math.PI * 2, true);
+        shape.holes.push(hole);
+        return shape;
+      });
+      const ringGeo = new THREE.ExtrudeGeometry(shapes, { depth: ringDepth, bevelEnabled: false });
+      ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, z / 2 - ringDepth / 2));
+      badgeGroup.add(new THREE.Mesh(ringGeo, new THREE.MeshPhongMaterial({ color: colour, shininess: 40 })));
+    }
   }
 }
 

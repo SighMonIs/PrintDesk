@@ -288,6 +288,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
 
     const outerR = 7.5, innerR = 5, ringDepth = 2;
     const majorR = (outerR + innerR) / 2;
+
     // Find actual leftmost badge boundary within ring height range
     let badgeLeftAtCenter = Infinity;
     for (const path of redPoly) {
@@ -297,22 +298,42 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
       }
     }
     if (!isFinite(badgeLeftAtCenter)) badgeLeftAtCenter = -_badgeBboxCentre(redPoly).width / 2;
-    // D-shape: left semicircle + flat right side flush with badge left edge at ring height
-    const ringShape = new THREE.Shape();
-    ringShape.moveTo(majorR, outerR);
-    ringShape.lineTo(0, outerR);
-    ringShape.absarc(0, 0, outerR, Math.PI / 2, -Math.PI / 2, false);
-    ringShape.lineTo(majorR, -outerR);
-    ringShape.closePath();
-    const ringHole = new THREE.Path();
-    ringHole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
-    ringShape.holes.push(ringHole);
-    let ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: ringDepth, bevelEnabled: false });
-    ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(badgeLeftAtCenter - majorR, 0, zOff / 2 - ringDepth / 2));
-    ringGeo = _badgeMergeVerticesForExport(ringGeo);
 
-    const kcGeo = _badgeMergeVerticesForExport(_badgeConcatGeos(baseGeo, ringGeo));
-    objects.push({ geo: kcGeo, name: 'Keychain_Base', colour: redLayer.hex, extruder: 1, id: objects.length + 1, skipFilamentSlot: true });
+    const ringCenterX = badgeLeftAtCenter - majorR;
+    const ringCX = Math.round((ringCenterX + offX) * _BADGE_SCALE);
+    const ringCY = Math.round(offY * _BADGE_SCALE);
+
+    // Outer circle as Clipper polygon
+    const outerCirclePath = Array.from({ length: 64 }, (_, i) => {
+      const a = (2 * Math.PI * i) / 64;
+      return { X: Math.round(ringCX + outerR * Math.cos(a) * _BADGE_SCALE), Y: Math.round(ringCY + outerR * Math.sin(a) * _BADGE_SCALE) };
+    });
+
+    // DIFFERENCE: outer circle minus badge body → right edge conforms to badge outline
+    const clipperDiff = new ClipperLib.Clipper();
+    clipperDiff.AddPath(outerCirclePath, ClipperLib.PolyType.ptSubject, true);
+    clipperDiff.AddPaths(redPoly, ClipperLib.PolyType.ptClip, true);
+    const diffResult = new ClipperLib.Paths();
+    clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+
+    if (diffResult.length) {
+      const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE - offX, offY - p.Y / _BADGE_SCALE);
+      const ringOuters = diffResult.filter(p =>  ClipperLib.Clipper.Orientation(p));
+      const ringHoles  = diffResult.filter(p => !ClipperLib.Clipper.Orientation(p));
+      const shapes = ringOuters.map(outer => {
+        const shape = new THREE.Shape(outer.map(toVec2));
+        for (const h of ringHoles) shape.holes.push(new THREE.Path(h.map(toVec2)));
+        const hole = new THREE.Path();
+        hole.absarc(ringCenterX, 0, innerR, 0, Math.PI * 2, true);
+        shape.holes.push(hole);
+        return shape;
+      });
+      let ringGeo = new THREE.ExtrudeGeometry(shapes, { depth: ringDepth, bevelEnabled: false });
+      ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, zOff / 2 - ringDepth / 2));
+      ringGeo = _badgeMergeVerticesForExport(ringGeo);
+      const kcGeo = _badgeMergeVerticesForExport(_badgeConcatGeos(baseGeo, ringGeo));
+      objects.push({ geo: kcGeo, name: 'Keychain_Base', colour: redLayer.hex, extruder: 1, id: objects.length + 1, skipFilamentSlot: true });
+    }
   }
 
   if (backing && objects.length > 0 && !keychain) {
