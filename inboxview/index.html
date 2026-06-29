@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=1.0.0">
+<link rel="stylesheet" href="styles.css?v=1.1.0">
 
 <script>
 // Fallback if config.js missing
@@ -71,71 +71,50 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     </div>
   </div>
 
-  <!-- Sidebar -->
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-top">
-      <div class="sidebar-logo">
-        <i class="ti ti-printer sidebar-logo-icon"></i>
-        <span class="sidebar-label sidebar-logo-text">PrintDesk</span>
-      </div>
-      <div class="sidebar-top-actions">
-        <button class="sidebar-close-btn" onclick="closeMobileSidebar()" title="Close">
-          <i class="ti ti-x"></i>
-        </button>
-      </div>
+  <!-- Top bar -->
+  <nav class="topbar" id="sidebar">
+    <div class="topbar-logo">
+      <i class="ti ti-printer"></i>
     </div>
-    <div class="sidebar-nav">
-      <button class="sidebar-item primary-item" onclick="openAddModal()">
-        <i class="ti ti-plus"></i><span class="sidebar-label">New Order</span>
-      </button>
-      <div class="sidebar-divider"></div>
-      <button class="sidebar-item active" data-view="orders" onclick="setSidebarView('orders')">
-        <i class="ti ti-inbox"></i><span class="sidebar-label">Orders</span>
+    <div class="topbar-nav">
+      <button class="topbar-item primary-item" onclick="openAddModal()" title="New Order">
+        <i class="ti ti-plus"></i>
         <span class="sidebar-badge" id="badge-orders"></span>
       </button>
-      <button class="sidebar-item" data-view="customers" onclick="setSidebarView('customers')">
-        <i class="ti ti-address-book"></i><span class="sidebar-label">Customers</span>
+      <button class="topbar-item active" data-view="orders" onclick="setSidebarView('orders')" title="Orders">
+        <i class="ti ti-inbox"></i>
+      </button>
+      <button class="topbar-item" data-view="customers" onclick="setSidebarView('customers')" title="Customers">
+        <i class="ti ti-address-book"></i>
         <span class="sidebar-badge" id="badge-customers"></span>
       </button>
-      <button class="sidebar-item" data-view="colours" onclick="setSidebarView('colours')">
-        <i class="ti ti-brush"></i><span class="sidebar-label">Colours</span>
+      <button class="topbar-item" data-view="colours" onclick="setSidebarView('colours')" title="Colours">
+        <i class="ti ti-brush"></i>
         <span class="sidebar-badge" id="badge-colours"></span>
       </button>
-      <button class="sidebar-item" data-view="categories" onclick="setSidebarView('categories')">
-        <i class="ti ti-category"></i><span class="sidebar-label">Categories</span>
+      <button class="topbar-item" data-view="categories" onclick="setSidebarView('categories')" title="Categories">
+        <i class="ti ti-category"></i>
         <span class="sidebar-badge" id="badge-categories"></span>
       </button>
-      <button class="sidebar-item" data-view="stats" onclick="setSidebarView('stats')">
-        <i class="ti ti-chart-bar"></i><span class="sidebar-label">Stats</span>
+      <button class="topbar-item" data-view="stats" onclick="setSidebarView('stats')" title="Stats">
+        <i class="ti ti-chart-bar"></i>
       </button>
-      <button class="sidebar-item" onclick="window.location.href='/badge/'">
-        <i class="ti ti-badge"></i><span class="sidebar-label">Badges</span>
+      <button class="topbar-item" onclick="window.location.href='/badge/'" title="Badges">
+        <i class="ti ti-badge"></i>
       </button>
     </div>
-    <div class="sidebar-bottom">
-      <div class="sidebar-divider"></div>
-      <button class="sidebar-item" data-view="settings" onclick="setSidebarView('settings')">
-        <i class="ti ti-settings"></i><span class="sidebar-label">Settings</span>
+    <div class="topbar-end">
+      <button class="topbar-item" data-view="settings" onclick="setSidebarView('settings')" title="Settings">
+        <i class="ti ti-settings"></i>
       </button>
-      <button class="sidebar-item" data-view="users" onclick="setSidebarView('users')">
-        <i class="ti ti-users"></i><span class="sidebar-label">Users</span>
+      <button class="topbar-item" data-view="users" onclick="setSidebarView('users')" title="Users">
+        <i class="ti ti-users"></i>
       </button>
-      <button class="sidebar-item sidebar-logout" onclick="doLogout()">
-        <i class="ti ti-logout"></i><span class="sidebar-label">Sign out</span>
+      <button class="topbar-item topbar-logout" onclick="doLogout()" title="Sign out">
+        <i class="ti ti-logout"></i>
       </button>
     </div>
   </nav>
-
-  <!-- Mobile overlay -->
-  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
-
-  <!-- Mobile top bar: hamburger + search (hidden on desktop via CSS) -->
-  <div class="mobile-topbar">
-    <button class="mobile-hamburger" style="position:static;flex-shrink:0;margin:0" onclick="openMobileSidebar()">
-      <i class="ti ti-menu-2"></i>
-    </button>
-    <input type="text" id="search-mobile" placeholder="Search&hellip;" oninput="document.getElementById('search').value=this.value;renderTable()">
-  </div>
 
 <div class="inbox-layout" id="mainContent">
 
@@ -190,7 +169,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <div class="inbox-empty-state"><i class="ti ti-loader-2"></i> Loading&hellip;</div>
     </div>
     <div class="inbox-list-footer">
-      <span id="footerVersion">v1.0.0</span>
+      <span id="footerVersion">v1.1.0</span>
       <span style="color:var(--border2)">&middot;</span>
       <span id="statusMsg" class="footer-status">Loading&hellip;</span>
     </div>
@@ -585,9 +564,9 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<script src="api.js?v=1.0.0"></script>
-<script src="ui.js?v=1.0.0"></script>
-<script src="app.js?v=1.0.0"></script>
+<script src="api.js?v=1.1.0"></script>
+<script src="ui.js?v=1.1.0"></script>
+<script src="app.js?v=1.1.0"></script>
 </body>
 </html>
 

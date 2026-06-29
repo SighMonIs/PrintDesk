@@ -13,14 +13,9 @@ body{overflow:hidden;background:#1f1f1f;margin:0;padding:0;}
 /* ── Inbox 3-col layout ──────────────────────────────────── */
 .inbox-layout{
   display:flex;
-  position:absolute;top:0;right:0;bottom:0;
-  left:var(--sidebar-collapsed);
+  flex:1;min-height:0;
   overflow:hidden;
-  transition:left 0.2s ease;
 }
-#mainApp.sidebar-pinned .inbox-layout{left:var(--sidebar-expanded);}
-.sidebar:hover ~ #mainContent.inbox-layout{left:var(--sidebar-expanded);}
-.sidebar.force-collapsed ~ #mainContent.inbox-layout{left:var(--sidebar-collapsed)!important;}
 
 /* Col 2 — order list */
 .inbox-list-col{
@@ -28,15 +23,6 @@ body{overflow:hidden;background:#1f1f1f;margin:0;padding:0;}
   border-right:1px solid var(--border);
   display:flex;flex-direction:column;
   overflow:hidden;background:var(--bg);
-  position:relative;
-}
-.col-resize-handle{
-  position:absolute;top:0;right:-3px;bottom:0;width:6px;
-  cursor:col-resize;z-index:200;
-  transition:background 0.15s;
-}
-.col-resize-handle:hover,.col-resize-handle.dragging{
-  background:var(--accent);opacity:0.35;
 }
 .inbox-list-header{
   padding:12px 12px 0;border-bottom:1px solid var(--border);
@@ -650,110 +636,54 @@ thead th.sortable{user-select:none;}
   font-size:12px;color:var(--red);margin-bottom:1rem;
 }
 
-/* ── Sidebar layout ── */
-:root{
-  --sidebar-collapsed: 52px;
-  --sidebar-expanded:  150px;
-}
+/* ── Topbar layout ── */
+--topbar-h: 44px;
 
-#mainApp{display:flex;}
+#mainApp{display:flex;flex-direction:column;}
 
-/* Sidebar */
-.sidebar{
-  position:absolute;left:0;top:0;bottom:0;
-  width:var(--sidebar-collapsed);
+.topbar{
+  height:44px;flex-shrink:0;
   background:var(--surface);
-  border-right:1px solid var(--border2);
-  display:flex;flex-direction:column;
+  border-bottom:1px solid var(--border2);
+  display:flex;align-items:center;
+  gap:2px;padding:0 6px;
   z-index:100;
-  transition:width 0.2s ease;
-  overflow:hidden;
 }
-.sidebar:hover,.sidebar.pinned{width:var(--sidebar-expanded);}
-.sidebar.pinned .sidebar-pin{opacity:1;color:var(--accent);}
-
-/* Sidebar top */
-.sidebar-top{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 0 0 10px;
-  border-bottom:1px solid var(--border);
-  height:52px;flex-shrink:0;
-  overflow:hidden;
-  box-sizing:border-box;
+.topbar-logo{
+  font-size:20px;color:var(--accent);
+  width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-right:4px;
+}
+.topbar-nav{display:flex;align-items:center;gap:2px;flex:1;}
+.topbar-end{display:flex;align-items:center;gap:2px;}
+.topbar-item{
+  width:34px;height:34px;
+  display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;cursor:pointer;
+  color:var(--muted);font-size:18px;border-radius:8px;
   position:relative;
-}
-.sidebar-top-actions{
-  display:flex;align-items:center;flex-shrink:0;
-}
-.sidebar-logo{display:flex;align-items:center;gap:10px;overflow:hidden;flex:1;min-width:0;}
-.sidebar-logo-icon{font-size:22px;color:var(--accent);flex-shrink:0;width:24px;text-align:center;line-height:1;}
-.sidebar-logo-text{
-  font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:15px;font-weight:600;
-  color:var(--accent);white-space:nowrap;
-  opacity:0;transition:opacity 0.15s 0.05s;
-}
-.sidebar:hover .sidebar-logo-text,
-.sidebar.pinned .sidebar-logo-text{opacity:1;}
-
-.sidebar-pin{
-  background:transparent;border:none;cursor:pointer;
-  color:var(--muted);font-size:16px;
-  width:32px;height:52px;
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-  opacity:0;transition:opacity 0.15s,color 0.12s,background 0.12s;
-}
-.sidebar:hover .sidebar-pin,
-.sidebar.pinned .sidebar-pin{ opacity:1; }
-.sidebar-pin:hover{color:var(--text);}
-/* Close button — mobile only */
-.sidebar-close-btn{
-  background:transparent;border:none;cursor:pointer;
-  color:var(--muted);font-size:18px;
-  width:44px;height:52px;
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;transition:color 0.12s;
-}
-.sidebar-close-btn:hover{color:var(--text);}
-
-/* Nav items */
-.sidebar-nav{flex:1;padding:6px 8px;overflow-y:auto;overflow-x:hidden;}
-.sidebar-bottom{padding:6px 8px;}
-.sidebar-item{
-  display:flex;align-items:center;gap:12px;
-  width:100%;padding:11px 10px;
-  background:transparent;border:none;cursor:pointer;
-  color:var(--muted);font-size:13px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-  font-weight:500;white-space:nowrap;border-radius:8px;
   transition:background 0.12s,color 0.12s;
-  text-align:left;
+  flex-shrink:0;
 }
-.sidebar-item i{font-size:18px;flex-shrink:0;width:24px;text-align:center;}
-.sidebar-item:hover{background:var(--surface2);color:var(--text);}
-.sidebar-item.active{background:var(--surface2);color:var(--text);}
-.sidebar-item.active i{color:var(--accent);}
-.sidebar-item.primary-item{
-  color:var(--bg);background:var(--accent);
-  border-radius:8px;margin-bottom:4px;font-weight:600;
+.topbar-item:hover{background:var(--surface2);color:var(--text);}
+.topbar-item.active{background:var(--surface2);color:var(--accent);}
+.topbar-item.primary-item{
+  background:var(--accent);color:var(--bg);margin-right:4px;
 }
-.sidebar-item.primary-item i{color:var(--bg);}
-.sidebar-item.primary-item:hover{background:var(--accent2);color:var(--bg);}
-.sidebar-item.sidebar-logout:hover{color:var(--red);background:rgba(224,92,92,0.08);}
+.topbar-item.primary-item:hover{background:var(--accent2);}
+.topbar-item.topbar-logout:hover{color:var(--red);}
 
-/* Sidebar count badge */
+/* Sidebar count badge (reused on topbar) */
 .sidebar-badge{
-  margin-left:auto;font-size:11px;color:var(--muted);
-  opacity:0;transition:opacity 0.15s;flex-shrink:0;
+  position:absolute;top:4px;right:4px;
+  font-size:9px;font-weight:700;
+  color:var(--accent);
   font-family:ui-monospace,'Cascadia Code',monospace;
+  line-height:1;pointer-events:none;
 }
-.sidebar:hover .sidebar-badge,.sidebar.pinned .sidebar-badge{opacity:1;}
-.sidebar-item.active .sidebar-badge{color:var(--accent);}
 
-/* Generic view header (non-orders views) */
-.inbox-view-header{
-  display:flex;align-items:center;gap:8px;
-  padding:0 0 12px;
-}
+/* Generic view header */
+.inbox-view-header{display:flex;align-items:center;gap:8px;padding:0 0 12px;}
 .inbox-view-title{font-size:14px;font-weight:600;color:var(--text);}
 .inbox-view-count{
   font-size:10px;color:var(--muted);background:var(--surface2);
@@ -761,126 +691,6 @@ thead th.sortable{user-select:none;}
   padding:1px 7px;font-family:ui-monospace,'Cascadia Code',monospace;
 }
 .inbox-tabs-row{display:flex;align-items:center;gap:4px;}
-.sidebar-label{
-  opacity:0;transition:opacity 0.15s 0.05s;
-  overflow:hidden;
-}
-.sidebar:hover .sidebar-label,
-.sidebar.pinned .sidebar-label{opacity:1;}
-.sidebar-divider{height:1px;background:var(--border);margin:6px 12px;}
-
-/* Main content shifts right */
-.app{
-  margin-left:var(--sidebar-collapsed);
-  transition:margin-left 0.2s ease;
-  flex:1;min-width:0;
-  padding:1.5rem 1.5rem 4rem;
-  width:calc(100% - var(--sidebar-collapsed));
-  box-sizing:border-box;
-}
-#mainApp.sidebar-pinned .app{
-  margin-left:var(--sidebar-expanded);
-  width:calc(100% - var(--sidebar-expanded));
-}
-/* Force collapsed mode */
-.sidebar.force-collapsed{width:var(--sidebar-collapsed)!important;transition:none;}
-.sidebar.force-collapsed:hover{width:var(--sidebar-collapsed)!important;}
-.sidebar.force-collapsed .sidebar-label{opacity:0!important;transition:none;}
-.sidebar.force-collapsed .sidebar-logo-text{opacity:0!important;transition:none;}
-.sidebar.force-collapsed .sidebar-pin{opacity:0.5!important;}
-
-#mainApp:has(.sidebar.force-collapsed) .app{margin-left:var(--sidebar-collapsed);width:calc(100% - var(--sidebar-collapsed));}
-
-
-
-
-/* Mobile */
-.mobile-hamburger{
-  display:none;position:fixed;top:12px;left:12px;z-index:99;
-  width:38px;height:38px;border-radius:var(--radius);
-  background:var(--surface);border:1px solid var(--border2);
-  color:var(--text);font-size:20px;cursor:pointer;
-  align-items:center;justify-content:center;flex-shrink:0;
-}
-/* When inside mobile-topbar, override fixed positioning */
-.mobile-topbar{
-  display:none;
-  position:fixed;top:0;left:0;right:0;z-index:98;
-  height:52px;
-  background:var(--surface);
-  border-bottom:1px solid var(--border2);
-  align-items:center;
-  padding:0 10px;
-  gap:8px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.3);
-}
-.mobile-topbar .mobile-hamburger{
-  display:flex!important;
-  position:static;
-  flex-shrink:0;
-}
-.mobile-topbar input{
-  flex:1;height:36px;
-  padding:0 10px;font-size:15px;
-  border-radius:var(--radius);
-  border:1px solid var(--border2);
-  background:var(--surface2);
-  color:var(--text);outline:none;
-}
-.mobile-topbar input:focus{border-color:var(--accent2);}
-.sidebar-overlay{
-  display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,0.6);z-index:99;
-}
-
-/* ── Sidebar controls popup menu ── */
-.sidebar-menu{
-  position:fixed;
-  background:var(--surface);border:1px solid var(--border2);
-  border-radius:var(--radius-lg);
-  padding:6px 0;min-width:170px;
-  box-shadow:0 8px 24px rgba(0,0,0,0.4);
-  z-index:9999;display:none;
-}
-.sidebar-menu.open{display:block;}
-.sidebar-menu-title{
-  font-size:10px;font-weight:600;color:var(--muted);
-  text-transform:uppercase;letter-spacing:0.6px;
-  padding:6px 14px 8px;border-bottom:1px solid var(--border);
-  margin-bottom:4px;
-}
-.sidebar-menu-item{
-  display:flex;align-items:center;gap:10px;
-  width:100%;padding:8px 14px;
-  background:transparent;border:none;cursor:pointer;
-  color:var(--text);font-size:12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-  text-align:left;transition:background 0.1s;
-}
-.sidebar-menu-item:hover{background:var(--surface2);}
-.sidebar-menu-dot{
-  width:8px;height:8px;border-radius:50%;
-  border:1.5px solid var(--muted);flex-shrink:0;
-  transition:all 0.12s;
-}
-.sidebar-menu-dot.active{
-  background:var(--accent);border-color:var(--accent);
-}
-
-/* ── Sidebar version + status dot ── */
-.sidebar-version-row{
-  display:flex;align-items:center;justify-content:center;gap:8px;
-  padding:10px 22.5px;
-  min-height:36px;
-}
-.sidebar-version-row .dot{flex-shrink:0;}
-.sidebar-ver-text{
-  font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;font-size:11px;
-  color:rgba(136,136,133,0.5);
-  white-space:nowrap;
-  opacity:0;transition:opacity 0.15s;
-}
-.sidebar:hover .sidebar-ver-text,
-.sidebar.pinned .sidebar-ver-text{opacity:1;}
 
 /* ── Custom status dropdown ── */
 .status-dd-wrap{position:relative;display:inline-block;width:100%;}
