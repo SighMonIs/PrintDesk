@@ -310,56 +310,18 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const toClip3mf   = (wx, wy) => ({ X: Math.round((wx + offX) * _BADGE_SCALE), Y: Math.round((offY - wy) * _BADGE_SCALE) });
 
     // Outer D-shape
-    const N3mf = 48, Nfo3mf = 8;
-    const ofr3mfRaw = parseFloat(document.getElementById('ringEdgeRadius')?.value || localStorage.getItem('badge2_ringEdgeRadius') || '3');
-    const ofr3mf = Math.min(ofr3mfRaw, holeWidth3mf + keychainDist3mf);
-    const softenOuter3mf = document.getElementById('softenRingEdges')?.checked
-                        || localStorage.getItem('badge2_softenRingEdges') === '1';
-    const bx3mf = isRight3mf ? badgeEdge3mf + keychainDist3mf : badgeEdge3mf - keychainDist3mf;
-
+    const N3mf = 48;
     const outerDPath = [];
     for (let i = 0; i <= N3mf; i++) {
       const a = isRight3mf ? -Math.PI / 2 + (Math.PI * i / N3mf) : Math.PI / 2 + (Math.PI * i / N3mf);
       outerDPath.push(toClip3mf(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
     }
-    if (softenOuter3mf) {
-      if (isRight3mf) {
-        // top fillet: centre (badgeEdge3mf+ofr, outerR-ofr), 90°→180°
-        outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf, outerR));
-        for (let i = 0; i <= Nfo3mf; i++) {
-          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf + ofr3mf * Math.cos(a), outerR - ofr3mf + ofr3mf * Math.sin(a)));
-        }
-        outerDPath.push(toClip3mf(extendX, outerR - ofr3mf));
-        outerDPath.push(toClip3mf(extendX, -outerR + ofr3mf));
-        // bottom fillet: centre (badgeEdge3mf+ofr, -outerR+ofr), 180°→270°
-        for (let i = 0; i <= Nfo3mf; i++) {
-          const a = Math.PI + (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf + ofr3mf * Math.sin(a)));
-        }
-      } else {
-        // bottom fillet: centre (badgeEdge3mf-ofr, -outerR+ofr), 270°→360°
-        outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf, -outerR));
-        for (let i = 0; i <= Nfo3mf; i++) {
-          const a = 3 * Math.PI / 2 + (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf + ofr3mf * Math.sin(a)));
-        }
-        outerDPath.push(toClip3mf(extendX, -outerR + ofr3mf));
-        outerDPath.push(toClip3mf(extendX,  outerR - ofr3mf));
-        // top fillet: centre (badgeEdge3mf-ofr, outerR-ofr), 0°→90°
-        for (let i = 0; i <= Nfo3mf; i++) {
-          const a = (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf + ofr3mf * Math.cos(a), outerR - ofr3mf + ofr3mf * Math.sin(a)));
-        }
-      }
+    if (isRight3mf) {
+      outerDPath.push(toClip3mf(extendX,  outerR));
+      outerDPath.push(toClip3mf(extendX, -outerR));
     } else {
-      if (isRight3mf) {
-        outerDPath.push(toClip3mf(extendX,  outerR));
-        outerDPath.push(toClip3mf(extendX, -outerR));
-      } else {
-        outerDPath.push(toClip3mf(extendX, -outerR));
-        outerDPath.push(toClip3mf(extendX,  outerR));
-      }
+      outerDPath.push(toClip3mf(extendX, -outerR));
+      outerDPath.push(toClip3mf(extendX,  outerR));
     }
 
     // Helper: sample badge boundary x at a given world-y

@@ -285,57 +285,18 @@ function buildBadge() {
     const toClip      = (wx, wy) => ({ X: Math.round((wx + offX) * SCALE), Y: Math.round((offY - wy) * SCALE) });
 
     // Outer D-shape: semicircle on the far side + flat sides extending into badge
-    const N = 48, Nfo = 8;
-    const ofrRaw = parseFloat(document.getElementById('ringEdgeRadius')?.value || localStorage.getItem('badge2_ringEdgeRadius') || '3');
-    const ofr = Math.min(ofrRaw, holeWidth + keychainDist);
-    const softenOuter = document.getElementById('softenRingEdges')?.checked
-                     || localStorage.getItem('badge2_softenRingEdges') === '1';
-    // badge-side x where fillets are centred (just outside the badge edge)
-    const bx = isRight ? badgeEdge + keychainDist : badgeEdge - keychainDist;
-
+    const N = 48;
     const outerDPath = [];
     for (let i = 0; i <= N; i++) {
       const a = isRight ? -Math.PI / 2 + (Math.PI * i / N) : Math.PI / 2 + (Math.PI * i / N);
       outerDPath.push(toClip(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
     }
-    if (softenOuter) {
-      if (isRight) {
-        // bridge top stops before corner; top fillet: centre (badgeEdge+ofr, outerR-ofr), 90°→180°
-        outerDPath.push(toClip(badgeEdge + ofr, outerR));
-        for (let i = 0; i <= Nfo; i++) {
-          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge + ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
-        }
-        outerDPath.push(toClip(extendX, outerR - ofr));
-        outerDPath.push(toClip(extendX, -outerR + ofr));
-        // bottom fillet: centre (badgeEdge+ofr, -outerR+ofr), 180°→270°
-        for (let i = 0; i <= Nfo; i++) {
-          const a = Math.PI + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge + ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
-        }
-      } else {
-        // bridge bottom stops before corner; bottom fillet: centre (badgeEdge-ofr, -outerR+ofr), 270°→360°
-        outerDPath.push(toClip(badgeEdge - ofr, -outerR));
-        for (let i = 0; i <= Nfo; i++) {
-          const a = 3 * Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge - ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
-        }
-        outerDPath.push(toClip(extendX, -outerR + ofr));
-        outerDPath.push(toClip(extendX,  outerR - ofr));
-        // top fillet: centre (badgeEdge-ofr, outerR-ofr), 0°→90°
-        for (let i = 0; i <= Nfo; i++) {
-          const a = (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(badgeEdge - ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
-        }
-      }
+    if (isRight) {
+      outerDPath.push(toClip(extendX,  outerR));
+      outerDPath.push(toClip(extendX, -outerR));
     } else {
-      if (isRight) {
-        outerDPath.push(toClip(extendX,  outerR));
-        outerDPath.push(toClip(extendX, -outerR));
-      } else {
-        outerDPath.push(toClip(extendX, -outerR));
-        outerDPath.push(toClip(extendX,  outerR));
-      }
+      outerDPath.push(toClip(extendX, -outerR));
+      outerDPath.push(toClip(extendX,  outerR));
     }
 
     // Helper: sample badge boundary x at a given world-y
