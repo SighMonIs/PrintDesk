@@ -79,24 +79,8 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <span class="sidebar-label sidebar-logo-text">PrintDesk</span>
       </div>
       <div class="sidebar-top-actions">
-        <button class="sidebar-pin" id="sidebarPin" onclick="toggleSidebarMenu(event)" title="Sidebar controls">
-          <i class="ti ti-layout-sidebar"></i>
-        </button>
         <button class="sidebar-close-btn" onclick="closeMobileSidebar()" title="Close">
           <i class="ti ti-x"></i>
-        </button>
-      </div>
-      <!-- Sidebar controls popup -->
-      <div class="sidebar-menu" id="sidebarMenu">
-        <div class="sidebar-menu-title">Sidebar Controls</div>
-        <button class="sidebar-menu-item" id="smExpanded" onclick="setSidebarMode('expanded')">
-          <span class="sidebar-menu-dot" id="dotExpanded"></span> Expanded
-        </button>
-        <button class="sidebar-menu-item" id="smCollapsed" onclick="setSidebarMode('collapsed')">
-          <span class="sidebar-menu-dot" id="dotCollapsed"></span> Collapsed
-        </button>
-        <button class="sidebar-menu-item" id="smHover" onclick="setSidebarMode('hover')">
-          <span class="sidebar-menu-dot" id="dotHover"></span> Expand on hover
         </button>
       </div>
     </div>
