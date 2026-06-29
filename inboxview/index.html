@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6,7 +6,7 @@
 <title>PrintDesk</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
-<script src="config.js" onerror="console.warn('config.js not found &rdquo; using defaults')"></script>
+<script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
 <link rel="stylesheet" href="styles.css?v=4.0.8">
 
 <script>
@@ -17,7 +17,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
 <body>
 
-<!-- â•â• Set Password Screen (for invited users) â•â• -->
+<!-- ══ Set Password Screen (for invited users) ══ -->
 <div id="setPasswordScreen" class="login-screen" style="display:none">
   <div class="login-card">
     <div class="login-logo">PrintDesk</div>
@@ -217,7 +217,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div><!-- end mainApp -->
 
 
-<!-- â•â• Order Modal â•â• -->
+<!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title-row">
@@ -242,7 +242,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
     <!-- New customer details panel -->
     <div id="newCustomerPanel" style="display:none;background:rgba(92,184,122,0.06);border:1px solid rgba(92,184,122,0.25);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:500;color:var(--green);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px"><i class="ti ti-user-plus" style="margin-right:6px"></i>New customer &rdquo; add details</div>
+      <div style="font-size:11px;font-weight:500;color:var(--green);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px"><i class="ti ti-user-plus" style="margin-right:6px"></i>New customer — add details</div>
       <div class="field-row">
         <div class="field"><label>Email</label><input type="email" id="nc-email" placeholder="optional"></div>
         <div class="field"><label>Phone</label><input type="tel" id="nc-phone" placeholder="optional"></div>
@@ -286,7 +286,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<!-- â•â• Note Modal â•â• -->
+<!-- ══ Note Modal ══ -->
 <div class="modal-bg" id="noteModal" onclick="if(event.target===this)closeNoteModal()">
   <div class="modal sm" onclick="event.stopPropagation()">
     <div class="modal-title" id="noteModalTitle">Note</div>
@@ -295,11 +295,11 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<!-- â•â• Categories Modal â•â• -->
+<!-- ══ Categories Modal ══ -->
 <div class="modal-bg" id="catModal" onclick="if(event.target===this)closeCatModal()">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:720px">
     <div class="modal-title">Manage categories</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Each category can have options &rdquo; extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical" style="font-size:12px"></i> to reorder options.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Each category can have options — extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical" style="font-size:12px"></i> to reorder options.</p>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <label class="toolbar-check" style="height:28px;padding:0 8px;font-size:11px">
         <input type="checkbox" id="showArchivedCb" onchange="toggleShowArchived(this)"> Show archived
@@ -315,7 +315,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Colours Modal â•â• -->
+<!-- ══ Colours Modal ══ -->
 <div class="modal-bg" id="colourModal" onclick="if(event.target===this)closeColourModal()">
   <div class="modal md" onclick="event.stopPropagation()">
     <div class="modal-title"><i class="ti ti-brush" style="margin-right:8px;vertical-align:-2px"></i>Colours</div>
@@ -333,7 +333,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Stats Modal â•â• -->
+<!-- ══ Stats Modal ══ -->
 <div class="modal-bg" id="statsModal" onclick="if(event.target===this)closeStatsModal()">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:640px">
     <div class="modal-title"><i class="ti ti-chart-bar" style="margin-right:8px;vertical-align:-2px"></i>Stats</div>
@@ -344,7 +344,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<!-- â•â• Settings Modal â•â• -->
+<!-- ══ Settings Modal ══ -->
 <!-- Badge Batch Modal -->
 <div class="modal-bg" id="badgeBatchModal">
   <div class="modal sm" onclick="event.stopPropagation()">
@@ -428,7 +428,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
             <i class="ti ti-chevron-down cp-arrow"></i>
           </div>
           <div class="colour-picker-list" id="cpl-accent-sel" style="display:none">
-            <div class="cp-none" onclick="selectAccentColour('','',this)">&rdquo; none / custom &rdquo;</div>
+            <div class="cp-none" onclick="selectAccentColour('','',this)">— none / custom —</div>
           </div>
         </div>
       </div>
@@ -460,7 +460,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 14px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px">
             <input type="checkbox" id="settingsNotifyDaily" style="accent-color:var(--accent);width:14px;height:14px">
-            <span style="font-size:12px;font-weight:500">Daily badge digest &rdquo; 4PM Melbourne</span>
+            <span style="font-size:12px;font-weight:500">Daily badge digest — 4PM Melbourne</span>
           </label>
           <div style="font-size:11px;color:var(--muted);padding-left:22px">Sends a summary email if any badge orders were added that day. No email if nothing new.</div>
         </div>
@@ -485,7 +485,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Users Modal â•â• -->
+<!-- ══ Users Modal ══ -->
 <div class="modal-bg" id="usersModal" onclick="if(event.target===this)closeUsersModal()">
   <div class="modal md" onclick="event.stopPropagation()">
     <div class="modal-title-row">
@@ -527,7 +527,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Customers Modal â•â• -->
+<!-- ══ Customers Modal ══ -->
 <div class="modal-bg" id="customersModal" onclick="if(event.target===this)closeCustomersModal()">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:640px">
     <div class="modal-title-row">
@@ -571,7 +571,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Confirm Dialog â•â• -->
+<!-- ══ Confirm Dialog ══ -->
 <div class="confirm-bg" id="confirmDialog">
   <div class="confirm-box" onclick="event.stopPropagation()">
     <div class="confirm-msg" id="confirmMsg"></div>
