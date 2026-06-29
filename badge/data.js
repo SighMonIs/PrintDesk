@@ -36,6 +36,11 @@ function saveKeychainDist() {
   localStorage.setItem('badge2_keychainDist', val);
 }
 
+function saveAlignKeychainHole() {
+  const val = document.getElementById('alignKeychainHole')?.checked ? '1' : '0';
+  localStorage.setItem('badge2_alignKeychainHole', val);
+}
+
 // ── Supabase ──────────────────────────────────────────────────
 const SB_URL=(window.CONFIG&&window.CONFIG.SUPABASE_URL)||'';
 const SB_KEY=(window.CONFIG&&window.CONFIG.SUPABASE_KEY)||'';
@@ -167,6 +172,8 @@ async function loadModel(){
   if(ringSideEl) ringSideEl.value=localStorage.getItem('badge2_ringSide_'+typeId)||'left';
   const keychainDistEl=document.getElementById('keychainDist');
   if(keychainDistEl) keychainDistEl.value=localStorage.getItem('badge2_keychainDist')||'1.5';
+  const alignEl=document.getElementById('alignKeychainHole');
+  if(alignEl) alignEl.checked=localStorage.getItem('badge2_alignKeychainHole')==='1';
 
   updateAdvancedPanel(typeId);
 

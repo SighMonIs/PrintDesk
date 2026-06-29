@@ -293,15 +293,47 @@ function buildBadge() {
       outerDPath.push(toClip(extendX,  outerR)); // top-right into badge
     }
 
-    // Inner D-shape hole with 1mm fillets at the two badge-side corners
+    // Helper: sample badge boundary x at a given world-y
+    const sampleBadgeX = (wy) => {
+      const clipY = Math.round((offY - wy) * SCALE);
+      let best = isRight ? -Infinity : Infinity;
+      for (const path of outerPolyPts) {
+        for (let j = 0; j < path.length; j++) {
+          const p1 = path[j], p2 = path[(j + 1) % path.length];
+          if ((p1.Y <= clipY && p2.Y > clipY) || (p2.Y <= clipY && p1.Y > clipY)) {
+            const t = (clipY - p1.Y) / (p2.Y - p1.Y);
+            const wx = (p1.X + t * (p2.X - p1.X)) / SCALE - offX;
+            best = isRight ? Math.max(best, wx) : Math.min(best, wx);
+          }
+        }
+      }
+      return isFinite(best) ? best : (isRight ? badgeEdge : badgeEdge);
+    };
+
+    // Inner D-shape hole
     const innerDPath = [];
-    // innerEdgeX is the flat badge-side edge of the hole = badgeEdge ∓ keychainDist
-    const holeR = 1, innerEdgeX = isRight ? badgeEdge + keychainDist : badgeEdge - keychainDist, Nf = 8;
+    const innerEdgeX = isRight ? badgeEdge + keychainDist : badgeEdge - keychainDist;
+    const alignHole  = document.getElementById('alignKeychainHole')?.checked || localStorage.getItem('badge2_alignKeychainHole') === '1';
+    const holeR = 1, Nf = 8;
+
+    // Arc (same for both modes)
     for (let i = 0; i <= N; i++) {
       const a = isRight ? -Math.PI / 2 + (Math.PI * i / N) : Math.PI / 2 + (Math.PI * i / N);
       innerDPath.push(toClip(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
     }
-    if (isRight) {
+
+    if (alignHole) {
+      // Follow badge contour offset by keychainDist — sample from badge edge at 32 y steps
+      const NS = 32;
+      // For left ring: arc ends at bottom (270°), edge travels bottom→top
+      // For right ring: arc ends at top (90°), edge travels top→bottom
+      for (let i = 0; i <= NS; i++) {
+        const t  = i / NS;
+        const wy = isRight ? innerR - 2 * innerR * t : -innerR + 2 * innerR * t;
+        const bx = sampleBadgeX(wy);
+        innerDPath.push(toClip(isRight ? bx + keychainDist : bx - keychainDist, wy));
+      }
+    } else if (isRight) {
       // top flat → stop before corner
       innerDPath.push(toClip(innerEdgeX + holeR, innerR));
       // top-left fillet
@@ -319,20 +351,19 @@ function buildBadge() {
     } else {
       // bottom flat → stop before corner
       innerDPath.push(toClip(innerEdgeX - holeR, -innerR));
-      // bottom-right fillet: center (innerEdgeX-holeR, -innerR+holeR), sweep 270°→360°
+      // bottom-right fillet
       for (let i = 0; i <= Nf; i++) {
         const a = -Math.PI / 2 + (Math.PI / 2) * i / Nf;
         innerDPath.push(toClip(innerEdgeX - holeR + holeR * Math.cos(a), -innerR + holeR + holeR * Math.sin(a)));
       }
       // right edge
       innerDPath.push(toClip(innerEdgeX, innerR - holeR));
-      // top-right fillet: center (innerEdgeX-holeR, innerR-holeR), sweep 0°→90°
+      // top-right fillet
       for (let i = 0; i <= Nf; i++) {
         const a = (Math.PI / 2) * i / Nf;
         innerDPath.push(toClip(innerEdgeX - holeR + holeR * Math.cos(a), innerR - holeR + holeR * Math.sin(a)));
       }
     }
-    // top/bottom flat closes back to arc start automatically
 
     const clipperDiff = new ClipperLib.Clipper();
     clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);

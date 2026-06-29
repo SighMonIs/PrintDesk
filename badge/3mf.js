@@ -320,14 +320,43 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
       outerDPath.push(toClip3mf(extendX,  outerR));
     }
 
-    // Inner D-shape hole with 1mm fillets
+    // Helper: sample badge boundary x at a given world-y
+    const sampleBadgeX3mf = (wy) => {
+      const clipY = Math.round((offY - wy) * _BADGE_SCALE);
+      let best = isRight3mf ? -Infinity : Infinity;
+      for (const path of redPoly) {
+        for (let j = 0; j < path.length; j++) {
+          const p1 = path[j], p2 = path[(j + 1) % path.length];
+          if ((p1.Y <= clipY && p2.Y > clipY) || (p2.Y <= clipY && p1.Y > clipY)) {
+            const t = (clipY - p1.Y) / (p2.Y - p1.Y);
+            const wx = (p1.X + t * (p2.X - p1.X)) / _BADGE_SCALE - offX;
+            best = isRight3mf ? Math.max(best, wx) : Math.min(best, wx);
+          }
+        }
+      }
+      return isFinite(best) ? best : badgeEdge3mf;
+    };
+
+    // Inner D-shape hole
     const innerDPath = [];
     const holeR3mf = 1, innerEdgeX3mf = isRight3mf ? badgeEdge3mf + keychainDist3mf : badgeEdge3mf - keychainDist3mf, Nf3mf = 8;
+    const alignHole3mf = document.getElementById('alignKeychainHole')?.checked || localStorage.getItem('badge2_alignKeychainHole') === '1';
+
+    // Arc
     for (let i = 0; i <= N3mf; i++) {
       const a = isRight3mf ? -Math.PI / 2 + (Math.PI * i / N3mf) : Math.PI / 2 + (Math.PI * i / N3mf);
       innerDPath.push(toClip3mf(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
     }
-    if (isRight3mf) {
+
+    if (alignHole3mf) {
+      const NS3mf = 32;
+      for (let i = 0; i <= NS3mf; i++) {
+        const t  = i / NS3mf;
+        const wy = isRight3mf ? innerR - 2 * innerR * t : -innerR + 2 * innerR * t;
+        const bx = sampleBadgeX3mf(wy);
+        innerDPath.push(toClip3mf(isRight3mf ? bx + keychainDist3mf : bx - keychainDist3mf, wy));
+      }
+    } else if (isRight3mf) {
       innerDPath.push(toClip3mf(innerEdgeX3mf + holeR3mf, innerR));
       for (let i = 0; i <= Nf3mf; i++) {
         const a = Math.PI / 2 + (Math.PI / 2) * i / Nf3mf;
