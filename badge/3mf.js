@@ -283,10 +283,8 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
   if (keychain && layerConfig.length > 0) {
     const redLayer = layerConfig[0];
     const redPoly = _badgeClipperOffset(unioned, redLayer.border);
-    const redOuters = redPoly.filter(p => ClipperLib.Clipper.Orientation(p));
-    const baseGeo = _badgeBuildSolidExtrusionMesh(redOuters, zOff, offX, offY);
 
-    const outerR = 7.5, innerR = 5, ringDepth = 4;
+    const outerR = 7.5, innerR = 5;
 
     // Find leftmost badge boundary within the ring's height band
     let badgeLeftAtCenter = Infinity;
@@ -298,12 +296,11 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     }
     if (!isFinite(badgeLeftAtCenter)) badgeLeftAtCenter = -_badgeBboxCentre(redPoly).width / 2;
 
-    // Ring arc center: outerR left of badge so arc left edge = badgeLeft - 2*outerR
     const ringCenterX = badgeLeftAtCenter - 4.5;
     const extendX    = badgeLeftAtCenter + 6;
     const toClip3mf  = (wx, wy) => ({ X: Math.round((wx + offX) * _BADGE_SCALE), Y: Math.round((offY - wy) * _BADGE_SCALE) });
 
-    // Outer D-shape: left semicircle (90°→270°) + flat top/bottom extending into badge
+    // Outer D-shape
     const N3mf = 48;
     const outerDPath = [];
     for (let i = 0; i <= N3mf; i++) {
@@ -313,7 +310,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     outerDPath.push(toClip3mf(extendX, -outerR));
     outerDPath.push(toClip3mf(extendX,  outerR));
 
-    // Inner D-shape hole with 1mm fillets at the two right corners
+    // Inner D-shape hole with 1mm fillets
     const innerDPath = [];
     const holeR3mf = 1, rightX3mf = ringCenterX + 3, Nf3mf = 8;
     for (let i = 0; i <= N3mf; i++) {
@@ -331,26 +328,31 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
       innerDPath.push(toClip3mf(rightX3mf - holeR3mf + holeR3mf * Math.cos(a), innerR - holeR3mf + holeR3mf * Math.sin(a)));
     }
 
-    const clipperDiff = new ClipperLib.Clipper();
-    clipperDiff.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
-    clipperDiff.AddPath(innerDPath, ClipperLib.PolyType.ptSubject, true);
-    clipperDiff.AddPaths(redPoly, ClipperLib.PolyType.ptClip, true);
-    const diffResult = new ClipperLib.Paths();
-    clipperDiff.Execute(ClipperLib.ClipType.ctDifference, diffResult, ClipperLib.PolyFillType.pftEvenOdd, ClipperLib.PolyFillType.pftNonZero);
+    // Step 1: UNION outer D-shape with badge red poly → single connected outline
+    const clipperUnion = new ClipperLib.Clipper();
+    clipperUnion.AddPath(outerDPath, ClipperLib.PolyType.ptSubject, true);
+    clipperUnion.AddPaths(redPoly, ClipperLib.PolyType.ptClip, true);
+    const unionResult = new ClipperLib.Paths();
+    clipperUnion.Execute(ClipperLib.ClipType.ctUnion, unionResult, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
 
-    if (diffResult.length) {
+    // Step 2: subtract inner D-shape hole from union result
+    const clipperHole = new ClipperLib.Clipper();
+    clipperHole.AddPaths(unionResult, ClipperLib.PolyType.ptSubject, true);
+    clipperHole.AddPath(innerDPath, ClipperLib.PolyType.ptClip, true);
+    const finalPoly = new ClipperLib.Paths();
+    clipperHole.Execute(ClipperLib.ClipType.ctDifference, finalPoly, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+
+    if (finalPoly.length) {
       const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE - offX, offY - p.Y / _BADGE_SCALE);
-      const ringOuters = diffResult.filter(p =>  ClipperLib.Clipper.Orientation(p));
-      const ringHoles  = diffResult.filter(p => !ClipperLib.Clipper.Orientation(p));
-      const shapes = ringOuters.map(outer => {
+      const outers = finalPoly.filter(p =>  ClipperLib.Clipper.Orientation(p));
+      const holes  = finalPoly.filter(p => !ClipperLib.Clipper.Orientation(p));
+      const shapes = outers.map(outer => {
         const shape = new THREE.Shape(outer.map(toVec2));
-        for (const h of ringHoles) shape.holes.push(new THREE.Path(h.map(toVec2)));
+        for (const h of holes) shape.holes.push(new THREE.Path(h.map(toVec2)));
         return shape;
       });
-      let ringGeo = new THREE.ExtrudeGeometry(shapes, { depth: ringDepth, bevelEnabled: false });
-      ringGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, zOff / 2 - ringDepth / 2));
-      ringGeo = _badgeMergeVerticesForExport(ringGeo);
-      const kcGeo = _badgeMergeVerticesForExport(_badgeConcatGeos(baseGeo, ringGeo));
+      let kcGeo = new THREE.ExtrudeGeometry(shapes, { depth: zOff, bevelEnabled: false });
+      kcGeo = _badgeMergeVerticesForExport(kcGeo);
       objects.push({ geo: kcGeo, name: 'Keychain_Base', colour: redLayer.hex, extruder: 1, id: objects.length + 1, skipFilamentSlot: true });
     }
   }
