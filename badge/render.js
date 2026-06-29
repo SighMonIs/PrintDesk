@@ -256,7 +256,7 @@ function buildBadge() {
     const colour = parseInt(baseLayer.hex.replace('#', ''), 16);
     const outerPoly = clipperOffset(unioned, baseLayer.border > 0 ? baseLayer.border : 0);
     const outerPolyPts = outerPoly.length ? outerPoly : unioned;
-    const outerR = 7.5, innerR = 5, ringDepth = 2;
+    const outerR = 7.5, innerR = 5, ringDepth = 4;
 
     // Find leftmost badge boundary within the ring's height band
     let badgeLeftAtCenter = Infinity;

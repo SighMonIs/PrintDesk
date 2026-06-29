@@ -286,7 +286,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const redOuters = redPoly.filter(p => ClipperLib.Clipper.Orientation(p));
     const baseGeo = _badgeBuildSolidExtrusionMesh(redOuters, zOff, offX, offY);
 
-    const outerR = 7.5, innerR = 5, ringDepth = 2;
+    const outerR = 7.5, innerR = 5, ringDepth = 4;
 
     // Find leftmost badge boundary within the ring's height band
     let badgeLeftAtCenter = Infinity;
