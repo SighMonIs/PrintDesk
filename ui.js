@@ -378,7 +378,9 @@ function renderTable(){
       return`<span style="color:var(--muted)">${esc(opt.name)}:</span> ${esc(val)}`;
     }).filter(Boolean);
     const isBadgeCat=cat&&cat.name.toLowerCase().includes('name badge');
-    const badgeBtn=isBadgeCat?`<button class="icon-btn" title="Generate Badge" onclick="generateBadge('/badge/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''})}')"><i class="ti ti-badge"></i></button>`:'';
+    const isKeychainCat=cat&&cat.name.toLowerCase().includes('keychain');
+    const _genBacking=isKeychainCat?(parsedOpts['Backing']||'Keychain'):(parsedOpts['Backing']||'');
+    const badgeBtn=(isBadgeCat||isKeychainCat)?`<button class="icon-btn" title="Generate ${isKeychainCat?'Keychain':'Badge'}" onclick="generateBadge('/badge/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:_genBacking,colours:parsedOpts['Colours']||''})}')"><i class="ti ${isKeychainCat?'ti-key':'ti-badge'}"></i></button>`:'';
     const optHtml=optLines.length?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px">${l}</div>`).join(''):'';
     const isMulti=orderItemCount[o.orderId]>1;
     const noteRow=hasNote?`<tr class="note-inline-row ${altClass}">
@@ -402,11 +404,14 @@ function renderTable(){
       // Collect badge params for all badge-category items in this order
       const badgeItems=orderRows.reduce((acc,r)=>{
         const rCat=cats.find(c=>c.id===r.catId);
-        if(!rCat||!rCat.name.toLowerCase().includes('name badge')) return acc;
+        if(!rCat) return acc;
+        const rIsKeychain=rCat.name.toLowerCase().includes('keychain');
+        if(!rCat.name.toLowerCase().includes('name badge')&&!rIsKeychain) return acc;
         const rOpts={};
         if(r.options) r.options.split('||').forEach(p=>{const idx=p.indexOf(':');if(idx>=0)rOpts[p.slice(0,idx).trim()]=p.slice(idx+1).trim();});
         const qty=r.qty||1;
-        for(let q=0;q<qty;q++) acc.push({name:rOpts['Text']||'',backing:rOpts['Backing']||'',colours:rOpts['Colours']||''});
+        const backing=rIsKeychain?(rOpts['Backing']||'Keychain'):(rOpts['Backing']||'');
+        for(let q=0;q<qty;q++) acc.push({name:rOpts['Text']||'',backing,colours:rOpts['Colours']||''});
         return acc;
       },[]);
       const allBadgesBtn=badgeItems.length>1?`<button class="icon-btn" title="Generate all ${badgeItems.length} badges" onclick="openBadgeBatchModal(${esc(JSON.stringify(badgeItems))},${esc(JSON.stringify(o.customer||'badges'))})"><i class="ti ti-badges"></i></button>`:'';
