@@ -298,33 +298,34 @@ function buildBadge() {
       outerDPath.push(toClip(ringCenterX + outerR * Math.cos(a), outerR * Math.sin(a)));
     }
     if (softenOuter) {
+      // Concave fillets: arc centre sits AT the corner point, curving inward into the ring material
       if (isRight) {
-        // arc ends at top (90°) → flat top → top-left fillet → into badge → bottom-left fillet → flat bottom
+        // arc ends at top (90°) → flat top → concave top-left fillet → into badge → concave bottom-left fillet → flat bottom
         outerDPath.push(toClip(bx + ofr, outerR));
-        for (let i = 0; i <= Nfo; i++) { // top-left fillet: 90°→180°
-          const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(bx + ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
+        for (let i = 0; i <= Nfo; i++) { // centre (bx, outerR), 0°→−90° CW
+          const a = -(Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(bx + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
         }
-        outerDPath.push(toClip(extendX, outerR - ofr));
+        outerDPath.push(toClip(extendX,  outerR - ofr));
         outerDPath.push(toClip(extendX, -outerR + ofr));
         outerDPath.push(toClip(bx, -outerR + ofr));
-        for (let i = 0; i <= Nfo; i++) { // bottom-left fillet: 180°→270°
-          const a = Math.PI + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(bx + ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
+        for (let i = 0; i <= Nfo; i++) { // centre (bx, -outerR), 90°→0° CW
+          const a = Math.PI / 2 - (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(bx + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
         }
       } else {
-        // arc ends at bottom (270°) → flat bottom → bottom-right fillet → into badge → top-right fillet → flat top
+        // arc ends at bottom (270°) → flat bottom → concave bottom-right fillet → into badge → concave top-right fillet → flat top
         outerDPath.push(toClip(bx - ofr, -outerR));
-        for (let i = 0; i <= Nfo; i++) { // bottom-right fillet: 270°→360°
-          const a = -Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(bx - ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
+        for (let i = 0; i <= Nfo; i++) { // centre (bx, -outerR), 180°→90° CW
+          const a = Math.PI - (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(bx + ofr * Math.cos(a), -outerR + ofr * Math.sin(a)));
         }
         outerDPath.push(toClip(extendX, -outerR + ofr));
         outerDPath.push(toClip(extendX,  outerR - ofr));
         outerDPath.push(toClip(bx, outerR - ofr));
-        for (let i = 0; i <= Nfo; i++) { // top-right fillet: 0°→90°
-          const a = (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(bx - ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
+        for (let i = 0; i <= Nfo; i++) { // centre (bx, outerR), 270°→180° CW
+          const a = 3 * Math.PI / 2 - (Math.PI / 2) * i / Nfo;
+          outerDPath.push(toClip(bx + ofr * Math.cos(a), outerR + ofr * Math.sin(a)));
         }
       }
     } else {
