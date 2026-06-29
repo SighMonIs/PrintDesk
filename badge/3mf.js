@@ -277,7 +277,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     let frameGeo = new THREE.ExtrudeGeometry(shapes, { depth: 3, bevelEnabled: false });
     frameGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, zAfterRed));
     frameGeo = _badgeMergeVerticesForExport(frameGeo);
-    objects.push({ geo: frameGeo, name: 'Keychain_Frame', colour: redLayer.hex, extruder: objects.length + 1, id: objects.length + 1 });
+    objects.push({ geo: frameGeo, name: 'Keychain_Frame', colour: redLayer.hex, extruder: 1, id: objects.length + 1, skipFilamentSlot: true });
   }
 
   if (keychain && layerConfig.length > 0) {
