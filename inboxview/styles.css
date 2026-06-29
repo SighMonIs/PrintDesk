@@ -647,7 +647,7 @@ thead th.sortable{user-select:none;}
   --sidebar-expanded:  150px;
 }
 
-#mainApp{display:flex;min-height:100vh;position:relative;}
+#mainApp{display:flex;}
 
 /* Sidebar */
 .sidebar{
