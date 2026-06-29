@@ -269,8 +269,8 @@ function buildBadge() {
     if (!isFinite(badgeLeftAtCenter)) { const { width: w } = bboxCentre(outerPolyPts); badgeLeftAtCenter = -w / 2; }
 
     // Ring arc center: outerR left of badge so arc left edge = badgeLeft - 2*outerR
-    const ringCenterX = badgeLeftAtCenter - outerR;
-    const extendX    = badgeLeftAtCenter + 6; // extend past badge so DIFFERENCE clips the right edge
+    const ringCenterX = badgeLeftAtCenter - 4.5; // positions cutout right edge 1.5mm from badge
+    const extendX    = badgeLeftAtCenter + 6;
     const toClip     = (wx, wy) => ({ X: Math.round((wx + offX) * SCALE), Y: Math.round((offY - wy) * SCALE) });
 
     // Outer D-shape: left semicircle (90°→270°) + flat top/bottom extending into badge
@@ -285,7 +285,7 @@ function buildBadge() {
 
     // Inner D-shape hole with 1mm fillets at the two right corners
     const innerDPath = [];
-    const holeR = 1, rightX = ringCenterX + 6, Nf = 8;
+    const holeR = 1, rightX = ringCenterX + 3, Nf = 8;
     for (let i = 0; i <= N; i++) {
       const a = Math.PI / 2 + (Math.PI * i / N);
       innerDPath.push(toClip(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));

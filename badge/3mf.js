@@ -299,7 +299,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     if (!isFinite(badgeLeftAtCenter)) badgeLeftAtCenter = -_badgeBboxCentre(redPoly).width / 2;
 
     // Ring arc center: outerR left of badge so arc left edge = badgeLeft - 2*outerR
-    const ringCenterX = badgeLeftAtCenter - outerR;
+    const ringCenterX = badgeLeftAtCenter - 4.5;
     const extendX    = badgeLeftAtCenter + 6;
     const toClip3mf  = (wx, wy) => ({ X: Math.round((wx + offX) * _BADGE_SCALE), Y: Math.round((offY - wy) * _BADGE_SCALE) });
 
@@ -315,7 +315,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
 
     // Inner D-shape hole with 1mm fillets at the two right corners
     const innerDPath = [];
-    const holeR3mf = 1, rightX3mf = ringCenterX + 6, Nf3mf = 8;
+    const holeR3mf = 1, rightX3mf = ringCenterX + 3, Nf3mf = 8;
     for (let i = 0; i <= N3mf; i++) {
       const a = Math.PI / 2 + (Math.PI * i / N3mf);
       innerDPath.push(toClip3mf(ringCenterX + innerR * Math.cos(a), innerR * Math.sin(a)));
