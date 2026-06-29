@@ -299,34 +299,36 @@ function buildBadge() {
     }
     if (softenOuter) {
       if (isRight) {
-        // flat top, stop before corner
-        outerDPath.push(toClip(extendX + ofr, outerR));
-        // top-left corner: centre (extendX+ofr, outerR-ofr), sweep 90°→180°
+        // flat top, stop before visible corner at (badgeEdge, outerR)
+        outerDPath.push(toClip(badgeEdge + ofr, outerR));
+        // top-left corner: centre (badgeEdge+ofr, outerR-ofr), sweep 90°→180°
         for (let i = 0; i <= Nfo; i++) {
           const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(extendX + ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
+          outerDPath.push(toClip(badgeEdge + ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
         }
-        // flat left side
+        // flat left side (inside badge, clipped)
+        outerDPath.push(toClip(extendX, outerR - ofr));
         outerDPath.push(toClip(extendX, -outerR + ofr));
-        // bottom-left corner: centre (extendX+ofr, -outerR+ofr), sweep 180°→270°
+        // bottom-left corner: centre (badgeEdge+ofr, -outerR+ofr), sweep 180°→270°
         for (let i = 0; i <= Nfo; i++) {
           const a = Math.PI + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(extendX + ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
+          outerDPath.push(toClip(badgeEdge + ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
         }
       } else {
-        // flat bottom, stop before corner
-        outerDPath.push(toClip(extendX - ofr, -outerR));
-        // bottom-right corner: centre (extendX-ofr, -outerR+ofr), sweep 270°→360°
+        // flat bottom, stop before visible corner at (badgeEdge, -outerR)
+        outerDPath.push(toClip(badgeEdge - ofr, -outerR));
+        // bottom-right corner: centre (badgeEdge-ofr, -outerR+ofr), sweep 270°→360°
         for (let i = 0; i <= Nfo; i++) {
           const a = 3 * Math.PI / 2 + (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(extendX - ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
+          outerDPath.push(toClip(badgeEdge - ofr + ofr * Math.cos(a), -outerR + ofr + ofr * Math.sin(a)));
         }
-        // flat right side
+        // flat right side (inside badge, clipped)
+        outerDPath.push(toClip(extendX, -outerR + ofr));
         outerDPath.push(toClip(extendX, outerR - ofr));
-        // top-right corner: centre (extendX-ofr, outerR-ofr), sweep 0°→90°
+        // top-right corner: centre (badgeEdge-ofr, outerR-ofr), sweep 0°→90°
         for (let i = 0; i <= Nfo; i++) {
           const a = (Math.PI / 2) * i / Nfo;
-          outerDPath.push(toClip(extendX - ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
+          outerDPath.push(toClip(badgeEdge - ofr + ofr * Math.cos(a), outerR - ofr + ofr * Math.sin(a)));
         }
       }
     } else {

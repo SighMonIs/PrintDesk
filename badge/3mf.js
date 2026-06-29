@@ -323,34 +323,36 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     }
     if (softenOuter3mf) {
       if (isRight3mf) {
-        // flat top, stop before corner
-        outerDPath.push(toClip3mf(extendX + ofr3mf, outerR));
-        // top-left corner: centre (extendX+ofr, outerR-ofr), sweep 90°→180°
+        // flat top, stop before visible corner at (badgeEdge3mf, outerR)
+        outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf, outerR));
+        // top-left corner: centre (badgeEdge3mf+ofr, outerR-ofr), sweep 90°→180°
         for (let i = 0; i <= Nfo3mf; i++) {
           const a = Math.PI / 2 + (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(extendX + ofr3mf + ofr3mf * Math.cos(a), outerR - ofr3mf + ofr3mf * Math.sin(a)));
+          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf + ofr3mf * Math.cos(a), outerR - ofr3mf + ofr3mf * Math.sin(a)));
         }
-        // flat left side
+        // flat left side (inside badge, clipped)
+        outerDPath.push(toClip3mf(extendX, outerR - ofr3mf));
         outerDPath.push(toClip3mf(extendX, -outerR + ofr3mf));
-        // bottom-left corner: centre (extendX+ofr, -outerR+ofr), sweep 180°→270°
+        // bottom-left corner: centre (badgeEdge3mf+ofr, -outerR+ofr), sweep 180°→270°
         for (let i = 0; i <= Nfo3mf; i++) {
           const a = Math.PI + (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(extendX + ofr3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf + ofr3mf * Math.sin(a)));
+          outerDPath.push(toClip3mf(badgeEdge3mf + ofr3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf + ofr3mf * Math.sin(a)));
         }
       } else {
-        // flat bottom, stop before corner
-        outerDPath.push(toClip3mf(extendX - ofr3mf, -outerR));
-        // bottom-right corner: centre (extendX-ofr, -outerR+ofr), sweep 270°→360°
+        // flat bottom, stop before visible corner at (badgeEdge3mf, -outerR)
+        outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf, -outerR));
+        // bottom-right corner: centre (badgeEdge3mf-ofr, -outerR+ofr), sweep 270°→360°
         for (let i = 0; i <= Nfo3mf; i++) {
           const a = 3 * Math.PI / 2 + (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(extendX - ofr3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf + ofr3mf * Math.sin(a)));
+          outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf + ofr3mf * Math.cos(a), -outerR + ofr3mf + ofr3mf * Math.sin(a)));
         }
-        // flat right side
+        // flat right side (inside badge, clipped)
+        outerDPath.push(toClip3mf(extendX, -outerR + ofr3mf));
         outerDPath.push(toClip3mf(extendX, outerR - ofr3mf));
-        // top-right corner: centre (extendX-ofr, outerR-ofr), sweep 0°→90°
+        // top-right corner: centre (badgeEdge3mf-ofr, outerR-ofr), sweep 0°→90°
         for (let i = 0; i <= Nfo3mf; i++) {
           const a = (Math.PI / 2) * i / Nfo3mf;
-          outerDPath.push(toClip3mf(extendX - ofr3mf + ofr3mf * Math.cos(a), outerR - ofr3mf + ofr3mf * Math.sin(a)));
+          outerDPath.push(toClip3mf(badgeEdge3mf - ofr3mf + ofr3mf * Math.cos(a), outerR - ofr3mf + ofr3mf * Math.sin(a)));
         }
       }
     } else {
