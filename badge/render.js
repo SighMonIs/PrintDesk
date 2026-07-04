@@ -148,6 +148,9 @@ function wrapSpinners(container) {
 
 // ── Backing coord override ─────────────────────────────────────
 let backingOverride = null;
+let backingSlots = [{ x: 0, y: 0 }]; // position of each backing cutout (magnet/pin/dog-tag/plaque)
+let lastBadgeWH = { width: 60, height: 20 };
+let slotDragTimer = null;
 
 function updateBackingCoords() {
   const bc = getBackingConfig();
@@ -162,9 +165,69 @@ function updateBackingCoords() {
     set('bcX', bc.w); set('bcY', bc.h); set('bcZ', bc.d);
   }
   wrapSpinners(document.getElementById('accordionBody'));
+  renderBackingSlotsUI();
 }
 
-function resetBackingOverride() { backingOverride = null; scheduleRender(); }
+function resetBackingOverride() { backingOverride = null; backingSlots = [{ x: 0, y: 0 }]; scheduleRender(); }
+
+// ── Backing slots: add/remove + drag-to-move pad ────────────────
+function addBackingSlot() { backingSlots.push({ x: 0, y: 0 }); renderBackingSlotsUI(); scheduleRender(); }
+function removeBackingSlot(i) { if (backingSlots.length <= 1) return; backingSlots.splice(i, 1); renderBackingSlotsUI(); scheduleRender(); }
+
+function renderBackingSlotsUI() {
+  const bc = getBackingConfig();
+  const listEl = document.getElementById('backingSlotsList');
+  const padEl  = document.getElementById('backingPad');
+  const addBtn = document.getElementById('addBackingBtn');
+  if (!listEl || !padEl) return;
+  const show = !!bc && bc.type !== 'round' && bc.type !== 'keychain';
+  listEl.style.display = show ? '' : 'none';
+  padEl.style.display  = show ? '' : 'none';
+  if (addBtn) addBtn.style.display = show ? '' : 'none';
+  if (!show) return;
+
+  listEl.innerHTML = backingSlots.map((s, i) => `
+    <div class="adv-row">
+      <label style="white-space:nowrap">Backing ${i + 1}</label>
+      <span id="slotXY${i}" style="font-size:11px;color:var(--muted);flex:1;text-align:right">x: ${s.x.toFixed(1)}  y: ${s.y.toFixed(1)}</span>
+      <input type="checkbox" title="Unlock to drag in the box below" id="slotUnlock${i}" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
+      ${i > 0 ? `<button class="btn sm" title="Remove" onclick="removeBackingSlot(${i})" style="flex-shrink:0;padding:0 8px"><i class="ti ti-trash"></i></button>` : ''}
+    </div>`).join('');
+
+  const padW = padEl.clientWidth || 200, padH = 90;
+  const rangeX = Math.max((lastBadgeWH.width || 60) + 30, 90);
+  const scale = padW / rangeX;
+  const rw = lastBadgeWH.width * scale, rh = Math.min(lastBadgeWH.height * scale, padH - 4);
+
+  padEl.innerHTML =
+    `<div style="position:absolute;left:${padW / 2 - rw / 2}px;top:${padH / 2 - rh / 2}px;width:${rw}px;height:${rh}px;border:1px dashed var(--border2);pointer-events:none"></div>` +
+    backingSlots.map((s, i) => `<div class="backing-dot" data-i="${i}" style="position:absolute;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid #fff;left:${padW / 2 + s.x * scale - 7}px;top:${padH / 2 - s.y * scale - 7}px;cursor:grab;touch-action:none"></div>`).join('');
+
+  padEl.querySelectorAll('.backing-dot').forEach(dot => {
+    const i = +dot.dataset.i;
+    dot.addEventListener('pointerdown', e => {
+      if (!document.getElementById('slotUnlock' + i)?.checked) return;
+      dot.setPointerCapture(e.pointerId);
+      dot.dataset.dragging = '1';
+      dot.dataset.startClientX = e.clientX; dot.dataset.startClientY = e.clientY;
+      dot.dataset.startX = backingSlots[i].x; dot.dataset.startY = backingSlots[i].y;
+    });
+    dot.addEventListener('pointermove', e => {
+      if (dot.dataset.dragging !== '1') return;
+      const dx = (e.clientX - dot.dataset.startClientX) / scale;
+      const dy = (e.clientY - dot.dataset.startClientY) / scale;
+      const s = backingSlots[i];
+      s.x = +dot.dataset.startX + dx;
+      s.y = +dot.dataset.startY - dy;
+      dot.style.left = (padW / 2 + s.x * scale - 7) + 'px';
+      dot.style.top  = (padH / 2 - s.y * scale - 7) + 'px';
+      const label = document.getElementById('slotXY' + i);
+      if (label) label.textContent = `x: ${s.x.toFixed(1)}  y: ${s.y.toFixed(1)}`;
+      clearTimeout(slotDragTimer); slotDragTimer = setTimeout(buildBadge, 150);
+    });
+    dot.addEventListener('pointerup', () => { dot.dataset.dragging = '0'; });
+  });
+}
 
 function onBackingCoordChange(field) {
   const val = document.getElementById('modelSelect')?.value || 'badge-magnet';
@@ -202,7 +265,8 @@ function buildBadge() {
   if (!polys.length) return;
 
   const unioned = clipperUnion(polys);
-  const { offX, offY } = bboxCentre(unioned);
+  const { offX, offY, width, height } = bboxCentre(unioned);
+  lastBadgeWH = { width, height };
 
   const isKeychain = getBackingConfig()?.type === 'keychain';
 
@@ -407,8 +471,9 @@ function getBackingConfig() {
     const threshold = parseFloat(document.getElementById('rndMagThreshold')?.value || localStorage.getItem('badge2_rndThreshold') || '60');
     cfg = { type: 'round', diameter: diam, depth, threshold, name: 'round_magnet' };
   }
-  if (cfg && backingOverride && cfg.type !== 'round' && cfg.type !== 'keychain') {
-    cfg = { ...cfg, ...backingOverride };
+  if (cfg && cfg.type !== 'round' && cfg.type !== 'keychain') {
+    if (backingOverride) cfg = { ...cfg, ...backingOverride };
+    cfg.slots = backingSlots;
   }
   return cfg;
 }
@@ -482,11 +547,13 @@ function addLayer(filledBase, borderMM, offX, offY, colour, depth, zPos, include
           shape.holes.push(hole);
         }
       } else {
-        const slot = new THREE.Path();
-        slot.moveTo(-hw, -hh); slot.lineTo(hw, -hh);
-        slot.lineTo(hw,   hh); slot.lineTo(-hw, hh);
-        slot.closePath();
-        shape.holes.push(slot);
+        for (const s of (backing.slots || [{ x: 0, y: 0 }])) {
+          const slot = new THREE.Path();
+          slot.moveTo(s.x - hw, s.y - hh); slot.lineTo(s.x + hw, s.y - hh);
+          slot.lineTo(s.x + hw, s.y + hh); slot.lineTo(s.x - hw, s.y + hh);
+          slot.closePath();
+          shape.holes.push(slot);
+        }
       }
     }
     return shape;

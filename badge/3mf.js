@@ -418,10 +418,12 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
         objects.push({ geo: cutGeo, name: `round_magnet_${k}`, colour: '#000000', extruder: 1, id: objects.length+1, negative: true });
       }
     } else {
-      let cutGeo = _badgeMakeCutoutGeo(backing.w, backing.h, backing.d);
-      cutGeo = _badgeMergeVerticesForExport(cutGeo);
-      cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, backing.d));
-      objects.push({ geo: cutGeo, name: `${backing.name}_cutout`, colour: '#000000', extruder: 1, id: objects.length+1, negative: true });
+      (backing.slots || [{ x: 0, y: 0 }]).forEach((s, k) => {
+        let cutGeo = _badgeMakeCutoutGeo(backing.w, backing.h, backing.d);
+        cutGeo = _badgeMergeVerticesForExport(cutGeo);
+        cutGeo.applyMatrix4(new THREE.Matrix4().makeTranslation(s.x, s.y, backing.d));
+        objects.push({ geo: cutGeo, name: `${backing.name}_cutout_${k+1}`, colour: '#000000', extruder: 1, id: objects.length+1, negative: true });
+      });
     }
   }
 

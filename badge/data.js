@@ -445,7 +445,7 @@ function toggleAccordion(){
   const b=document.getElementById('accordionBody'),c=document.getElementById('accordionChevron');
   const open=b.style.display!=='none';
   b.style.display=open?'none':''; c.style.transform=open?'':'rotate(180deg)';
-  if(!open) wrapSpinners(b);
+  if(!open){ wrapSpinners(b); renderBackingSlotsUI(); }
 }
 
 // ── Boot ──────────────────────────────────────────────────────
