@@ -190,6 +190,7 @@ async function loadModel(){
     layerConfig=getDefaultLayerConfig();
     document.getElementById('fontSize').value=49;
     document.getElementById('letterSpacing').value=0;
+    document.getElementById('wordSpacing').value=0;
     loadRndMagSettings();
     buildLayerUI();
     applyUrlParams();
@@ -225,6 +226,7 @@ async function loadModel(){
   const s=settings[0]||{};
   document.getElementById('fontSize').value=currentModel.font_size||49;
   document.getElementById('letterSpacing').value=s.letter_spacing||0;
+  document.getElementById('wordSpacing').value=s.word_spacing||0;
   if(s.round_magnet_diameter!=null)  document.getElementById('rndMagDiam').value=s.round_magnet_diameter;
   if(s.round_magnet_depth!=null)     document.getElementById('rndMagDepth').value=s.round_magnet_depth;
   if(s.round_magnet_threshold!=null) document.getElementById('rndMagThreshold').value=s.round_magnet_threshold;
@@ -270,6 +272,7 @@ async function saveModelSettings(){
     const type=MODEL_TYPES.find(t=>t.id===typeId); if(!type) throw new Error('Unknown model type');
     const fontSize=+document.getElementById('fontSize').value;
     const letterSpacing=+document.getElementById('letterSpacing').value;
+    const wordSpacing=+document.getElementById('wordSpacing').value;
 
     if(!currentModel){
       // Create a new DB row for this model type
@@ -291,6 +294,7 @@ async function saveModelSettings(){
       ...(existing[0]?{id:existing[0].id}:{}),
       model_id:id,
       letter_spacing:letterSpacing,
+      word_spacing:wordSpacing,
       round_magnet_diameter:  +document.getElementById('rndMagDiam').value||17.15,
       round_magnet_depth:     +document.getElementById('rndMagDepth').value||2,
       round_magnet_threshold: +document.getElementById('rndMagThreshold').value||60,

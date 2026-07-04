@@ -257,11 +257,11 @@ function buildBadge() {
   const text = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
   const fsize = parseFloat(document.getElementById('fontSize')?.value) || FONT_SIZE_MM;
   const spacing = parseFloat(document.getElementById('letterSpacing')?.value) || 0;
-  const opts = spacing ? { letterSpacing: spacing / fsize } : {};
+  const wordSpacing = parseFloat(document.getElementById('wordSpacing')?.value) || 0;
 
   badgeGroup.children.filter(c => c !== grid).forEach(c => badgeGroup.remove(c));
 
-  const polys = commandsToClipper(font.getPath(text, 0, 0, fsize, opts).commands);
+  const polys = commandsToClipper(getTextCommands(font, text, fsize, spacing, wordSpacing));
   if (!polys.length) return;
 
   const unioned = clipperUnion(polys);
@@ -277,7 +277,7 @@ function buildBadge() {
     const colour = parseInt(layer.hex.replace('#', ''), 16);
 
     if (layer.isText) {
-      addTextLayer(font.getPath(text, 0, 0, fsize, opts).commands, offX, offY, colour, layer.depth, z);
+      addTextLayer(getTextCommands(font, text, fsize, spacing, wordSpacing), offX, offY, colour, layer.depth, z);
       z += layer.depth;
     } else if (layer.hasSlot) {
       const bc = getBackingConfig();
@@ -570,6 +570,7 @@ const clipperOffset  = (paths, deltaMM) => _badgeClipperOffset(paths, deltaMM);
 const clipperUnion   = (polys)          => _badgeClipperUnion(polys);
 const bboxCentre     = (paths)          => _badgeBboxCentre(paths);
 const commandsToClipper = (cmds)        => _badgeCommandsToClipper(cmds);
+const getTextCommands   = (font, text, fsize, letterSpacingMM, wordSpacingMM) => _badgeGetTextCommands(font, text, fsize, letterSpacingMM, wordSpacingMM);
 
 // ── 3MF Export ─────────────────────────────────────────────────
 function buildBadgeExport() {
@@ -577,10 +578,11 @@ function buildBadgeExport() {
   const name    = (document.getElementById('nameInput').value || 'NAME').toUpperCase();
   const fsize   = parseFloat(document.getElementById('fontSize')?.value) || FONT_SIZE_MM;
   const spacing = parseFloat(document.getElementById('letterSpacing')?.value) || 0;
+  const wordSpacing = parseFloat(document.getElementById('wordSpacing')?.value) || 0;
   const backing = getBackingConfig();
   const keychain = backing?.type === 'keychain';
   setStatus('Generating 3MF…');
-  return generate3MF({ name, layerConfig, backing: keychain ? null : backing, font, fsize, spacing, projectSettingsTemplate, keychain });
+  return generate3MF({ name, layerConfig, backing: keychain ? null : backing, font, fsize, spacing, wordSpacing, projectSettingsTemplate, keychain });
 }
 
 function exportTMF() {

@@ -74,6 +74,22 @@ function _badgeCommandsToClipper(cmds) {
   return polys;
 }
 
+// ── Text layout (word spacing — opentype.js has no built-in option) ─
+function _badgeGetTextCommands(font, text, fsize, letterSpacingMM, wordSpacingMM) {
+  const opts = letterSpacingMM ? { letterSpacing: letterSpacingMM / fsize } : {};
+  if (!wordSpacingMM) return font.getPath(text, 0, 0, fsize, opts).commands;
+  const words = text.split(' ');
+  let x = 0, commands = [];
+  words.forEach((word, i) => {
+    if (word) {
+      commands.push(...font.getPath(word, x, 0, fsize, opts).commands);
+      x += font.getAdvanceWidth(word, fsize, opts);
+    }
+    if (i < words.length - 1) x += font.getAdvanceWidth(' ', fsize, opts) + wordSpacingMM;
+  });
+  return commands;
+}
+
 // ── Geometry helpers ───────────────────────────────────────────
 function _badgeMergeVerticesForExport(geo) {
   const nonIdx = geo.toNonIndexed();
@@ -221,9 +237,8 @@ function _badgeConcatGeos(a, b) {
 // backing: { w, h, d, name } or null
 // keychain: if true, adds red-outline base + torus loop and skips backing cutout
 // Returns: { zip: Uint8Array, filename: string }
-function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0, projectSettingsTemplate = null, keychain = false }) {
-  const opts = spacing ? { letterSpacing: spacing / fsize } : {};
-  const polys = _badgeCommandsToClipper(font.getPath(name, 0, 0, fsize, opts).commands);
+function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0, wordSpacing = 0, projectSettingsTemplate = null, keychain = false }) {
+  const polys = _badgeCommandsToClipper(_badgeGetTextCommands(font, name, fsize, spacing, wordSpacing));
   const unioned = _badgeClipperUnion(polys);
   const { offX, offY, width: bboxWidth } = _badgeBboxCentre(unioned);
 
@@ -238,7 +253,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
 
     if (layer.isText) {
       const shapePath = new THREE.ShapePath();
-      const cmds = font.getPath(name, 0, 0, fsize, opts).commands;
+      const cmds = _badgeGetTextCommands(font, name, fsize, spacing, wordSpacing);
       for (const c of cmds) {
         if      (c.type === 'M') shapePath.moveTo(c.x - offX, offY - c.y);
         else if (c.type === 'L') shapePath.lineTo(c.x - offX, offY - c.y);
