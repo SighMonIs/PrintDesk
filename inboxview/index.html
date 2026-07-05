@@ -8,10 +8,12 @@
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
 <link rel="stylesheet" href="styles.css?v=1.1.0">
+<link rel="stylesheet" href="basic.css?v=1.1.0" id="basicOverride" disabled>
 
 <script>
 // Fallback if config.js missing
 window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
+if(localStorage.getItem('pd_stylish')==='0') document.getElementById('basicOverride').disabled=false;
 </script>
 </head>
 
@@ -169,7 +171,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <div class="inbox-empty-state"><i class="ti ti-loader-2"></i> Loading&hellip;</div>
     </div>
     <div class="inbox-list-footer">
-      <span id="footerVersion">v1.1.0</span>
+      <span id="footerVersion">v1.1.1</span>
       <span style="color:var(--border2)">&middot;</span>
       <span id="statusMsg" class="footer-status">Loading&hellip;</span>
     </div>
@@ -404,6 +406,15 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </div>
     </div>
     <input type="color" id="customColour" style="display:none" oninput="previewAccent(this.value)">
+
+    <div class="settings-section">
+      <div class="settings-section-title">Appearance</div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="settingsStylish" checked style="accent-color:var(--accent);width:14px;height:14px" onchange="applyStylish(this.checked)">
+        <span style="font-size:12px;font-weight:500">Stylish</span>
+      </label>
+      <div style="font-size:11px;color:var(--muted);padding-left:22px">Untick for a plain grey/black/white look with no shadows or effects.</div>
+    </div>
 
     <div class="settings-section">
       <div class="settings-section-title">Payment options</div>

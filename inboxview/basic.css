@@ -1,0 +1,3 @@
+/* "Stylish" off — flat grayscale override, loaded after styles.css */
+html{filter:grayscale(1);}
+*,*::before,*::after{box-shadow:none!important;text-shadow:none!important;}

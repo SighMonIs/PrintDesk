@@ -1308,6 +1308,11 @@ function applyAccent(a,a2,save=true){
     savePreferences();
   }
 }
+function applyStylish(on,save=true){
+  const link=document.getElementById('basicOverride');
+  if(link) link.disabled=on;
+  if(save) localStorage.setItem('pd_stylish',on?'1':'0');
+}
 function previewAccent(hex){
   const a2=darken(hex,0.18);
   applyAccent(hex,a2);
@@ -1401,6 +1406,7 @@ function openSettings(){
   buildAccentSwatches();
   const s=localStorage.getItem('pd_accent');
   if(s){try{document.getElementById('customColour').value=JSON.parse(s).a;}catch(e){}}
+  document.getElementById('settingsStylish').checked=localStorage.getItem('pd_stylish')!=='0';
   renderPaymentSettings();
   loadNotificationSettings();
   document.getElementById('settingsModal').classList.add('open');
