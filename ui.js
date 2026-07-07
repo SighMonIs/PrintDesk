@@ -44,6 +44,25 @@ document.addEventListener('click', e=>{
   }
 });
 
+// Keep [data-tt] tooltips from overflowing the viewport edge
+const ttMeasure = document.createElement('div');
+ttMeasure.style.cssText = 'position:fixed;top:-9999px;left:-9999px;white-space:nowrap;font-size:11px;font-weight:500;padding:3px 7px;visibility:hidden;';
+document.body.appendChild(ttMeasure);
+document.addEventListener('mouseover', e=>{
+  const el = e.target.closest('[data-tt]');
+  if(!el) return;
+  ttMeasure.textContent = el.getAttribute('data-tt');
+  const half = ttMeasure.offsetWidth/2;
+  const rect = el.getBoundingClientRect();
+  const center = rect.left + rect.width/2;
+  const vw = document.documentElement.clientWidth;
+  const margin = 8;
+  let shift = 0;
+  if(center - half < margin) shift = margin - (center - half);
+  else if(center + half > vw - margin) shift = (vw - margin) - (center + half);
+  el.style.setProperty('--tt-shift', shift + 'px');
+});
+
 async function selectOrderStatus(orderId, newStatus, optEl){
   const list = document.getElementById('sdd-order-'+orderId);
   if(list) list.classList.remove('open');
