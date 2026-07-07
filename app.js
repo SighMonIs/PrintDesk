@@ -1125,6 +1125,7 @@ async function _loadBadgeAssets() {
     layerConfig,
     fsize:     model.font_size || 49,
     spacing:   s.letter_spacing || 0,
+    wordSpacing: s.word_spacing || 0,
     fontPath:  model.font_path || 'badge/LEGO.TTF',
     rndDiam:      s.round_magnet_diameter  ?? 17.15,
     rndDepth:     s.round_magnet_depth     ?? 2,
@@ -1241,7 +1242,7 @@ async function _runBadgeLoop(items, assets, onProgress) {
       }
     }
     const _kc = backing?.type === 'keychain';
-    const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc });
+    const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, wordSpacing: assets.wordSpacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc });
     entries.push({ name: fnMap.next(rawName, backingStr), data: result.zip });
   }
   return { entries, skipped };
@@ -1343,7 +1344,7 @@ async function generateBadge(url) {
     const _kc3 = backing?.type === 'keychain';
     const result = generate3MF({
       name, layerConfig, backing: _kc3 ? null : backing, font: _badgeFont,
-      fsize: assets.fsize, spacing: assets.spacing,
+      fsize: assets.fsize, spacing: assets.spacing, wordSpacing: assets.wordSpacing,
       projectSettingsTemplate: assets.projectSettingsTemplate,
       keychain: _kc3,
     });
