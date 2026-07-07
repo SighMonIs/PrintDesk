@@ -55,37 +55,35 @@ async function selectOrderStatus(orderId, newStatus, optEl){
   renderTable();
   try{
     await sbUpsert('orders', rows.map(row=>({id:row.id,order_id:row.orderId,customer:row.customer,customer_id:row.customer_id||null,address:row.address,delivery:row.delivery,payment:row.payment,cat_id:row.catId,qty:row.qty,price:row.price,total:row.total,status:newStatus,date:row.date,notes:row.notes,options:row.options})));
+    if(newStatus==='Complete') await _consumeInventoryForOrder(rows);
     setStatus('ok','All items updated');
   }catch(e){ setStatus('err','Save failed'); }
 }
 
-// ── Previously made check ─────────────────────────────────
-// A signature is catId + normalised options string
-// An order row counts as "made" if ANY order row with the same
-// catId + options has status === 'Complete'
-function buildMadeSet(){
-  const made = new Set();
-  orders.forEach(o=>{
-    if(o.status==='Complete' && o.catId){
-      made.add(o.catId + '|' + normaliseOpts(o.options));
-    }
-  });
-  return made;
+// ── Status breadcrumb (read-only Detail view) ───────────────
+// On Hold / Cancelled aren't part of the forward flow — they're only
+// set/cleared from the Edit Order form, and show as a plain badge here.
+const STATUS_FLOW = ['Pending','Confirmed','Printed','Complete'];
+const STATUS_FLOW_VAR = {Pending:'--amber',Confirmed:'--blue',Printed:'--teal',Complete:'--green'};
+
+function _buildStatusBreadcrumb(orderId, status){
+  if(status==='On Hold' || status==='Cancelled'){
+    return '<div class="status-badge-plain b-' + status.toLowerCase().replace(' ','-') + '">' + status + '</div>';
+  }
+  const currentIdx = STATUS_FLOW.indexOf(status);
+  return '<div class="status-breadcrumb">' + STATUS_FLOW.map((s, i) => {
+    const role = i < currentIdx ? 'sbc-previous' : (i === currentIdx ? 'sbc-current' : 'sbc-future');
+    return '<div class="status-breadcrumb-step ' + role + '" style="--sbc-color:var(' + STATUS_FLOW_VAR[s] + ')"'
+      + ' onclick="confirmStatusStep(\'' + esc(String(orderId)) + '\',\'' + s + '\')">' + s + '</div>';
+  }).join('') + '</div>';
 }
 
-function normaliseOpts(optsStr){
-  // Split by || (field separator), extract values, sort for order-independent matching
-  if(!optsStr) return '';
-  return optsStr.split('||')
-    .map(p=>{ const idx=p.indexOf(':'); return idx>=0?p.slice(idx+1).trim().toLowerCase():p.trim().toLowerCase(); })
-    .filter(Boolean).sort().join('|');
-}
-
-function wasPreviouslyMade(o, madeSet){
-  // Show tick on ANY row whose catId + options matches a Complete row
-  // including the completed row itself
-  const sig = o.catId + '|' + normaliseOpts(o.options);
-  return madeSet.has(sig);
+function confirmStatusStep(orderId, newStatus){
+  const rows = orders.filter(r=>String(r.orderId)===String(orderId));
+  if(!rows.length || rows[0].status===newStatus) return;
+  showConfirm('Set this order to "' + newStatus + '"? This applies to all items in the order.', function(){
+    selectOrderStatus(orderId, newStatus);
+  }, {confirmLabel:'Set to '+newStatus, isDanger:false});
 }
 
 // ── Render table ───────────────────────────────────────────
@@ -99,12 +97,15 @@ function orderNumFromId(orderId) {
   return m ? '#' + m[1] : '#' + orderId;
 }
 
+function toggleSearchClear(){
+  const el = document.getElementById('searchClear');
+  if(el) el.style.display = document.getElementById('search').value ? 'flex' : 'none';
+}
 function renderTable(){
   const q = document.getElementById('search').value.toLowerCase();
   const fStatuses = getFilterValues('status');
   const fCats     = getFilterValues('cat');
   const fPays     = getFilterValues('pay');
-  const madeSet=buildMadeSet();
 
   let list=orders.filter(o=>{
     if(fStatuses.length&&!fStatuses.includes(o.status||'Pending'))return false;
@@ -145,303 +146,21 @@ function renderTable(){
     return aNum-bNum;
   });
 
-  const tbody=document.getElementById('tbody');
-  if(!list.length){tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;renderInboxList([]);return;}
-
-  const seen=new Set();
-  let groupIdx=0;
-  const isMobile = window.innerWidth <= 640;
-  const orderItemCount={};
-  list.forEach(o=>{orderItemCount[o.orderId]=(orderItemCount[o.orderId]||0)+1;});
+  if(!list.length){renderInboxList([]);return;}
 
   renderInboxList(list);
-  tbody.innerHTML=list.map(o=>{
-    const isFirst=!seen.has(o.orderId);
-    if(isFirst){ if(seen.size>0) groupIdx++; seen.add(o.orderId); }
-    const altClass=groupIdx%2===1?'row-alt':'';
-    const cat=cats.find(c=>String(c.id)===String(o.catId));
-    const bc='b-'+(o.status||'pending').toLowerCase().replace(' ','-');
-    const orderNum=orderNumFromId(o.orderId);
-    const hasNote=!!o.notes.trim();
-    const prevMade=wasPreviouslyMade(o, madeSet);
-
-    // Parse options
-    const parsedOpts={};
-    if(o.options){o.options.split('||').forEach(p=>{const idx=p.indexOf(':');if(idx>=0)parsedOpts[p.slice(0,idx).trim()]=p.slice(idx+1).trim();});}
-    const catOpts=opts.filter(opt=>String(opt.catId)===String(o.catId));
-
-    const colourSwatches = catOpts.filter(opt=>opt.display==='colour'||opt.name.toLowerCase().includes('colour')).map(opt=>{
-      const val=parsedOpts[opt.name];
-      if(!val) return '';
-      return val.split('|').map(name=>{
-        const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
-        return`<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${c?c.code:'#ccc'};border:1px solid rgba(255,255,255,0.15)" title="${esc(name)}"></span>`;
-      }).join('');
-    }).join('');
-
-    const textOpts = catOpts.filter(opt=>opt.display!=='colour'&&!opt.name.toLowerCase().includes('colour')).map(opt=>{
-      const val=parsedOpts[opt.name];
-      return val?esc(val):'';
-    }).filter(Boolean).join(' · ');
-
-    const statusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
-      <button class="status-dd-btn b-${(o.status||'pending').toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('${o.id}',this)">
-        <span>${o.status||'Pending'}</span><i class="ti ti-chevron-down"></i>
-      </button>
-      <div class="status-dd-list" id="sdd-${o.id}">
-        ${['Pending','Printing','Complete','On Hold','Cancelled'].map(s=>`
-          <div class="status-dd-opt b-${s.toLowerCase().replace(' ','-')}${o.status===s?' active':''}"
-            onclick="selectStatus('${esc(o.orderId)}','${esc(o.id)}','${s}',this)">${s}</div>`).join('')}
-      </div>
-    </div>`;
-
-    if(isMobile){
-      if(!isFirst) return ''; // Whole order rendered as one card
-      const orderRows = list.filter(r=>r.orderId===o.orderId);
-      const totalAmt  = orderRows.reduce((s,r)=>s+r.total,0);
-
-      // Build each item row
-      const itemRows = orderRows.map(r=>{
-        const rCat = cats.find(c=>String(c.id)===String(r.catId));
-        const rParsedOpts={};
-        if(r.options){r.options.split('||').forEach(p=>{const idx=p.indexOf(':');if(idx>=0)rParsedOpts[p.slice(0,idx).trim()]=p.slice(idx+1).trim();});}
-        const rCatOpts = opts.filter(opt=>String(opt.catId)===String(r.catId));
-        const rSwatches = rCatOpts.filter(opt=>opt.display==='colour'||opt.name.toLowerCase().includes('colour')).map(opt=>{
-          const val=rParsedOpts[opt.name];
-          if(!val) return '';
-          return val.split('|').map(name=>{
-            const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
-            return`<span class="mc-swatch" style="background:${c?c.code:'#ccc'}" title="${esc(name)}"></span>`;
-          }).join('');
-        }).join('');
-        const rTextOpts = rCatOpts.filter(opt=>opt.display!=='colour'&&!opt.name.toLowerCase().includes('colour')).map(opt=>{
-          const val=rParsedOpts[opt.name];
-          return val?esc(val):'';
-        }).filter(Boolean).join(' · ');
-        const rPrevMade = wasPreviouslyMade(r, madeSet);
-        // Build labelled option lines
-        const rLabelledOpts = rCatOpts.filter(opt=>opt.display!=='colour'&&!opt.name.toLowerCase().includes('colour')).map(opt=>{
-          const val=rParsedOpts[opt.name];
-          return val?`<span style="color:var(--muted)">${esc(opt.name)}:</span> ${esc(val)}`:'';
-        }).filter(Boolean);
-        const rColourOpts = rCatOpts.filter(opt=>opt.display==='colour'||opt.name.toLowerCase().includes('colour')).map(opt=>{
-          const val=rParsedOpts[opt.name];
-          if(!val) return '';
-          const swatchHtml = val.split('|').map(name=>{
-            const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
-            return`<span class="mc-swatch" style="background:${c?c.code:'#ccc'}" title="${esc(name)}"></span>`;
-          }).join('');
-          return`<div style="display:flex;align-items:center;gap:4px"><span style="color:var(--muted);font-size:10px">${esc(opt.name)}:</span>${swatchHtml}</div>`;
-        }).filter(Boolean);
-
-        return`<div class="mc-item">
-          <div class="mc-item-left">
-            <div class="mc-item-qty">×${r.qty}</div>
-            <div class="mc-item-price">$${r.total.toFixed(2)}</div>
-          </div>
-          <div class="mc-item-divider"></div>
-          <div class="mc-item-right">
-            <div class="mc-item-cat">${rCat?esc(rCat.name):'—'}${rPrevMade?' <span class="made-tick"><i class="ti ti-circle-check-filled"></i></span>':''}</div>
-            ${rLabelledOpts.map(l=>`<div class="mc-item-opt-row">${l}</div>`).join('')}
-            ${rColourOpts.join('')}
-          </div>
-        </div>`;
-      }).join('<div class="mc-item-sep"></div>');
-
-      return`<tr class="mobile-card">
-        <td colspan="11" style="padding:0;border:none!important;background:transparent!important">
-          <div class="mc-card">
-            <!-- Header: order# left | customer right | status fixed right -->
-            <div class="mc-header">
-              <div class="mc-header-left">
-                <span class="mc-order-num">${orderNum}</span>
-              </div>
-              <div class="mc-header-divider"></div>
-              <div class="mc-header-right">
-                <div class="mc-customer">${esc(o.customer)||'—'}</div>
-              </div>
-              <div class="mc-header-status">${statusDd}</div>
-            </div>
-            <!-- Items -->
-            <div class="mc-items">
-              ${itemRows}
-            </div>
-            <!-- Footer -->
-            <div class="mc-footer">
-              <div class="mc-stat">
-                <span class="mc-stat-label">Items</span>
-                <span class="mc-stat-val">${orderRows.length}</span>
-              </div>
-              <div class="mc-stat-sep"></div>
-              <div class="mc-stat">
-                <span class="mc-stat-label">Total</span>
-                <span class="mc-stat-val">$${totalAmt.toFixed(2)}</span>
-              </div>
-              <div class="mc-stat-sep"></div>
-              <div class="mc-stat">
-                <span class="mc-stat-label">Payment</span>
-                <span class="mc-stat-val">${esc(o.payment||'—')}</span>
-              </div>
-              <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
-                ${hasNote?`<button class="icon-btn has-note" onclick="showNote('',${JSON.stringify(esc(o.notes))})" title="Note"><i class="ti ti-notes"></i></button>`:''}
-                <button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
-                <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>
-              </div>
-            </div>
-          </div>
-        </td>
-      </tr>`;
-    }
-
-    // ── Desktop row ──────────────────────────────────────────
-    const catHtml=cat
-      ?`<span class="cat-path">${esc(cat.name)}</span>${prevMade?'<span class="made-tick" title="Model previously made"><i class="ti ti-circle-check-filled"></i></span>':''}`
-      :'—';
-    const noteHtml=`<button class="note-btn ${hasNote?'has-note':'no-note'}" onclick="showNote(${JSON.stringify(esc(o.model))},${JSON.stringify(esc(o.notes))})" title="${hasNote?'View note':'No note'}"><i class="ti ti-notes"></i></button>`;
-    const deliveryIcon=isFirst?(o.delivery==='Pick Up'
-      ?'<i class="ti ti-hand-stop" title="Pick Up" style="font-size:13px;color:var(--muted);margin-right:5px;flex-shrink:0"></i>'
-      :'<i class="ti ti-mail" title="Post" style="font-size:13px;color:var(--muted);margin-right:5px;flex-shrink:0"></i>'):'';
-    const optLines=catOpts.map(opt=>{
-      const val=parsedOpts[opt.name];
-      if(!val) return null;
-      const isColOpt=opt.display==='colour'||opt.name.toLowerCase().includes('colour')||opt.name.toLowerCase().includes('color');
-      if(isColOpt){
-        const names=val.split('|').map(s=>s.trim()).filter(Boolean);
-        const swatches=names.map(name=>{
-          const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
-          const code=c?c.code:'#cccccc';
-          return`<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${esc(code)};border:1px solid rgba(255,255,255,0.15);margin-right:2px;cursor:default;flex-shrink:0" title="${esc(name)}"></span>`;
-        }).join('');
-        return`<span style="color:var(--muted)">${esc(opt.name)}:</span> <span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:1px">${swatches}</span>`;
-      }
-      return`<span style="color:var(--muted)">${esc(opt.name)}:</span> ${esc(val)}`;
-    }).filter(Boolean);
-    const isBadgeCat=cat&&cat.name.toLowerCase().includes('name badge');
-    const isKeychainCat=cat&&cat.name.toLowerCase().includes('keychain');
-    const _genBacking=isKeychainCat?(parsedOpts['Backing']||'Keychain'):(parsedOpts['Backing']||'');
-    const badgeBtn=(isBadgeCat||isKeychainCat)?`<button class="icon-btn" title="Generate ${isKeychainCat?'Keychain':'Badge'}" onclick="generateBadge('/badge/?${new URLSearchParams({name:parsedOpts['Text']||'',backing:_genBacking,colours:parsedOpts['Colours']||''})}')"><i class="ti ${isKeychainCat?'ti-key':'ti-badge'}"></i></button>`:'';
-    const optHtml=optLines.length?optLines.map(l=>`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px">${l}</div>`).join(''):'';
-    const isMulti=orderItemCount[o.orderId]>1;
-    const noteRow=hasNote?`<tr class="note-inline-row ${altClass}">
-      <td colspan="3"></td>
-      <td colspan="6" class="note-inline-cell"><div class="note-inline-cell-inner"><i class="ti ti-notes" style="font-size:12px;margin-right:5px;opacity:0.5;flex-shrink:0"></i>${esc(o.notes)}</div></td>
-      <td colspan="2"></td>
-    </tr>`:'';
-
-    // Item cells (category → status) reused for both single and multi-item rows
-    const itemCells=`
-      <td data-label="Category" style="padding:7px 8px">${catHtml}</td>
-      <td data-label="Options" style="padding:7px 8px;font-size:11px;overflow:visible;white-space:normal;line-height:1.6">${optHtml}</td>
-      <td style="padding:4px 4px;text-align:center;vertical-align:middle">${badgeBtn}</td>
-      <td data-label="Qty" class="mono" style="padding:7px 8px">${o.qty}</td>
-      <td data-label="Total" class="mono" style="padding:7px 8px">$${o.total.toFixed(2)}</td>
-      <td data-label="Status" style="padding:7px 6px;text-align:center">${statusDd}</td>`;
-
-    if(isMulti && isFirst){
-      // Summary row: customer info + order-level status dropdown
-      const orderRows=list.filter(r=>r.orderId===o.orderId);
-      // Collect badge params for all badge-category items in this order
-      const badgeItems=orderRows.reduce((acc,r)=>{
-        const rCat=cats.find(c=>c.id===r.catId);
-        if(!rCat) return acc;
-        const rIsKeychain=rCat.name.toLowerCase().includes('keychain');
-        if(!rCat.name.toLowerCase().includes('name badge')&&!rIsKeychain) return acc;
-        const rOpts={};
-        if(r.options) r.options.split('||').forEach(p=>{const idx=p.indexOf(':');if(idx>=0)rOpts[p.slice(0,idx).trim()]=p.slice(idx+1).trim();});
-        const qty=r.qty||1;
-        const backing=rIsKeychain?(rOpts['Backing']||'Keychain'):(rOpts['Backing']||'');
-        for(let q=0;q<qty;q++) acc.push({name:rOpts['Text']||'',backing,colours:rOpts['Colours']||''});
-        return acc;
-      },[]);
-      const allBadgesBtn=badgeItems.length>1?`<button class="icon-btn" title="Generate all ${badgeItems.length} badges" onclick="openBadgeBatchModal(${esc(JSON.stringify(badgeItems))},${esc(JSON.stringify(o.customer||'badges'))})"><i class="ti ti-badges"></i></button>`:'';
-      const catTotals={};
-      const seenColours=new Set();
-      orderRows.forEach(r=>{
-        const name=(cats.find(c=>c.id===r.catId)||{}).name||'Unknown';
-        catTotals[name]=(catTotals[name]||0)+(r.qty||1);
-        if(r.options){
-          r.options.split('||').forEach(p=>{
-            const idx=p.indexOf(':');
-            if(idx<0) return;
-            const key=p.slice(0,idx).trim().toLowerCase();
-            if(key.includes('colour')||key.includes('color')){
-              p.slice(idx+1).trim().split('|').forEach(cn=>{if(cn.trim())seenColours.add(cn.trim());});
-            }
-          });
-        }
-      });
-      const itemSummaryHtml=Object.entries(catTotals).map(([name,qty])=>
-        `<div style="font-size:10px;color:var(--muted);line-height:1.6">${qty}× ${name}</div>`
-      ).join('');
-      const colourSwatchSummary=seenColours.size?`<div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center;margin-top:2px">${[...seenColours].map(name=>{
-        const c=colours.find(c=>c.name.toLowerCase()===name.toLowerCase());
-        return`<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${c?c.code:'#ccc'};border:1px solid rgba(255,255,255,0.15)" title="${esc(name)}"></span>`;
-      }).join('')}</div>`:'';
-      const orderStat=o.status||'Pending';
-      const orderStatusDd=`<div class="status-dd-wrap" onclick="event.stopPropagation()">
-        <button class="status-dd-btn order-status-dd b-${orderStat.toLowerCase().replace(' ','-')}" onclick="toggleStatusDd('order-${esc(o.orderId)}',this)">
-          <span>${orderStat}</span><i class="ti ti-chevron-down"></i>
-        </button>
-        <div class="status-dd-list" id="sdd-order-${esc(o.orderId)}">
-          ${['Pending','Printing','Complete','On Hold','Cancelled'].map(s=>`
-            <div class="status-dd-opt b-${s.toLowerCase().replace(' ','-')}${orderStat===s?' active':''}"
-              onclick="selectOrderStatus('${esc(o.orderId)}','${s}',this)">${s}</div>`).join('')}
-        </div>
-      </div>`;
-      const summaryRow=`<tr class="group-first order-summary-row ${altClass}">
-        <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
-        <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${o.customer_id?`<a href="#" onclick="viewCustomer('${esc(o.customer_id)}');return false;" style="color:inherit;text-decoration:none;border-bottom:1px solid var(--border2)">${esc(o.customer)}</a>`:esc(o.customer)||'—'}</td>
-        <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span>${o.address?`<button class="icon-btn" style="flex-shrink:0;margin-left:2px" onclick="printShippingLabel('${esc(o.customer)}','${esc(o.address)}','${esc(o.orderId)}')" title="Print shipping label"><i class="ti ti-printer"></i></button>`:''}</span></td>
-        <td style="padding:7px 8px;vertical-align:middle">${itemSummaryHtml}</td>
-        <td style="padding:7px 8px;vertical-align:middle">${colourSwatchSummary}</td>
-        <td style="padding:4px 4px;text-align:center;vertical-align:middle">${allBadgesBtn}</td>
-        <td colspan="2" style="padding:4px 8px;text-align:right;font-size:10px;color:var(--muted);white-space:nowrap;vertical-align:middle">Applies to entire order</td>
-        <td data-label="Status" style="padding:4px 6px;text-align:center">${orderStatusDd}</td>
-        <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
-        <td class="card-actions" style="padding:5px 6px"><div style="display:flex;gap:3px;justify-content:flex-end">
-          <button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
-          <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>
-        </div></td>
-      </tr>`;
-      const itemRow=`<tr class="inner-row ${altClass} ${hasNote?'has-note':''}">
-        <td></td><td></td><td class="item-connector"></td>${itemCells}
-        <td></td><td class="card-actions" style="padding:5px 6px"></td>
-      </tr>${noteRow}`;
-      return summaryRow+itemRow;
-    }
-
-    if(isMulti && !isFirst){
-      return`<tr class="inner-row ${altClass} ${hasNote?'has-note':''}">
-        <td></td><td></td><td class="item-connector"></td>${itemCells}
-        <td></td><td class="card-actions" style="padding:5px 6px"></td>
-      </tr>${noteRow}`;
-    }
-
-    // Single-item order — original layout
-    return`<tr class="group-first ${altClass} ${hasNote?'has-note':''}">
-      <td class="card-order-num" style="padding:7px 8px"><span class="order-id-badge">${orderNum}</span></td>
-      <td data-label="Customer" style="padding:7px 8px" title="${esc(o.customer)}">${o.customer_id?`<a href="#" onclick="viewCustomer('${esc(o.customer_id)}');return false;" style="color:inherit;text-decoration:none;border-bottom:1px solid var(--border2)">${esc(o.customer)}</a>`:esc(o.customer)||'—'}</td>
-      <td data-label="Address" style="padding:7px 8px;white-space:normal;word-break:break-word;font-size:11px;color:var(--muted)"><span style="display:flex;align-items:flex-start;gap:4px">${deliveryIcon}<span title="${esc(o.address)}">${esc(o.address)||'—'}</span>${o.address?`<button class="icon-btn" style="flex-shrink:0;margin-left:2px" onclick="printShippingLabel('${esc(o.customer)}','${esc(o.address)}','${esc(o.orderId)}')" title="Print shipping label"><i class="ti ti-printer"></i></button>`:''}</span></td>
-      ${itemCells}
-      <td data-label="$" style="padding:7px 6px;text-align:center"><span class="pay-${(o.payment||'N')[0].toUpperCase()}">${(o.payment||'No')[0].toUpperCase()}</span></td>
-      <td class="card-actions" style="padding:5px 6px"><div style="display:flex;gap:3px;justify-content:flex-end">
-        <button class="icon-btn" onclick="openEdit('${esc(o.orderId)}')" title="Edit"><i class="ti ti-edit"></i></button>
-        <button class="icon-btn del" onclick="deleteOrder('${esc(o.orderId)}')" title="Delete"><i class="ti ti-trash"></i></button>
-      </div></td>
-    </tr>${noteRow}`;
-  }).join('');
 }
 
-function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+// ponytail: for free-text passed as a '...'-quoted JS argument inside an onclick="" attribute —
+// esc() alone isn't enough there since a raw apostrophe (e.g. "O'Brien") terminates the JS string early.
+function escJsAttr(s){return esc(String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"));}
 function sortBy(k){
   if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}
   savePreferences();
   updateSortUI();
   renderTable();
 }
-function showNote(m,n){document.getElementById('noteModalTitle').textContent=m?'Note — '+m:'Note';document.getElementById('noteModalBody').textContent=n||'(No note recorded)';document.getElementById('noteModal').classList.add('open');}
-function closeNoteModal(){document.getElementById('noteModal').classList.remove('open');}
-
 // ── Address autocomplete (Google Maps Places) ─────────────
 function initAutocomplete(){
   const input = document.getElementById('f-address');
@@ -502,7 +221,8 @@ function renderModelOpts(idx, catId, savedOpts){
       const warnDiv=isBadgeCat?`<div class="badge-width-warn" id="bww-${idx}" style="display:none"></div>`:'';
       const multiBadge=opt.multi_item?`<span class="multi-item-badge" id="mb-${idx}-${opt.id}" style="display:none"></span>`:'';
       const inputVal=esc(opt.force_caps&&val?val.toUpperCase():val);
-      return`<div class="opt-row"><label>${esc(opt.name)}</label><div style="display:flex;align-items:center;gap:6px;flex:1"><input type="text" id="ov-${idx}-${opt.id}" value="${inputVal}" placeholder="Enter ${esc(opt.name).toLowerCase()}… or comma-separate for multiple" style="${capsStyle}flex:1" oninput="${capsHandler}">${multiBadge}</div></div>${warnDiv}`;
+      const capsClass=opt.force_caps?' opt-text-uppercase':'';
+      return`<div class="opt-row"><label>${esc(opt.name)}</label><div class="opt-text-input-wrap"><input type="text" class="opt-text-input${capsClass}" id="ov-${idx}-${opt.id}" value="${inputVal}" placeholder="Enter ${esc(opt.name).toLowerCase()}… or comma-separate for multiple" oninput="${capsHandler}">${multiBadge}</div></div>${warnDiv}`;
     } else {
       // dropdown
       const items=opt.options.split(',').map(s=>s.trim()).filter(Boolean);
@@ -532,13 +252,15 @@ function renderModelOpts(idx, catId, savedOpts){
           const key=combo.key;
           return `<option value="${esc(key)}" ${ddVal===key?'selected':''}>${esc(label)}</option>`;
         }).join('');
-        const selectHtml=`<select id="ov-${idx}-${opt.id}" onchange="colourOptChanged(${idx},'${opt.id}',this.value)">
+        const selectHtml=`<select class="flex-fill-input" id="ov-${idx}-${opt.id}" onchange="colourOptChanged(${idx},'${opt.id}',this.value)">
           <option value="">— select —</option>
-          <option value="Custom" ${ddVal==='Custom'?'selected':''}>✦ Custom (choose 4 colours)</option>
+          <option value="Custom" ${ddVal==='Custom'?'selected':''}>✦ Custom (choose ${numColours} colours)</option>
           ${savedCombos.length?`<optgroup label="── Saved combinations ──">${comboOptions}</optgroup>`:''}
         </select>`;
-        const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label>${selectHtml}</div>`+
-          `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="1" style="${ddVal==='Custom'?'':'display:none'}"></div>`;
+        const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label>`+
+          `<div class="opt-row-colour-inline">${selectHtml}`+
+          `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="1" style="${ddVal==='Custom'?'':'display:none'}"></div>`+
+          `</div></div>`;
         if(ddVal==='Custom') setTimeout(()=>renderLayerSelectors(idx,opt.id,customVal),0);
         else if(ddVal&&ddVal!=='Custom') setTimeout(()=>applyComboToLayers(idx,opt.id,ddVal),0);
         return rowHtml;
@@ -595,15 +317,15 @@ function buildColourPicker(id, selectedName, onChangeFn){
   const label    = sel ? sel.name : '— none —';
   return `<div class="colour-picker-wrap" id="cpw-${id}">
     <div class="colour-picker-btn" onclick="toggleColourPicker('${id}')" id="cpb-${id}">
-      <div class="cp-swatch" style="background:${swatchBg}"></div>
+      <div class="cp-swatch" style="--sw:${swatchBg}"></div>
       <span class="cp-label">${esc(label)}</span>
       <i class="ti ti-chevron-down cp-arrow"></i>
     </div>
     <div class="colour-picker-list" id="cpl-${id}" style="display:none">
       <div class="cp-none" onclick="selectColour('${id}','',${onChangeFn})" >— none —</div>
       ${avail.map(c=>`
-        <div class="cp-option ${c.name===selectedName?'selected':''}" onclick="selectColour('${id}','${esc(c.name)}',${onChangeFn})">
-          <div class="cp-swatch" style="background:${esc(c.code)}"></div>
+        <div class="cp-option ${c.name===selectedName?'selected':''}" onclick="selectColour('${id}','${escJsAttr(c.name)}',${onChangeFn})">
+          <div class="cp-swatch" style="--sw:${esc(c.code)}"></div>
           <span>${esc(c.name)}</span>
         </div>`).join('')}
     </div>
@@ -663,17 +385,53 @@ function renderLayerSelectors(idx, optId, savedVal){
   }
   const opt = opts.find(o=>String(o.id)===String(optId));
   const numLayers = opt?.num_colours || 4;
-  container.innerHTML=`<div class="layer-selectors">
-    ${Array.from({length:numLayers},(_,i)=>i+1).map(n=>{
-      const pickerId=`lp-${idx}-${optId}-${n}`;
-      const savedName=saved['Layer '+n]||'';
-      const onChangeFn=`function(v){collectOpts(${idx});}`;
-      return`<div class="layer-sel-row">
-        <label>Layer ${n}</label>
-        ${buildColourPicker(pickerId, savedName, onChangeFn)}
-      </div>`;
-    }).join('')}
+  container.innerHTML = Array.from({length:numLayers},(_,i)=>i+1).map(n=>{
+    const pickerId=`lp-${idx}-${optId}-${n}`;
+    const savedName=saved['Layer '+n]||'';
+    const onChangeFn=`function(v){collectOpts(${idx});}`;
+    return buildLayerSwatch(pickerId, savedName, n, onChangeFn);
+  }).join('');
+}
+
+function buildLayerSwatch(id, selectedName, layerNum, onChangeFn){
+  const avail = availableColours();
+  const sel   = avail.find(c=>c.name===selectedName);
+  const swatchBg = sel ? sel.code : 'transparent';
+  const label    = sel ? sel.name : '— none —';
+  return `<div class="layer-swatch-wrap" id="cpw-${id}" data-value="${esc(selectedName||'')}">
+    <button type="button" class="layer-swatch-btn" style="--sw:${swatchBg}" data-tt="Layer ${layerNum}: ${esc(label)}" onclick="event.stopPropagation();toggleLayerSwatchPicker('${id}',this)"></button>
+    <div class="layer-swatch-picker" id="lsp-${id}" style="display:none">
+      <button type="button" class="layer-swatch-opt layer-swatch-opt-none" data-name="" data-tt="— none —" onclick="selectLayerSwatch('${id}','',${onChangeFn})"></button>
+      ${avail.map(c=>`<button type="button" class="layer-swatch-opt${c.name===selectedName?' selected':''}" style="--sw:${esc(c.code)}" data-name="${esc(c.name)}" data-tt="${esc(c.name)}" onclick="selectLayerSwatch('${id}','${escJsAttr(c.name)}',${onChangeFn})"></button>`).join('')}
+    </div>
   </div>`;
+}
+
+function toggleLayerSwatchPicker(id, btn){
+  document.querySelectorAll('.layer-swatch-picker').forEach(el=>{ if(el.id!=='lsp-'+id) el.style.display='none'; });
+  const list=document.getElementById('lsp-'+id);
+  if(!list) return;
+  if(list.style.display!=='none'){ list.style.display='none'; return; }
+  const rect=btn.getBoundingClientRect();
+  const listWidth=6*28+12;
+  list.style.left=Math.min(rect.left, window.innerWidth-listWidth-8)+'px';
+  list.style.top=(rect.bottom+4)+'px';
+  list.style.display='grid';
+}
+
+function selectLayerSwatch(id, name, onChangeFn){
+  const avail=availableColours();
+  const c=avail.find(c=>c.name===name);
+  const wrap=document.getElementById('cpw-'+id);
+  const btn=wrap?wrap.querySelector('.layer-swatch-btn'):null;
+  if(btn){ btn.style.background=c?c.code:'transparent'; btn.dataset.tt=c?('Layer: '+c.name):'Layer: — none —'; }
+  const list=document.getElementById('lsp-'+id);
+  if(list){
+    list.querySelectorAll('.layer-swatch-opt').forEach(el=>el.classList.toggle('selected', el.dataset.name===name));
+    list.style.display='none';
+  }
+  if(wrap) wrap.dataset.value=name;
+  if(typeof onChangeFn==='function') onChangeFn(name);
 }
 
 function getColourCode(name){
@@ -700,7 +458,8 @@ function collectOpts(idx){
         // Collect layer values as simple pipe-separated colour names
         const container=document.getElementById('ovc-'+idx+'-'+opt.id);
         if(container&&container.dataset.iscolour==='1'){
-          const layers=[1,2,3,4].map(n=>{
+          const numLayers=opt.num_colours||4;
+          const layers=Array.from({length:numLayers},(_,i)=>i+1).map(n=>{
             return getColourPickerValue('lp-'+idx+'-'+opt.id+'-'+n)||'';
           });
           val=layers.filter(Boolean).join('|');
@@ -724,19 +483,23 @@ function addModelRow(d){
   const el=document.createElement('div');
   el.className='model-row';el.dataset.idx=idx;
   el.innerHTML=`
+    <button type="button" class="rm-btn-corner" onclick="removeModel(this)" title="Remove Item"><i class="ti ti-trash"></i></button>
     <div class="model-row-top">
-      <div class="mf"><label>Category</label><select id="mc-${idx}" onchange="catChanged(${idx})">${catOptions(d.catId)}</select></div>
-      <div class="mf"><label>Qty</label><div class="stepper"><button type="button" class="step-btn" onclick="stepVal('mq-${idx}',-1,1,1)">−</button><input type="number" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"><button type="button" class="step-btn" onclick="stepVal('mq-${idx}',1,1,1)">+</button></div></div>
-      <div class="mf"><label>Price (each)</label><div class="stepper"><button type="button" class="step-btn" onclick="stepVal('mp-${idx}',-0.5,0,0.5)">−</button><input type="number" id="mp-${idx}" value="${d.price||''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"><button type="button" class="step-btn" onclick="stepVal('mp-${idx}',0.5,0,0.5)">+</button></div></div>
-      <div class="model-row-total"><label>Total</label><div class="total-val" id="mt-${idx}">—</div></div>
+      <div class="opt-row"><label>Category</label><select id="mc-${idx}" onchange="catChanged(${idx})">${catOptions(d.catId)}</select></div>
+      <div class="prefix-input-wrap"><span>×</span><input type="number" class="ns-init" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"></div>
+      <div class="prefix-input-wrap"><span>$</span><input type="number" class="ns-init" id="mp-${idx}" value="${d.price?Number(d.price).toFixed(2):''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"></div>
     </div>
     <div class="model-options" id="mo-${idx}"></div>
-    <div class="model-notes"><input type="text" id="mn-${idx}" value="${esc(d.notes||'')}" placeholder="Item notes (colour, material, special requests…)"></div>
+    <div class="opt-row opt-row-notes">
+      <label>Notes</label>
+      <div class="opt-row-notes-inner">
+        <input type="text" class="flex-fill-input" id="mn-${idx}" value="${esc(d.notes||'')}" placeholder="Item notes (colour, material, special requests…)">
+        <span class="total-label">Total</span>
+        <div class="total-val" id="mt-${idx}">—</div>
+      </div>
+    </div>
     <input type="hidden" id="mm-${idx}" value="${esc(d.model||'')}">
-    <input type="hidden" id="opts-${idx}" value="${esc(d.options||'')}">
-    <div class="model-row-footer">
-      <button type="button" class="rm-btn-full" onclick="removeModel(this)"><i class="ti ti-trash"></i> Remove Item</button>
-    </div>`;
+    <input type="hidden" id="opts-${idx}" value="${esc(d.options||'')}">`;
   const container=document.getElementById('modelRows');
   if(d.catId) container.appendChild(el); else container.prepend(el);
   if(d.catId)renderModelOpts(idx,d.catId,d.options||'');
@@ -757,14 +520,6 @@ function catChanged(idx){
   renderModelOpts(idx,catId,'');
 }
 
-function stepVal(id, delta, min, step){
-  const el=document.getElementById(id);
-  if(!el) return;
-  const val=parseFloat(el.value)||0;
-  el.value=Math.max(min,Math.round((val+delta*step)*1000)/1000);
-  el.dispatchEvent(new Event('input'));
-}
-
 function filterModelRows(q){
   const lower=(q||'').toLowerCase().trim();
   document.querySelectorAll('#modelRows .model-row').forEach(row=>{
@@ -780,9 +535,10 @@ function filterModelRows(q){
 
 function _updateItemFilter(){
   const count=document.querySelectorAll('#modelRows .model-row').length;
+  const wrap=document.getElementById('itemFilterWrap');
   const f=document.getElementById('itemFilter');
-  if(!f)return;
-  if(count>5){f.style.display='';} else {f.style.display='none';f.value='';filterModelRows('');}
+  if(!wrap||!f)return;
+  if(count>5){wrap.style.display='';} else {wrap.style.display='none';f.value='';filterModelRows('');}
 }
 
 function calcTotal(){
@@ -796,6 +552,9 @@ function calcTotal(){
     const rowTotalEl=document.getElementById('mt-'+i);
     if(rowTotalEl) rowTotalEl.textContent=price?'$'+rowTotal.toFixed(2):'—';
   });
+  const deliveryName=document.getElementById('f-delivery')?.value;
+  const deliveryOpt=deliveryOptions.find(d=>d.name===deliveryName);
+  if(deliveryOpt) t+=deliveryOpt.price;
   document.getElementById('orderTotal').textContent='$'+t.toFixed(2);
   _updateItemFilter();
 }
@@ -807,14 +566,10 @@ function removeModel(btn){
       showTypeConfirm(
         `Type the customer name to confirm permanently deleting this order:\n\n"${customer}"`,
         customer,
-        async()=>{
+        ()=>{
+          const orderId=editOId;
           closeModal();
-          setStatus('spin','Deleting…');
-          orders=orders.filter(o=>o.orderId!==editOId);renderTable();
-          try{
-            await sbDelete('orders','order_id=eq.'+encodeURIComponent(editOId));
-            setStatus('ok','Deleted · '+uniqueOrderCount()+' orders');
-          }catch(e){setStatus('err','Delete failed: '+e.message);}
+          _deleteOrderWithUndo(orderId);
         }
       );
     },{confirmLabel:'Delete Order',isDanger:true});
@@ -877,46 +632,123 @@ function getModelData(){
   });
 }
 
-// ── Order modals ───────────────────────────────────────────
+// ── Order edit form (inline in the detail pane) ─────────────
+function _orderFormHtml(){
+  return '<div class="inbox-detail">'
+    + '<div class="modal-title-row">'
+    + '<div class="modal-title" id="modalTitle">New Order</div>'
+    + '<div class="modal-title-actions">'
+    + '<button class="btn" onclick="closeModal()">Cancel</button>'
+    + '<button class="btn success" id="saveBtn" onclick="saveOrder()"><i class="ti ti-check"></i> Save Order</button>'
+    + '</div>'
+    + '<input type="hidden" id="f-date">'
+    + '</div>'
+    + '<div class="field-row">'
+    + '<div class="field">'
+    + '<label>Customer name</label>'
+    + '<div class="field-pos-relative">'
+    + '<input id="f-customer" type="text" placeholder="Search existing or type a new name&hellip;" autocomplete="off" oninput="this.closest(\'.field\').classList.remove(\'field-error\');this.closest(\'.field\').querySelector(\'.field-error-msg\')?.remove()">'
+    + '<div id="customerSuggestions" class="colour-picker-list customer-suggestions-pos" style="display:none"></div>'
+    + '</div>'
+    + '<input type="hidden" id="f-customer-id">'
+    + '</div>'
+    + '<div class="field"><label>Delivery type</label><select id="f-delivery" onchange="calcTotal()"></select></div>'
+    + '</div>'
+    + '<div id="newCustomerPanel" class="new-customer-panel" style="display:none">'
+    + '<div class="new-customer-panel-title"><i class="ti ti-user-plus"></i>New customer — add details</div>'
+    + '<div class="field-row">'
+    + '<div class="field"><label>Email</label><input type="email" id="nc-email" placeholder="optional"></div>'
+    + '<div class="field"><label>Phone</label><input type="tel" id="nc-phone" placeholder="optional"></div>'
+    + '</div>'
+    + '<div class="field"><label>Notes</label><input type="text" id="nc-notes" placeholder="Any notes about this customer&hellip;"></div>'
+    + '</div>'
+    + '<div class="field-row">'
+    + '<div class="field">'
+    + '<label>Address / Location</label>'
+    + '<div class="addr-wrap">'
+    + '<div class="field-pos-relative field-flex-1">'
+    + '<input id="f-address" type="text" placeholder="Address or location note&hellip;" autocomplete="off" oninput="this.closest(\'.field\').classList.remove(\'field-error\');this.closest(\'.field\').querySelector(\'.field-error-msg\')?.remove()">'
+    + '<i class="ti ti-map-pin-check addr-tick" id="addrTick"></i>'
+    + '</div>'
+    + '<button class="btn icon-only addr-refresh-btn" id="addrRefreshBtn" onclick="revertToCustomerAddress()" title=""><i class="ti ti-refresh"></i></button>'
+    + '</div>'
+    + '<div class="field-hint">Select a suggestion for a validated address, or type any location note freely.</div>'
+    + '</div>'
+    + '<div class="field"><label>Payment</label><select id="f-payment"></select></div>'
+    + '</div>'
+    + '<div class="field-row" id="f-holdstatus-row" style="display:none">'
+    + '<div class="field"><label>Order status override</label>'
+    + '<select id="f-holdstatus"><option value="">Normal workflow (Pending → Complete)</option><option value="On Hold">On Hold</option><option value="Cancelled">Cancelled</option></select>'
+    + '</div>'
+    + '</div>'
+    + '<div class="modal-actions">'
+    + '<div class="order-total-inline"><span class="order-total-lbl">Total</span><span class="order-total-val" id="orderTotal">$0.00</span></div>'
+    + '<div class="flex-1"></div>'
+    + '<div class="order-date-plain"><label>Order Date</label><div class="order-date-val" id="f-date-display"></div></div>'
+    + '</div>'
+    + '<div class="models-section">'
+    + '<div class="models-hdr">'
+    + '<span class="models-label">Items</span>'
+    + '<div class="inbox-search-row item-filter-wrap-pos" id="itemFilterWrap" style="display:none">'
+    + '<i class="ti ti-search inbox-search-icon"></i>'
+    + '<input type="text" id="itemFilter" placeholder="Filter items…" oninput="filterModelRows(this.value)">'
+    + '</div>'
+    + '<button class="btn success sm" onclick="addModelRow()"><i class="ti ti-plus"></i> Add item</button>'
+    + '</div>'
+    + '<div class="model-rows" id="modelRows"></div>'
+    + '</div>'
+    + '</div>';
+}
+
 function openAddModal(){
   editOId=null;acInst=null;
+  document.getElementById('inboxDetail').innerHTML=_orderFormHtml();
   document.getElementById('modalTitle').textContent='New Order';
   document.getElementById('f-customer').value='';
   document.getElementById('f-customer-id').value='';
   document.getElementById('f-address').value='';
   document.getElementById('f-address').classList.remove('validated');
   document.getElementById('addrTick').style.display='none';
-  document.getElementById('f-delivery').value='Post';
+  // Build delivery dropdown from config
+  const fDelivery = document.getElementById('f-delivery');
+  fDelivery.innerHTML = getActiveDeliveryOptions().map(d=>`<option value="${esc(d.name)}">${esc(d.name)} - $${d.price.toFixed(2)}</option>`).join('');
+  fDelivery.value = getActiveDeliveryOptions()[0]?.name||'Post';
   // Build payment dropdown from config
   const fPayment = document.getElementById('f-payment');
   fPayment.innerHTML = getActivePaymentOptions().map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
   fPayment.value = getActivePaymentOptions()[0]?.name||'No';
   document.getElementById('newCustomerPanel').style.display='none';
+  document.getElementById('f-holdstatus-row').style.display='none';
   updateAddrRefreshBtn();
   const today=todayDMY();
   document.getElementById('f-date').value=today;
   document.getElementById('f-date-display').textContent=today;
   document.getElementById('modelRows').innerHTML='';mCounter=0;
-  const _if=document.getElementById('itemFilter');if(_if){_if.value='';_if.style.display='none';}
+  const _if=document.getElementById('itemFilter');if(_if)_if.value='';
+  const _ifw=document.getElementById('itemFilterWrap');if(_ifw)_ifw.style.display='none';
   addModelRow();
-  document.getElementById('orderModal').classList.add('open');
   setTimeout(()=>{document.getElementById('f-customer').focus();initAutocomplete();initCustomerAutocomplete();},80);
 }
 
 function openEdit(orderId){
   const rows=orders.filter(o=>o.orderId===orderId);if(!rows.length)return;
   editOId=orderId;acInst=null;const first=rows[0];
+  document.getElementById('inboxDetail').innerHTML=_orderFormHtml();
   document.getElementById('modalTitle').textContent='Edit Order';
   document.getElementById('f-customer').value=first.customer;
   document.getElementById('f-customer-id').value=first.customer_id||'';
   // Auto-show new customer panel for orders not yet linked to a customer record
   document.getElementById('newCustomerPanel').style.display = first.customer_id ? 'none' : '';
+  document.getElementById('f-holdstatus-row').style.display='';
+  document.getElementById('f-holdstatus').value = (first.status==='On Hold'||first.status==='Cancelled') ? first.status : '';
   updateAddrRefreshBtn();
   updateCustomerBorder();
   document.getElementById('f-address').value=first.address||'';
   if(first.address){document.getElementById('f-address').classList.add('validated');document.getElementById('addrTick').style.display='';}
   else{document.getElementById('f-address').classList.remove('validated');document.getElementById('addrTick').style.display='none';}
-  document.getElementById('f-delivery').value=first.delivery||'Post';
+  const fDelivery2 = document.getElementById('f-delivery');
+  fDelivery2.innerHTML = getActiveDeliveryOptions().map(d=>`<option value="${esc(d.name)}">${esc(d.name)} - $${d.price.toFixed(2)}</option>`).join('');
+  fDelivery2.value = first.delivery||getActiveDeliveryOptions()[0]?.name||'Post';
   const fPayment2 = document.getElementById('f-payment');
   fPayment2.innerHTML = getActivePaymentOptions().map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
   fPayment2.value = first.payment||getActivePaymentOptions()[0]?.name||'No';
@@ -924,25 +756,20 @@ function openEdit(orderId){
   document.getElementById('f-date').value=d;
   document.getElementById('f-date-display').textContent=d;
   document.getElementById('modelRows').innerHTML='';mCounter=0;
-  const _if2=document.getElementById('itemFilter');if(_if2){_if2.value='';_if2.style.display='none';}
+  const _if2=document.getElementById('itemFilter');if(_if2)_if2.value='';
+  const _ifw2=document.getElementById('itemFilterWrap');if(_ifw2)_ifw2.style.display='none';
   rows.forEach(r=>addModelRow({model:r.model,catId:r.catId,qty:r.qty,price:r.price,notes:r.notes,options:r.options}));
-  document.getElementById('orderModal').classList.add('open');
   setTimeout(()=>{initAutocomplete();initCustomerAutocomplete();},80);
 }
 
 function closeModal(){
-  document.getElementById('orderModal').classList.remove('open');
-  // Clear validation state
-  document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
-  document.querySelectorAll('.field-error-msg').forEach(el=>el.remove());
-  document.querySelectorAll('.model-row.row-error').forEach(el=>el.classList.remove('row-error'));
-  document.querySelectorAll('.opt-row.opt-error').forEach(el=>el.classList.remove('opt-error'));
-  document.querySelectorAll('.colour-picker-wrap.cp-error').forEach(el=>el.classList.remove('cp-error'));
-  const panel = document.getElementById('newCustomerPanel');
-  if(panel) panel.style.display='none';
-  ['nc-email','nc-phone','nc-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  const custInput = document.getElementById('f-customer');
-  if(custInput) custInput.classList.remove('cust-linked','cust-new');
+  if(editOId){
+    showInboxDetail(editOId);
+  } else if(_inboxSelectedOrderId){
+    showInboxDetail(_inboxSelectedOrderId);
+  } else {
+    document.getElementById('inboxDetail').innerHTML='<div class="inbox-no-selection"><i class="ti ti-inbox"></i><p>Select an order to view its details</p></div>';
+  }
 }
 
 function validateOrder(){
@@ -985,7 +812,7 @@ function validateOrder(){
     // Category required
     const catSel=document.getElementById('mc-'+idx);
     if(!catSel||!catSel.value){
-      catSel&&catSel.closest('.mf')&&catSel.closest('.mf').classList.add('field-error');
+      catSel&&catSel.closest('.opt-row')&&catSel.closest('.opt-row').classList.add('field-error');
       rowHasError=true;errors.push('cat-'+idx);
     }
 
@@ -993,7 +820,7 @@ function validateOrder(){
     const qtyEl=document.getElementById('mq-'+idx);
     const qty=parseInt(qtyEl?.value)||0;
     if(qty<=0){
-      qtyEl&&qtyEl.closest('.mf')&&qtyEl.closest('.mf').classList.add('field-error');
+      qtyEl&&qtyEl.closest('.prefix-input-wrap')&&qtyEl.closest('.prefix-input-wrap').classList.add('field-error');
       rowHasError=true;errors.push('qty-'+idx);
     }
 
@@ -1095,19 +922,29 @@ async function saveOrder(){
     id:makeRowId(orderId, i),orderId,customer,customer_id:customerId,address,delivery,payment,
     model:m.model,catId:m.catId,qty:m.qty,price:m.price,
     total:parseFloat((m.qty*m.price).toFixed(2)),
-    status:'Pending',date,notes:m.notes,options:m.options
+    status:'Pending',date,notes:m.notes,options:m.options,
+    printed:false,paid:false,inv_consumed:false
   }));
-  // When editing preserve the existing status for each matching row
+  // When editing preserve the existing status/printed/inv_consumed (per item) and paid (per order)
+  const holdStatus = document.getElementById('f-holdstatus')?.value || '';
   if(editOId){
+    const existingPaid = orders.find(o=>o.orderId===editOId)?.paid||false;
     newRows.forEach(nr=>{
+      nr.paid = existingPaid;
       const existing=orders.find(o=>o.orderId===editOId&&o.model===nr.model);
-      if(existing)nr.status=existing.status;
+      if(existing){ nr.status=existing.status; nr.printed=existing.printed; nr.inv_consumed=existing.inv_consumed; }
     });
+    if(holdStatus){
+      newRows.forEach(nr=>{ nr.status = holdStatus; });
+    } else {
+      // Reverting away from On Hold/Cancelled back to normal workflow
+      newRows.forEach(nr=>{ if(nr.status==='On Hold'||nr.status==='Cancelled') nr.status='Pending'; });
+    }
   }
   busy=true;
   const btn=document.getElementById('saveBtn');
   btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Saving…';
-  setStatus('spin','Saving…');closeModal();
+  setStatus('spin','Saving…');_inboxSelectedOrderId=orderId;
   orders=orders.filter(o=>o.orderId!==orderId);
   orders.unshift(...newRows);renderTable();
   try{
@@ -1119,9 +956,11 @@ async function saveOrder(){
         address: row.address, delivery: row.delivery, payment: row.payment,
         cat_id: row.catId, qty: row.qty,
         price: row.price, total: row.total, status: row.status,
-        date: row.date, notes: row.notes, options: row.options
+        date: row.date, notes: row.notes, options: row.options,
+        printed: row.printed, paid: row.paid, inv_consumed: row.inv_consumed
       });
     }
+    if(editOId && !holdStatus) await _maybeAdvanceStatus(orderId);
     setStatus('ok','Saved · '+uniqueOrderCount()+' orders');
   }catch(e){setStatus('err','Save failed: '+e.message);}
   finally{busy=false;btn.disabled=false;btn.innerHTML='<i class="ti ti-check"></i> Save Order';}
@@ -1160,6 +999,85 @@ async function updateStatus(orderId,rowId,newStatus,sel){
   }
 }
 
+// ── Printed / Paid tracking ─────────────────────────────────
+async function toggleItemPrinted(rowId, checked){
+  const row = orders.find(o=>String(o.id)===String(rowId));
+  if(!row) return;
+  row.printed = checked;
+  try{
+    await sbPatch('orders', 'id=eq.'+encodeURIComponent(row.id), {printed: checked});
+  }catch(e){
+    row.printed = !checked;
+    setStatus('err','Save failed: '+e.message);
+    renderTable();
+    return;
+  }
+  await _maybeAdvanceStatus(row.orderId);
+  renderTable();
+}
+
+async function toggleOrderPaid(orderId, checked){
+  const rows = orders.filter(r=>String(r.orderId)===String(orderId));
+  if(!rows.length) return;
+  rows.forEach(r=>r.paid=checked);
+  try{
+    await sbPatch('orders', 'order_id=eq.'+encodeURIComponent(orderId), {paid: checked});
+  }catch(e){
+    rows.forEach(r=>r.paid=!checked);
+    setStatus('err','Save failed: '+e.message);
+    renderTable();
+    return;
+  }
+  await _maybeAdvanceStatus(orderId);
+  renderTable();
+}
+
+// Matches each row's option values (e.g. "Backing:Magnet") against inventory item
+// names by exact text — no explicit linking needed, just name the item to match.
+// Guarded by row.inv_consumed so re-processing an already-Complete order never
+// double-counts stock usage.
+async function _consumeInventoryForOrder(rows){
+  for(const row of rows){
+    if(row.inv_consumed || !row.options) continue;
+    const values = row.options.split('||').map(p=>p.includes(':')?p.split(':').slice(1).join(':').trim():'').filter(Boolean);
+    for(const value of values){
+      const item = inventoryItems.find(i=>i.name.toLowerCase()===value.toLowerCase());
+      if(!item) continue;
+      const rec = {id: nextInventoryConsumptionId(), item_id: item.id, order_id: row.orderId, qty: row.qty, date: todayISO()};
+      try{
+        await sbUpsert('inventory_consumption', rec);
+        inventoryConsumption.push(normaliseInventoryConsumption(rec));
+      }catch(e){ /* non-fatal — don't block the status update over a logging failure */ }
+    }
+    row.inv_consumed = true;
+    try{ await sbPatch('orders', 'id=eq.'+encodeURIComponent(row.id), {inv_consumed:true}); }catch(e){}
+  }
+}
+
+// Forward-only auto-advance: Pending/Confirmed -> Printed -> Complete, once every
+// item is printed and/or the order is paid. Never auto-downgrades — On Hold,
+// Cancelled and Complete are left alone, and any correction is a manual status change.
+async function _maybeAdvanceStatus(orderId){
+  const rows = orders.filter(r=>String(r.orderId)===String(orderId));
+  if(!rows.length) return;
+  const status = rows[0].status;
+  if(['On Hold','Cancelled','Complete'].includes(status)) return;
+  const allPrinted = rows.every(r=>r.printed);
+  const paid = rows[0].paid;
+  let next=null;
+  if(status==='Printed' && paid) next='Complete';
+  else if((status==='Pending'||status==='Confirmed') && allPrinted) next = paid?'Complete':'Printed';
+  if(!next) return;
+  rows.forEach(r=>r.status=next);
+  try{
+    await sbPatch('orders', 'order_id=eq.'+encodeURIComponent(orderId), {status: next});
+    if(next==='Complete') await _consumeInventoryForOrder(rows);
+    setStatus('ok', 'Status advanced to '+next);
+  }catch(e){
+    setStatus('err','Save failed: '+e.message);
+  }
+}
+
 function printShippingLabel(customer, address, orderId){
   const lines = address.split(/,\s*|\n/).map(s=>s.trim()).filter(Boolean);
   const addrHtml = lines.map(l=>`<div>${l}</div>`).join('');
@@ -1195,18 +1113,72 @@ function printShippingLabel(customer, address, orderId){
   if(w){w.document.write(html);w.document.close();}
 }
 
-async function deleteOrder(orderId){
+function deleteOrder(orderId){
   const rows=orders.filter(o=>o.orderId===orderId);
-  const msg = rows.length>1?`Delete this order (${rows.length} models)?`:'Delete this order?';
-  showConfirm(msg, async ()=>{
+  if(!rows.length)return;
+  const customer=rows[0].customer||'this order';
+  showTypeConfirm(
+    `Type the customer name to confirm permanently deleting this order:\n\n"${customer}"`,
+    customer,
+    ()=>_deleteOrderWithUndo(orderId)
+  );
+}
+
+// ── Soft delete: optimistic remove + a few seconds to undo before the
+// actual DELETE call fires. Shared by the header Delete button and the
+// remove-last-item flow.
+const UNDO_GRACE_MS=7000;
+let _pendingOrderDeletes={};
+
+function _deleteOrderWithUndo(orderId){
+  const rows=orders.filter(o=>o.orderId===orderId);
+  if(!rows.length)return;
+  const customer=rows[0].customer||'Order';
+  orders=orders.filter(o=>o.orderId!==orderId);
+  if(String(_inboxSelectedOrderId)===String(orderId)){
+    _inboxSelectedOrderId=null;
+    const detail=document.getElementById('inboxDetail');
+    if(detail)detail.innerHTML='<div class="inbox-no-selection"><i class="ti ti-inbox"></i><p>Select an order to view its details</p></div>';
+  }
+  renderTable();
+  const timeoutId=setTimeout(async()=>{
+    delete _pendingOrderDeletes[orderId];
     setStatus('spin','Deleting…');
-    orders=orders.filter(o=>o.orderId!==orderId);renderTable();
     try{
-      await sbDelete('orders', 'order_id=eq.'+encodeURIComponent(orderId));
+      await sbDelete('orders','order_id=eq.'+encodeURIComponent(orderId));
       setStatus('ok','Deleted · '+uniqueOrderCount()+' orders');
     }catch(e){setStatus('err','Delete failed: '+e.message);}
-  });
-  return;
+  },UNDO_GRACE_MS);
+  _pendingOrderDeletes[orderId]={timeoutId,rows};
+  _showUndoToast(customer+' deleted',()=>_undoOrderDelete(orderId));
+}
+
+function _undoOrderDelete(orderId){
+  const pending=_pendingOrderDeletes[orderId];
+  if(!pending)return;
+  clearTimeout(pending.timeoutId);
+  delete _pendingOrderDeletes[orderId];
+  orders.push(...pending.rows);
+  renderTable();
+  setStatus('ok','Restored · '+uniqueOrderCount()+' orders');
+}
+
+let _undoToastFn=null,_undoToastHideTimer=null;
+function _showUndoToast(msg,undoFn){
+  _undoToastFn=undoFn;
+  const toast=document.getElementById('undoToast');
+  if(!toast)return;
+  document.getElementById('undoToastMsg').textContent=msg;
+  toast.style.display='flex';
+  clearTimeout(_undoToastHideTimer);
+  _undoToastHideTimer=setTimeout(()=>{toast.style.display='none';},UNDO_GRACE_MS);
+}
+function _undoToastAction(){
+  if(_undoToastFn)_undoToastFn();
+  _undoToastFn=null;
+  clearTimeout(_undoToastHideTimer);
+  const toast=document.getElementById('undoToast');
+  if(toast)toast.style.display='none';
 }
 
 // ── Categories modal ───────────────────────────────────────
@@ -1268,7 +1240,7 @@ function toggleFilterPanel(e){
   if(sortPanel) sortPanel.style.display = 'none';
   const rect = btn.getBoundingClientRect();
   panel.style.top  = (rect.bottom + 6) + 'px';
-  panel.style.left = Math.max(8, rect.right - 220) + 'px';
+  panel.style.left = rect.left + 'px';
   panel.style.display = '';
 }
 
@@ -1359,7 +1331,8 @@ function setInboxTab(tab) {
 }
 
 function _avatarColor(name) {
-  const palette = ['#5b9cf6','#5cb87a','#e8a93a','#e07c3a','#9b8af6','#e05c5c','#3ab8b8','#c47ab8'];
+  const stock = (typeof colours!=='undefined' ? colours : []).filter(c=>c.available).map(c=>c.code);
+  const palette = stock.length ? stock : ['#5b9cf6','#5cb87a','#e8a93a','#e07c3a','#9b8af6','#e05c5c','#3ab8b8','#c47ab8'];
   let h = 0;
   for (let i = 0; i < (name||'').length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
   return palette[Math.abs(h) % palette.length];
@@ -1372,20 +1345,13 @@ function _initials(name) {
 }
 
 function renderInboxList(list) {
-  updateSidebarBadges();
   if (_sidebarView !== 'orders') return;
   const el = document.getElementById('inboxList');
   if (!el) return;
 
-  // Apply tab filter
-  let filtered = list;
-  if (_inboxTab === 'pending')  filtered = list.filter(r => (r.status||'Pending') === 'Pending');
-  if (_inboxTab === 'printing') filtered = list.filter(r => r.status === 'Printing');
-  if (_inboxTab === 'complete') filtered = list.filter(r => r.status === 'Complete');
-
   const orderIds = [];
   const orderMap = new Map();
-  filtered.forEach(row => {
+  list.forEach(row => {
     const oid = String(row.orderId);
     if (!orderMap.has(oid)) { orderIds.push(oid); orderMap.set(oid, []); }
     orderMap.get(oid).push(row);
@@ -1400,30 +1366,31 @@ function renderInboxList(list) {
   el.innerHTML = orderIds.map(oid => {
     const rows = orderMap.get(oid);
     const first = rows[0];
-    const total = rows.reduce((s, r) => s + r.total, 0);
+    const deliveryCost = deliveryOptions.find(d => d.name === first.delivery)?.price || 0;
+    const total = rows.reduce((s, r) => s + r.total, 0) + deliveryCost;
     const status = first.status || 'Pending';
     const blClass = 'bl-' + status.toLowerCase().replace(' ', '-');
+    const bClass = 'b-' + status.toLowerCase().replace(' ', '-');
     const isSelected = oid === String(_inboxSelectedOrderId);
-    const catNames = [...new Set(rows.map(r => {
+    const itemQtys = new Map();
+    rows.forEach(r => {
       const cat = cats.find(c => String(c.id) === String(r.catId));
-      return cat ? cat.name : null;
-    }).filter(Boolean))].join(', ');
-    const itemLabel = rows.length === 1 ? '1 item' : rows.length + ' items';
-    const orderNum = orderNumFromId(oid);
-    const avatarColor = _avatarColor(first.customer || '');
-    const initials = _initials(first.customer || '');
-    const statusColor = {Pending:'rgba(232,169,58,0.15)',Printing:'rgba(91,156,246,0.15)',Complete:'rgba(92,184,122,0.15)','On Hold':'rgba(224,124,58,0.15)',Cancelled:'rgba(224,92,92,0.15)'}[status]||'rgba(136,136,133,0.15)';
-    const statusText = {Pending:'var(--amber)',Printing:'var(--blue)',Complete:'var(--green)','On Hold':'var(--orange)',Cancelled:'var(--red)'}[status]||'var(--muted)';
-
+      const name = cat ? cat.name : '?';
+      itemQtys.set(name, (itemQtys.get(name) || 0) + (r.qty || 1));
+    });
+    const paidLabel = '<span class="inbox-card-paid ' + (first.paid ? 'text-green' : 'text-red') + '">' + (first.paid ? 'Paid' : 'Unpaid') + '</span>';
+    const itemLines = [...itemQtys.entries()].map(([name, qty], i) =>
+      '<div class="inbox-card-item-line"><span class="inbox-card-item-name">' + esc(name) + '</span><span class="inbox-card-item-qty">x ' + qty + '</span>' + (i===0 ? paidLabel : '') + '</div>'
+    ).join('');
     return '<div class="inbox-card ' + blClass + (isSelected ? ' selected' : '') + '" onclick="showInboxDetail(\'' + esc(oid) + '\')">'
       + '<div class="inbox-card-content">'
       + '<div class="inbox-card-row1">'
       + '<span class="inbox-card-customer">' + (esc(first.customer) || '?') + '</span>'
-      + '<span class="inbox-card-num">' + orderNum + '</span>'
+      + '<span class="inbox-card-status ' + bClass + '">' + status + '</span>'
       + '</div>'
-      + '<div class="inbox-card-subject">' + (esc(catNames) || '?') + ' &middot; ' + itemLabel + '</div>'
+      + '<div class="inbox-card-items">' + itemLines + '</div>'
       + '<div class="inbox-card-footer">'
-      + '<span class="inbox-card-status" style="background:' + statusColor + ';color:' + statusText + '">' + status + '</span>'
+      + '<span>' + esc(first.delivery || 'Post') + '</span>'
       + '<span class="inbox-card-total">$' + total.toFixed(2) + '</span>'
       + '</div>'
       + '</div>'
@@ -1437,11 +1404,17 @@ function renderInboxList(list) {
   }
 }
 
+function _inboxEmptyStateHtml() {
+  return '<div class="inbox-no-selection"><i class="ti ti-inbox"></i><p>Select an order to view its details</p></div>';
+}
+
 function _inboxClearDetailIfGone(orderIds) {
   if (_inboxSelectedOrderId && !orderIds.includes(String(_inboxSelectedOrderId))) {
     _inboxSelectedOrderId = null;
+  }
+  if (!_inboxSelectedOrderId) {
     const d = document.getElementById('inboxDetail');
-    if (d) d.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-inbox"></i><p>Select an order</p></div>';
+    if (d) d.innerHTML = _inboxEmptyStateHtml();
   }
 }
 
@@ -1461,34 +1434,57 @@ function _showInboxDetailFromData(orderId, rows) {
 
   const first = rows[0];
   const status = first.status || 'Pending';
-  const bc = 'b-' + status.toLowerCase().replace(' ', '-');
-  const total = rows.reduce((s, r) => s + r.total, 0);
+  const deliveryCost = deliveryOptions.find(d => d.name === first.delivery)?.price || 0;
+  const total = rows.reduce((s, r) => s + r.total, 0) + deliveryCost;
   const orderNum = orderNumFromId(orderId);
-  const madeSet = buildMadeSet();
 
-  const statusOpts = ['Pending','Printing','Complete','On Hold','Cancelled'].map(s =>
-    '<div class="status-dd-opt b-' + s.toLowerCase().replace(' ','-') + (status===s?' active':'') + '"'
-    + ' onclick="selectOrderStatus(\'' + esc(String(orderId)) + '\',\'' + s + '\',this)">' + s + '</div>'
-  ).join('');
+  const statusDd = _buildStatusBreadcrumb(orderId, status);
 
-  const statusDd = '<div class="status-dd-wrap">'
-    + '<button class="status-dd-btn order-status-dd ' + bc + '" onclick="toggleStatusDd(\'order-' + esc(String(orderId)) + '\',this)">'
-    + '<span>' + esc(status) + '</span><i class="ti ti-chevron-down"></i>'
-    + '</button>'
-    + '<div class="status-dd-list" id="sdd-order-' + esc(String(orderId)) + '">' + statusOpts + '</div>'
-    + '</div>';
+  const paidToggle = '<button class="paid-btn ' + (first.paid ? 'paid-btn-yes' : 'paid-btn-no') + '"'
+    + ' onclick="toggleOrderPaid(\'' + esc(String(orderId)) + '\',' + (!first.paid) + ')">'
+    + (first.paid ? 'Paid' : 'Unpaid')
+    + '</button>';
 
-  const deliveryIcon = first.delivery === 'Pick Up' ? '<i class="ti ti-hand-stop"></i>' : '<i class="ti ti-mail"></i>';
+  const deliveryOpt = deliveryOptions.find(d => d.name === first.delivery);
+  const deliveryIcon = '<i class="ti ' + ((deliveryOpt && deliveryOpt.icon) || 'ti-mail') + '"></i>';
 
-  const itemsHtml = rows.map(row => {
+  // Compute unique categories in this order for the filter panel
+  const _detailCatNames = [...new Set(rows.map(r => { const c = cats.find(x => String(x.id) === String(r.catId)); return c ? c.name : '?'; }))].sort();
+  window._itemSearch = '';
+  window._itemSort = 'default';
+  window._itemSortDir = 1;
+
+  const catFilterOpts = _detailCatNames.length > 1
+    ? _detailCatNames.map(name => '<label class="filter-check"><input type="checkbox" data-detail-cat="' + esc(name) + '" checked onchange="_applyDetailFilters()"> ' + esc(name) + '</label>').join('')
+    : '';
+
+  const _detailCatIds = [...new Set(rows.map(r => String(r.catId)))];
+  const _sortableOptNames = [...new Set(
+    opts.filter(o => _detailCatIds.includes(String(o.catId)) && o.sortable && !o.archived).map(o => o.name)
+  )];
+  const sortPanelOpts = '<div class="filter-section-title">Sort by</div>'
+    + [{f:'cat', l:'Category'}, {f:'qty', l:'Qty'}, {f:'price', l:'Price'}].map(s =>
+        '<div class="sort-option' + (window._itemSort === s.f ? ' active' : '') + '" data-detail-sort="' + s.f + '" onclick="_setDetailSort(\'' + s.f + '\',\'' + s.l + '\')">' + s.l + '</div>'
+      ).join('')
+    + (_sortableOptNames.length
+        ? '<div class="filter-section-title filter-section-title-mt">Option</div>'
+          + _sortableOptNames.map(name => {
+              const key = 'opt:' + name;
+              return '<div class="sort-option indented' + (window._itemSort === key ? ' active' : '') + '" data-detail-sort="' + esc(key) + '" onclick="_setDetailSort(\'' + escJsAttr(key) + '\',\'' + escJsAttr(name) + '\')">' + esc(name) + '</div>';
+            }).join('')
+        : '');
+
+  const itemsHtml = rows.map((row, _idx) => {
     const cat = cats.find(c => String(c.id) === String(row.catId));
     const parsedOpts = {};
     if (row.options) row.options.split('||').forEach(p => {
       const idx = p.indexOf(':'); if (idx >= 0) parsedOpts[p.slice(0,idx).trim()] = p.slice(idx+1).trim();
     });
     const catOpts = opts.filter(o => String(o.catId) === String(row.catId));
-    const prevMade = wasPreviouslyMade(row, madeSet);
-    const isBadge = cat && cat.name.toLowerCase().indexOf('name badge') !== -1;
+    // Any category with a "Backing" option can generate a 3MF — the generator
+    // itself (badge/render.js) already supports Pin/Magnet/Keychain backings,
+    // this isn't specific to the "Name Badge" category.
+    const isBadge = catOpts.some(o => o.name.trim().toLowerCase() === 'backing');
 
     const optLines = catOpts.map(opt => {
       const val = parsedOpts[opt.name];
@@ -1497,7 +1493,7 @@ function _showInboxDetailFromData(orderId, rows) {
       if (isColour) {
         const swatches = val.split('|').map(name => {
           const c = colours.find(c => c.name.toLowerCase() === name.toLowerCase());
-          return '<span class="inbox-item-swatch" style="background:' + (c ? c.code : '#ccc') + '" title="' + esc(name) + '"></span>';
+          return '<span class="inbox-item-swatch" style="--sw:' + (c ? c.code : '#ccc') + '" title="' + esc(name) + '"></span>';
         }).join('');
         return '<div class="inbox-item-opt">'
           + '<span class="inbox-item-opt-label">' + esc(opt.name) + ':</span>'
@@ -1513,28 +1509,42 @@ function _showInboxDetailFromData(orderId, rows) {
 
     const badgeParams = new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''});
     const badgeBtn = isBadge
-      ? '<button class="icon-btn" title="Generate Badge" onclick="generateBadge(\'/badge/?' + badgeParams + '\')"><i class="ti ti-badge"></i></button>'
+      ? '<button class="sort-btn-main" title="Generate Badge" onclick="generateBadge(\'/badge/?' + badgeParams + '\')"><i class="ti ti-badge"></i> Download 3MF</button>'
       : '';
 
-    return '<div class="inbox-item-card">'
+    const searchText = [cat ? cat.name : '', Object.values(parsedOpts).join(' '), row.notes || ''].join(' ').toLowerCase();
+
+    const printedBtn = '<button class="paid-btn sm ' + (row.printed ? 'paid-btn-yes' : 'paid-btn-no') + '"'
+      + ' onclick="toggleItemPrinted(\'' + esc(String(row.id)) + '\',' + (!row.printed) + ')">'
+      + (row.printed ? 'Printed' : 'Not Printed')
+      + '</button>';
+
+    return '<div class="inbox-item-card"'
+      + ' data-search="' + esc(searchText) + '"'
+      + ' data-catname="' + esc(cat ? cat.name : '') + '"'
+      + ' data-price="' + row.total + '"'
+      + ' data-qty="' + row.qty + '"'
+      + ' data-textval="' + esc(parsedOpts['Text'] || '') + '"'
+      + ' data-optstr="' + esc(row.options || '') + '"'
+      + ' data-idx="' + _idx + '">'
       + '<div class="inbox-item-left">'
-      + '<div class="inbox-item-qty">' + row.qty + '</div>'
-      + '<div class="inbox-item-qty-label">qty</div>'
+      + '<div class="inbox-item-unit-price">$' + row.price.toFixed(2) + '</div>'
+      + '<div class="inbox-item-qty"><span class="inbox-item-qty-x">x</span> ' + row.qty + '</div>'
       + '<div class="inbox-item-price">$' + row.total.toFixed(2) + '</div>'
       + '</div>'
       + '<div class="inbox-item-divider"></div>'
       + '<div class="inbox-item-right">'
-      + '<div class="inbox-item-cat">' + (cat ? esc(cat.name) : '?') + (prevMade ? ' <span class="made-tick"><i class="ti ti-circle-check-filled"></i></span>' : '') + '</div>'
+      + '<div class="inbox-item-cat">' + (cat ? esc(cat.name) : '?') + '</div>'
       + optLines
-      + (row.notes ? '<div class="inbox-item-opt" style="margin-top:5px"><i class="ti ti-notes" style="font-size:12px;opacity:0.5"></i> <em style="color:var(--muted)">' + esc(row.notes) + '</em></div>' : '')
+      + (row.notes ? '<div class="inbox-item-opt inbox-item-notes"><i class="ti ti-notes"></i> <em>' + esc(row.notes) + '</em></div>' : '')
       + '</div>'
-      + (badgeBtn ? '<div class="inbox-item-actions">' + badgeBtn + '</div>' : '')
+      + '<div class="inbox-item-actions">' + printedBtn + badgeBtn + '</div>'
       + '</div>';
   }).join('');
 
   const badgeRows = rows.filter(r => {
-    const c = cats.find(c => String(c.id) === String(r.catId));
-    return c && c.name.toLowerCase().indexOf('name badge') !== -1;
+    const rowCatOpts = opts.filter(o => String(o.catId) === String(r.catId));
+    return rowCatOpts.some(o => o.name.trim().toLowerCase() === 'backing');
   });
   const batchItems = badgeRows.map(r => {
     const p = {};
@@ -1542,41 +1552,59 @@ function _showInboxDetailFromData(orderId, rows) {
     return {name: p['Text']||'', backing: p['Backing']||'', colours: p['Colours']||''};
   });
   const bulkBadgeBtn = badgeRows.length
-    ? '<button class="btn sm" onclick="openBadgeBatchModal(' + JSON.stringify(batchItems) + ',\'' + esc(first.customer) + '\')"><i class="ti ti-badges"></i> ' + (badgeRows.length > 1 ? 'All Badges' : 'Badge') + '</button>'
+    ? '<button class="sort-btn-main ml-auto" onclick="openBadgeBatchModal(' + esc(JSON.stringify(batchItems)) + ',\'' + escJsAttr(first.customer) + '\')"><i class="ti ti-badges"></i> Download All 3MF</button>'
     : '';
 
   const printBtn = first.address
-    ? '<button class="icon-btn" style="margin-left:4px" onclick="printShippingLabel(\'' + esc(first.customer) + '\',\'' + esc(first.address) + '\',\'' + esc(String(orderId)) + '\')" title="Print label"><i class="ti ti-printer"></i></button>'
+    ? '<button class="sort-btn-main" onclick="printShippingLabel(\'' + escJsAttr(first.customer) + '\',\'' + escJsAttr(first.address) + '\',\'' + esc(String(orderId)) + '\')" title="Print label"><i class="ti ti-printer"></i> Shipping Label</button>'
     : '';
 
   detailEl.innerHTML = '<div class="inbox-detail">'
     + '<div class="inbox-detail-header">'
     + '<div class="inbox-detail-header-top">'
     + '<div class="inbox-detail-customer">' + (esc(first.customer) || '?') + '</div>'
-    + '<div class="inbox-detail-num">' + orderNum + '</div>'
-    + '</div>'
-    + '<div class="inbox-detail-header-bot">'
-    + statusDd
-    + '<div style="flex:1"></div>'
-    + '<button class="btn sm" onclick="openEdit(\'' + esc(String(orderId)) + '\')"><i class="ti ti-edit"></i> Edit</button>'
-    + '<button class="btn sm icon-only" onclick="deleteOrder(\'' + esc(String(orderId)) + '\')" title="Delete order" style="border-color:rgba(224,92,92,0.3);color:var(--red)"><i class="ti ti-trash"></i></button>'
+    + '<button class="sort-btn-main" onclick="openEdit(\'' + esc(String(orderId)) + '\')"><i class="ti ti-edit"></i> Edit</button>'
+    + '<button class="sort-btn-main text-red" onclick="deleteOrder(\'' + esc(String(orderId)) + '\')" title="Delete order"><i class="ti ti-trash"></i></button>'
     + '</div>'
     + '</div>'
 
     + '<div class="inbox-detail-meta">'
+    + '<div class="inbox-detail-meta-item"><i class="ti ti-hash"></i><strong>' + orderNum.replace(/^#/, '') + '</strong></div>'
     + '<div class="inbox-detail-meta-item">' + deliveryIcon + '<strong>' + esc(first.delivery || 'Post') + '</strong></div>'
     + (first.payment ? '<div class="inbox-detail-meta-item"><i class="ti ti-credit-card"></i><strong>' + esc(first.payment) + '</strong></div>' : '')
-    + (first.address ? '<div class="inbox-detail-meta-item"><i class="ti ti-map-pin"></i><strong>' + esc(first.address) + '</strong>' + printBtn + '</div>' : '')
+    + (first.address ? '<div class="inbox-detail-meta-item"><i class="ti ti-map-pin"></i><strong>' + esc(first.address) + '</strong></div>' : '')
     + '</div>'
 
-    + '<div>'
+    + '<div class="status-row-wrap">' + statusDd + paidToggle + '</div>'
+
+    + '<div class="inbox-items-panel">'
     + '<div class="inbox-detail-items-hdr">'
-    + '<div class="inbox-detail-items-label">Items (' + rows.length + ')</div>'
+    + printBtn
     + bulkBadgeBtn
     + '</div>'
-    + '<div class="inbox-items-list">' + itemsHtml + '</div>'
+    + '<div class="detail-toolbar-row">'
+    + '<div class="inbox-search-row inbox-search-row-detail">'
+    + '<i class="ti ti-search inbox-search-icon"></i>'
+    + '<input type="text" id="detailItemsSearch" placeholder="Search…" oninput="window._itemSearch=this.value;_applyDetailFilters()">'
+    + '<button id="detailItemsClear" class="search-clear-btn" onclick="document.getElementById(\'detailItemsSearch\').value=\'\';window._itemSearch=\'\';_applyDetailFilters()" style="display:none"><i class="ti ti-x"></i></button>'
     + '</div>'
-
+    + '<div class="flex-1"></div>'
+    + '<div class="filter-wrap" id="detailFilterWrap">'
+    + '<button class="sort-btn-main detail-filter-btn" onclick="toggleDetailFilterPanel(event)"><i class="ti ti-filter"></i> Filter<span id="detailFilterCount" class="filter-count-badge" style="display:none"></span></button>'
+    + '<div class="filter-panel" id="detailFilterPanel" style="display:none" onclick="event.stopPropagation()">' + catFilterOpts + '</div>'
+    + '</div>'
+    + '<div class="sort-btn-wrap" id="detailSortWrap">'
+    + '<div class="sort-btn-group">'
+    + '<button class="sort-btn-main" id="detailSortBtn" onclick="toggleDetailSortPanel(event)"><i class="ti ti-arrows-sort"></i> Sort</button>'
+    + '<button class="sort-btn-dir" id="detailSortDirBtn" onclick="window._itemSortDir*=-1;_applyDetailFilters()" title="Toggle sort direction"><i class="ti ti-arrow-up" id="detailSortDirIcon"></i></button>'
+    + '</div>'
+    + '<div class="sort-panel" id="detailSortPanel" style="display:none" onclick="event.stopPropagation()">' + sortPanelOpts + '</div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="inbox-items-list">' + itemsHtml + '</div>'
+    + (deliveryCost > 0
+      ? '<div class="inbox-detail-delivery-line"><span>' + deliveryIcon + ' ' + esc(first.delivery) + '</span><span>$' + deliveryCost.toFixed(2) + '</span></div>'
+      : '')
     + '<div class="inbox-detail-total">'
     + '<span class="inbox-detail-total-label">Order total</span>'
     + '<span class="inbox-detail-total-val">$' + total.toFixed(2) + '</span>'
@@ -1587,6 +1615,7 @@ function _showInboxDetailFromData(orderId, rows) {
 // -- Multi-view sidebar system ------------------------------------
 let _sidebarView = 'orders';
 let _selectedCustomerId = null;
+let _selectedInventoryItemId = null;
 
 function setSidebarView(view) {
   _sidebarView = view;
@@ -1594,21 +1623,22 @@ function setSidebarView(view) {
     el.classList.toggle('active', el.dataset.view === view);
   });
   _inboxSelectedOrderId = null;
+  _selectedCustomerId = null;
+  _selectedInventoryItemId = null;
   var detail = document.getElementById('inboxDetail');
   if (detail) detail.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-inbox"></i><p>Select an item</p></div>';
   if (view === 'orders') _renderViewOrders();
   else if (view === 'customers') _renderViewCustomers('');
-  else if (view === 'colours') _renderViewColours();
+  else if (view === 'inventory') _renderViewInventory('');
   else if (view === 'categories') _renderViewCategories();
   else if (view === 'stats') _renderViewStats();
   else if (view === 'settings') _renderViewSettings();
-  else if (view === 'users') _renderViewUsers();
 }
 
 function _setListPane(headerHtml) {
   var col = document.querySelector('.inbox-list-col');
   var footer = col.querySelector('.inbox-list-footer').outerHTML;
-  col.innerHTML = '<div class="inbox-list-header" style="padding:12px 14px">' + headerHtml + '</div>'
+  col.innerHTML = '<div class="inbox-list-header inbox-list-header-flat">' + headerHtml + '</div>'
     + '<div class="inbox-list" id="inboxList"></div>'
     + footer;
 }
@@ -1617,19 +1647,31 @@ function _setListPane(headerHtml) {
 function _renderViewOrders() {
   var col = document.querySelector('.inbox-list-col');
   var footer = col.querySelector('.inbox-list-footer').outerHTML;
-  var activeTab = _inboxTab || 'all';
   col.innerHTML = '<div class="inbox-list-header">'
-    + '<div class="inbox-search-row">'
+    + '<div class="view-search-row">'
+    + '<div class="inbox-search-row inbox-search-row-flex">'
     + '<i class="ti ti-search inbox-search-icon"></i>'
-    + '<input type="text" id="search" placeholder="Search…" oninput="renderTable()">'
+    + '<input type="text" id="search" placeholder="Search…" oninput="renderTable();toggleSearchClear()">'
+    + '<button id="searchClear" class="search-clear-btn" onclick="document.getElementById(\'search\').value=\'\';renderTable();toggleSearchClear()" style="display:none"><i class="ti ti-x"></i></button>'
     + '</div>'
-    + '<div class="inbox-tabs-pill">'
-    + ['all','pending','printing','complete'].map(function(t) {
-        var label = t.charAt(0).toUpperCase() + t.slice(1);
-        return '<button class="inbox-tab-pill' + (activeTab===t?' active':'') + '" data-tab="' + t + '" onclick="setInboxTab(\'' + t + '\')">' + label + '</button>';
-      }).join('')
+    + '<button class="btn success flex-shrink-0" onclick="openAddModal()"><i class="ti ti-plus"></i> New Order</button>'
     + '</div>'
     + '<div class="inbox-sort-row">'
+    + '<div class="filter-wrap" id="filterWrap">'
+    + '<button class="sort-btn-main" id="filterBtn" onclick="toggleFilterPanel(event)">'
+    + '<i class="ti ti-filter"></i> Filter <span id="filterCount" class="filter-count-badge" style="display:none"></span>'
+    + '</button>'
+    + '<div class="filter-panel" id="filterPanel" style="display:none">'
+    + '<div class="filter-section-title">Status</div>'
+    + ['Pending','Confirmed','Printed','Complete','On Hold','Cancelled'].map(function(s){
+        return '<label class="filter-check"><input type="checkbox" data-filter="status" value="' + s + '" checked onchange="renderTable();updateFilterCount()"> ' + s + '</label>';
+      }).join('')
+    + '<div class="filter-section-title filter-section-title-mt10">Category</div>'
+    + '<div id="filterCatChecks"></div>'
+    + '<div class="filter-section-title filter-section-title-mt10">Payment</div>'
+    + '<div id="filterPayChecks"></div>'
+    + '</div>'
+    + '</div>'
     + '<div class="sort-btn-wrap" id="sortWrap">'
     + '<div class="sort-btn-group">'
     + '<button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)"><i class="ti ti-arrows-sort"></i></button>'
@@ -1641,6 +1683,9 @@ function _renderViewOrders() {
     + '</div>'
     + '<div class="inbox-list" id="inboxList"></div>'
     + footer;
+  populateCatFilter();
+  updateFilterCount();
+  updateSortUI();
   renderTable();
 }
 
@@ -1648,13 +1693,12 @@ function _renderViewOrders() {
 function _renderViewCustomers(filter) {
   filter = filter || '';
   _setListPane(
-    '<div class="inbox-view-header">'
-    + '<span class="inbox-view-title">Customers</span>'
-    + '<span class="inbox-view-count">' + customers.length + '</span>'
-    + '</div>'
-    + '<div class="inbox-search-row">'
+    '<div class="view-search-row">'
+    + '<div class="inbox-search-row inbox-search-row-flex">'
     + '<i class="ti ti-search inbox-search-icon"></i>'
-    + '<input type="text" placeholder="Search customers…" value="' + esc(filter) + '" oninput="_renderViewCustomers(this.value)">'
+    + '<input type="text" id="customerViewSearch" placeholder="Search customers…" value="' + esc(filter) + '" oninput="_renderViewCustomers(this.value)">'
+    + '</div>'
+    + '<button class="btn success flex-shrink-0" onclick="openAddCustomer()"><i class="ti ti-plus"></i> New</button>'
     + '</div>'
   );
   var list = document.getElementById('inboxList');
@@ -1663,10 +1707,15 @@ function _renderViewCustomers(filter) {
     return !q || c.name.toLowerCase().includes(q) || (c.email||'').toLowerCase().includes(q);
   });
   if (!shown.length) { list.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-users"></i> No customers</div>'; return; }
+  shown.sort(function(a,b){ return (a.archived?1:0) - (b.archived?1:0); });
   list.innerHTML = shown.map(function(c) {
+    var isSelected = String(c.id) === String(_selectedCustomerId);
+    if (c.archived) {
+      return '<div class="inbox-card' + (isSelected?' selected':'') + '" onclick="_showCustomerDetail(\'' + esc(String(c.id)) + '\')">'
+        + '<div class="inbox-card-content"><span class="text-muted strikethrough">' + esc(c.name) + '</span></div></div>';
+    }
     var ordSet = new Set(orders.filter(function(r) { return String(r.customer_id)===String(c.id)||r.customer===c.name; }).map(function(r){return r.orderId;}));
     var ordCount = ordSet.size;
-    var isSelected = String(c.id) === String(_selectedCustomerId);
     var av = _avatarColor(c.name);
     var ini = _initials(c.name);
     return '<div class="inbox-card' + (isSelected?' selected':'') + '" onclick="_showCustomerDetail(\'' + esc(String(c.id)) + '\')">'
@@ -1674,8 +1723,8 @@ function _renderViewCustomers(filter) {
       + '<div class="inbox-card-row1"><span class="inbox-card-customer">' + esc(c.name) + '</span>'
       + (ordCount ? '<span class="inbox-card-num">' + ordCount + ' order' + (ordCount!==1?'s':'') + '</span>' : '')
       + '</div>'
-      + '<div class="inbox-card-subject">' + (esc(c.email) || '<em style="opacity:0.4">No email</em>') + '</div>'
-      + '<div class="inbox-card-footer"><span style="font-size:11px;color:var(--muted)">' + (esc(c.phone)||'') + '</span></div>'
+      + '<div class="inbox-card-subject">' + (esc(c.email) || '<em class="text-faint">No email</em>') + '</div>'
+      + '<div class="inbox-card-footer"><span class="text-muted-sm">' + (esc(c.phone)||'') + '</span></div>'
       + '</div></div>';
   }).join('');
 }
@@ -1695,15 +1744,24 @@ function _showCustomerDetail(customerId) {
   custOrders.forEach(function(r){if(!orderMap.has(r.orderId))orderMap.set(r.orderId,[]);orderMap.get(r.orderId).push(r);});
   var av = _avatarColor(c.name);
   var ini = _initials(c.name);
-  var totalSpend = custOrders.reduce(function(s,r){return s+r.total;},0);
+  var orderTotals = new Map();
+  orderIds.forEach(function(oid){
+    var rows = orderMap.get(oid);
+    var deliveryCost = deliveryOptions.find(function(d){return d.name===rows[0].delivery;})?.price||0;
+    orderTotals.set(oid, rows.reduce(function(s,r){return s+r.total;},0) + deliveryCost);
+  });
+  var totalSpend = [...orderTotals.values()].reduce(function(s,t){return s+t;},0);
   var html = '<div class="inbox-detail">'
     + '<div class="inbox-detail-header">'
     + '<div class="inbox-detail-header-top">'
-    + '<div style="flex:1;min-width:0">'
+    + '<div class="flex-fill-input">'
     + '<div class="inbox-detail-customer">' + esc(c.name) + '</div>'
-    + (c.email?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc(c.email)+'</div>':'')
+    + (c.email?'<div class="customer-email-sub">'+esc(c.email)+'</div>':'')
     + '</div>'
-    + '<button class="btn sm" onclick="openCustomersModal(\''+esc(String(c.id))+'\')"><i class="ti ti-edit"></i> Edit</button>'
+    + '<button class="sort-btn-main" onclick="openEditCustomer(\''+esc(String(c.id))+'\')"><i class="ti ti-edit"></i> Edit</button>'
+    + (orderIds.length
+        ? '<button class="sort-btn-main" onclick="'+(c.archived?'unarchiveCustomer(\''+esc(String(c.id))+'\')':'archiveCustomer(\''+esc(String(c.id))+'\',\''+escJsAttr(c.name)+'\')')+'" title="'+(c.archived?'Restore customer':'Archive customer')+'"><i class="ti ti-'+(c.archived?'archive-off':'archive')+'"></i></button>'
+        : '<button class="sort-btn-main text-red" onclick="deleteCustomer(\''+esc(String(c.id))+'\',\''+escJsAttr(c.name)+'\')" title="Delete customer"><i class="ti ti-trash"></i></button>')
     + '</div></div>'
     + '<div class="inbox-detail-meta">'
     + (c.phone?'<div class="inbox-detail-meta-item"><i class="ti ti-phone"></i><strong>'+esc(c.phone)+'</strong></div>':'')
@@ -1714,20 +1772,20 @@ function _showCustomerDetail(customerId) {
     + '</div>';
   if (orderIds.length) {
     html += '<div><div class="inbox-detail-items-hdr"><div class="inbox-detail-items-label">Orders ('+orderIds.length+')</div></div>'
-      + '<div style="display:flex;flex-direction:column;gap:8px">';
+      + '<div class="related-orders-list">';
     orderIds.forEach(function(oid){
       var rows = orderMap.get(oid);
       var first = rows[0];
-      var total = rows.reduce(function(s,r){return s+r.total;},0);
+      var total = orderTotals.get(oid);
       var status = first.status||'Pending';
       var bc = 'b-'+status.toLowerCase().replace(' ','-');
       var orderNum = orderNumFromId(oid);
       var catNames = [...new Set(rows.map(function(r){var cat=cats.find(function(c){return String(c.id)===String(r.catId);});return cat?cat.name:null;}).filter(Boolean))].join(', ');
-      html += '<div class="inbox-item-card" style="cursor:pointer" onclick="_switchToOrder(\''+esc(String(oid))+'\')">'
+      html += '<div class="inbox-item-card inbox-item-card-clickable" onclick="_switchToOrder(\''+esc(String(oid))+'\')">'
         + '<div class="inbox-item-left"><div class="inbox-item-qty">'+rows.length+'</div><div class="inbox-item-qty-label">items</div><div class="inbox-item-price">$'+total.toFixed(2)+'</div></div>'
         + '<div class="inbox-item-divider"></div>'
         + '<div class="inbox-item-right"><div class="inbox-item-cat">'+orderNum+' &mdash; '+esc(catNames)+'</div>'
-        + '<div style="margin-top:4px"><span class="'+bc+'" style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px">'+status+'</span></div>'
+        + '<div class="related-order-status-wrap"><span class="'+bc+' related-order-status-badge">'+status+'</span></div>'
         + '</div></div>';
     });
     html += '</div></div>';
@@ -1743,21 +1801,122 @@ function _switchToOrder(orderId) {
   setTimeout(function(){showInboxDetail(orderId);}, 80);
 }
 
-// Colours view
-function _renderViewColours() {
-  _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Colours</span><span class="inbox-view-count">'+colours.filter(function(c){return c.available!==false;}).length+'</span></div>');
+// Inventory view
+function _inventoryReceived(itemId){
+  return inventoryReceipts.filter(function(r){return r.itemId===itemId;}).reduce(function(s,r){return s+r.qty;},0);
+}
+function _inventoryConsumed(itemId){
+  return inventoryConsumption.filter(function(c){return c.itemId===itemId;}).reduce(function(s,c){return s+c.qty;},0);
+}
+function _inventoryAvailable(itemId){
+  return _inventoryReceived(itemId) - _inventoryConsumed(itemId);
+}
+
+function _renderViewInventory(filter) {
+  filter = filter || '';
+  _setListPane(
+    '<div class="view-search-row">'
+    + '<div class="inbox-search-row inbox-search-row-flex">'
+    + '<i class="ti ti-search inbox-search-icon"></i>'
+    + '<input type="text" id="inventoryViewSearch" placeholder="Search inventory…" value="' + esc(filter) + '" oninput="_renderViewInventory(this.value)">'
+    + '</div>'
+    + '<button class="btn success flex-shrink-0" onclick="openAddInventoryItem()"><i class="ti ti-plus"></i> New</button>'
+    + '</div>'
+  );
   var list = document.getElementById('inboxList');
-  if (!colours.length) { list.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-palette"></i> No colours</div>'; return; }
-  list.innerHTML = colours.map(function(c){
-    return '<div class="inbox-card" style="align-items:center;padding:10px 14px">'
-      + '<div style="width:30px;height:30px;border-radius:50%;background:'+esc(c.code)+';border:1px solid rgba(255,255,255,0.1);flex-shrink:0"></div>'
-      + '<div class="inbox-card-content" style="margin-left:2px">'
-      + '<div class="inbox-card-customer">'+esc(c.name)+'</div>'
-      + '<div class="inbox-card-subject" style="font-family:monospace">'+esc(c.code)+'</div>'
+  var q = filter.toLowerCase();
+  var shown = inventoryItems.filter(function(i) {
+    return !q || i.name.toLowerCase().includes(q);
+  });
+  if (!shown.length) { list.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-package"></i> No inventory items</div>'; return; }
+  list.innerHTML = shown.map(function(i) {
+    var isSelected = String(i.id) === String(_selectedInventoryItemId);
+    var available = _inventoryAvailable(i.id);
+    return '<div class="inbox-card' + (isSelected?' selected':'') + '" onclick="_showInventoryDetail(\'' + esc(String(i.id)) + '\')">'
+      + '<div class="inbox-card-content">'
+      + '<div class="inbox-card-row1"><span class="inbox-card-customer">' + esc(i.name) + '</span>'
+      + '<span class="inbox-card-num">' + available + ' available</span>'
       + '</div>'
-      + (c.available===false?'<span class="inbox-card-num" style="color:var(--red)">archived</span>':'')
-      + '</div>';
+      + '<div class="inbox-card-subject">' + (esc(i.notes) || '<em class="text-faint">No notes</em>') + '</div>'
+      + '</div></div>';
   }).join('');
+}
+
+function _showInventoryDetail(itemId) {
+  _selectedInventoryItemId = itemId;
+  document.querySelectorAll('#inboxList .inbox-card').forEach(function(el) {
+    el.classList.toggle('selected', (el.getAttribute('onclick')||'').includes(itemId));
+  });
+  var i = inventoryItems.find(function(x){return String(x.id)===String(itemId);});
+  if (!i) return;
+  var detail = document.getElementById('inboxDetail');
+  if (!detail) return;
+  var received = _inventoryReceived(itemId);
+  var consumed = _inventoryConsumed(itemId);
+  var available = received - consumed;
+  var receipts = inventoryReceipts.filter(function(r){return r.itemId===itemId;}).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  var consumption = inventoryConsumption.filter(function(c){return c.itemId===itemId;}).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  var html = '<div class="inbox-detail">'
+    + '<div class="inbox-detail-header">'
+    + '<div class="inbox-detail-header-top">'
+    + '<div class="flex-fill-input">'
+    + '<div class="inbox-detail-customer">' + esc(i.name) + '</div>'
+    + '</div>'
+    + '<button class="sort-btn-main" onclick="openEditInventoryItem(\''+esc(String(i.id))+'\')"><i class="ti ti-edit"></i> Edit</button>'
+    + '<button class="sort-btn-main text-red" onclick="deleteInventoryItem(\''+esc(String(i.id))+'\',\''+escJsAttr(i.name)+'\')" title="Delete item"><i class="ti ti-trash"></i></button>'
+    + '</div></div>'
+    + '<div class="inbox-detail-meta">'
+    + '<div class="inbox-detail-meta-item"><i class="ti ti-package"></i><strong>' + available + ' available</strong></div>'
+    + '<div class="inbox-detail-meta-item"><i class="ti ti-arrow-down"></i><strong>' + received + ' received</strong></div>'
+    + '<div class="inbox-detail-meta-item"><i class="ti ti-arrow-up"></i><strong>' + consumed + ' used</strong></div>'
+    + (i.notes?'<div class="inbox-detail-meta-item"><i class="ti ti-notes"></i><em>'+esc(i.notes)+'</em></div>':'')
+    + '</div>'
+
+    + '<div class="inbox-detail-items-hdr">'
+    + '<div class="inbox-detail-items-label">Receiving Log</div>'
+    + '<button class="sort-btn-main" onclick="showReceiptForm()"><i class="ti ti-plus"></i> Log Receipt</button>'
+    + '</div>'
+    + '<div id="inv-receipt-form" class="new-customer-panel" style="display:none">'
+    + '<div class="field-row">'
+    + '<div class="field"><label>Quantity received *</label><input type="number" id="rcpt-qty" min="1" step="1"></div>'
+    + '<div class="field"><label>Cost per unit</label><input type="number" id="rcpt-cost" min="0" step="0.01" placeholder="0.00"></div>'
+    + '</div>'
+    + '<div class="field"><label>Date</label><input type="date" id="rcpt-date"></div>'
+    + '<div id="rcpt-error" class="field-error-text" style="display:none"></div>'
+    + '<div class="modal-actions">'
+    + '<button class="btn" onclick="hideReceiptForm()">Cancel</button>'
+    + '<button class="btn success" id="rcpt-save" onclick="saveInventoryReceipt(\''+esc(String(i.id))+'\')"><i class="ti ti-check"></i> Log receipt</button>'
+    + '</div></div>'
+    + (receipts.length
+      ? '<div class="related-orders-list">' + receipts.map(function(r){
+          return '<div class="inbox-item-card">'
+            + '<div class="inbox-item-left"><div class="inbox-item-qty">+'+r.qty+'</div><div class="inbox-item-qty-label">units</div>'
+            + (r.cost?'<div class="inbox-item-price">$'+r.cost.toFixed(2)+'/ea</div>':'')
+            + '</div>'
+            + '<div class="inbox-item-divider"></div>'
+            + '<div class="inbox-item-right"><div class="inbox-item-cat">Received</div>'
+            + '<div class="related-order-status-wrap"><span class="text-muted-sm">'+toDisplay(r.date)+'</span></div></div>'
+            + '<div class="inbox-item-actions"><button class="icon-btn" title="Edit" onclick="openEditReceiptForm(\''+esc(String(r.id))+'\')"><i class="ti ti-edit"></i></button></div>'
+            + '</div>';
+        }).join('') + '</div>'
+      : '<div class="inbox-empty-state"><i class="ti ti-truck-delivery"></i> No stock received yet</div>')
+
+    + '<div class="inbox-detail-items-hdr">'
+    + '<div class="inbox-detail-items-label">Usage Log</div>'
+    + '</div>'
+    + (consumption.length
+      ? '<div class="related-orders-list">' + consumption.map(function(c){
+          var orderNum = orderNumFromId(c.orderId);
+          return '<div class="inbox-item-card inbox-item-card-clickable" onclick="_switchToOrder(\''+esc(String(c.orderId))+'\')">'
+            + '<div class="inbox-item-left"><div class="inbox-item-qty">-'+c.qty+'</div><div class="inbox-item-qty-label">units</div></div>'
+            + '<div class="inbox-item-divider"></div>'
+            + '<div class="inbox-item-right"><div class="inbox-item-cat">Order '+orderNum+'</div>'
+            + '<div class="related-order-status-wrap"><span class="text-muted-sm">'+toDisplay(c.date)+'</span></div></div>'
+            + '</div>';
+        }).join('') + '</div>'
+      : '<div class="inbox-empty-state"><i class="ti ti-package-off"></i> Not used by any completed order yet</div>')
+    + '</div>';
+  detail.innerHTML = html;
 }
 
 // Categories view
@@ -1769,8 +1928,8 @@ function _renderViewCategories() {
   list.innerHTML = active.map(function(c){
     var catOpts = opts.filter(function(o){return String(o.catId)===String(c.id)&&!o.archived;});
     var ordCount = new Set(orders.filter(function(r){return String(r.catId)===String(c.id);}).map(function(r){return r.orderId;})).size;
-    return '<div class="inbox-card" style="padding:12px 14px">'
-      + '<div class="inbox-card-avatar" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);font-size:14px"><i class="ti ti-category"></i></div>'
+    return '<div class="inbox-card">'
+      + '<div class="inbox-card-avatar inbox-card-avatar-icon"><i class="ti ti-category"></i></div>'
       + '<div class="inbox-card-content">'
       + '<div class="inbox-card-row1"><span class="inbox-card-customer">'+esc(c.name)+'</span><span class="inbox-card-num">$'+c.price.toFixed(2)+'</span></div>'
       + '<div class="inbox-card-subject">'+catOpts.length+' option'+(catOpts.length!==1?'s':'')+'</div>'
@@ -1783,17 +1942,27 @@ function _renderViewCategories() {
 function _renderViewStats() {
   _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Stats</span></div>');
   var pending = orders.filter(function(r){return (r.status||'Pending')==='Pending';});
-  var printing = orders.filter(function(r){return r.status==='Printing';});
+  var confirmed = orders.filter(function(r){return r.status==='Confirmed';});
+  var printed = orders.filter(function(r){return r.status==='Printed';});
   var complete = orders.filter(function(r){return r.status==='Complete';});
-  var revenue = orders.filter(function(r){var p=paymentOptions.find(function(p){return p.name===r.payment;});return p&&p.showRevenue;}).reduce(function(s,r){return s+r.total;},0);
+  var revenueOrderIds = new Set();
+  var revenue = orders.filter(function(r){var p=paymentOptions.find(function(p){return p.name===r.payment;});return p&&p.showRevenue;}).reduce(function(s,r){
+    var deliveryCost = 0;
+    if(!revenueOrderIds.has(r.orderId)){
+      revenueOrderIds.add(r.orderId);
+      deliveryCost = deliveryOptions.find(function(d){return d.name===r.delivery;})?.price||0;
+    }
+    return s+r.total+deliveryCost;
+  },0);
   var uniqueOrders = new Set(orders.map(function(r){return r.orderId;})).size;
   var detail = document.getElementById('inboxDetail');
-  if (detail) detail.innerHTML = '<div class="inbox-detail" style="max-width:600px">'
+  if (detail) detail.innerHTML = '<div class="inbox-detail inbox-detail-narrow-600">'
     + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Stats</div></div></div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+    + '<div class="stats-grid-2col">'
     + _statCard('Orders', uniqueOrders, 'ti-shopping-cart', '')
     + _statCard('Pending', new Set(pending.map(function(r){return r.orderId;})).size, 'ti-clock', 'var(--amber)')
-    + _statCard('Printing', new Set(printing.map(function(r){return r.orderId;})).size, 'ti-printer', 'var(--blue)')
+    + _statCard('Confirmed', new Set(confirmed.map(function(r){return r.orderId;})).size, 'ti-circle-check', 'var(--blue)')
+    + _statCard('Printed', new Set(printed.map(function(r){return r.orderId;})).size, 'ti-printer', 'var(--teal)')
     + _statCard('Complete', new Set(complete.map(function(r){return r.orderId;})).size, 'ti-check', 'var(--green)')
     + _statCard('Revenue', '$'+revenue.toFixed(2), 'ti-currency-dollar', 'var(--green)')
     + _statCard('Customers', customers.length, 'ti-users', '')
@@ -1805,52 +1974,51 @@ function _renderViewStats() {
   var list = document.getElementById('inboxList');
   var max = catBreakdown.length ? catBreakdown[0].n : 1;
   list.innerHTML = catBreakdown.map(function(x){
-    return '<div class="inbox-card" style="padding:12px 14px">'
+    return '<div class="inbox-card">'
       + '<div class="inbox-card-content">'
       + '<div class="inbox-card-row1"><span class="inbox-card-customer">'+esc(x.name)+'</span><span class="inbox-card-num">'+x.n+'</span></div>'
-      + '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:8px">'
-      + '<div style="height:4px;background:var(--accent);border-radius:2px;width:'+Math.round(x.n/max*100)+'%"></div>'
+      + '<div class="stat-bar-track">'
+      + '<div class="stat-bar-fill" style="width:'+Math.round(x.n/max*100)+'%"></div>'
       + '</div></div></div>';
   }).join('') || '<div class="inbox-empty-state"><i class="ti ti-chart-bar"></i> No data</div>';
 }
 
 function _statCard(label, val, icon, color) {
-  return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;display:flex;flex-direction:column;gap:6px">'
-    + '<div style="display:flex;align-items:center;gap:8px;color:'+(color||'var(--muted)')+'">'
-    + '<i class="ti '+icon+'" style="font-size:18px"></i>'
-    + '<span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">'+label+'</span>'
+  return '<div class="stat-card">'
+    + '<div class="stat-card-icon-row" style="--sc:'+(color||'var(--muted)')+'">'
+    + '<i class="ti '+icon+' stat-card-icon"></i>'
+    + '<span class="stat-card-label">'+label+'</span>'
     + '</div>'
-    + '<div style="font-size:24px;font-weight:700;color:var(--text)">'+val+'</div>'
+    + '<div class="stat-card-value">'+val+'</div>'
     + '</div>';
 }
 
 // Settings view
 var _selectedSettingsCat = null;
+var _deliveryReorderMode = false;
+var _paymentReorderMode = false;
+var _showArchivedDelivery = false;
+var _showArchivedPayment = false;
 var _SETTINGS_CATS = [
-  {id:'payment',  icon:'ti-credit-card', title:'Payment Options',      desc:'Manage payment methods and revenue tracking'},
+  {id:'payment',  icon:'ti-credit-card', title:'Post & Pay',           desc:'Manage delivery methods and payment methods'},
   {id:'cats',     icon:'ti-category',    title:'Categories & Options',  desc:'Product categories and their options'},
   {id:'colours',  icon:'ti-brush',       title:'Colour Library',        desc:'Available colour swatches'},
   {id:'users',    icon:'ti-users',       title:'Users',                 desc:'Invite and manage app users'},
-  {id:'app',      icon:'ti-settings',    title:'App Settings',          desc:'Notifications, accent colour and more'},
+  {id:'app',      icon:'ti-settings',    title:'App Settings',          desc:'Profile, password and notifications'},
 ];
 
 function _renderViewSettings() {
-  _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Settings</span></div>');
+  _setListPane('<div class="inbox-view-header"><span class="inbox-detail-customer">Settings</span></div>');
   var list = document.getElementById('inboxList');
   list.innerHTML = _SETTINGS_CATS.map(function(cat) {
     var sel = cat.id === _selectedSettingsCat;
     return '<div class="inbox-card' + (sel?' selected':'') + '" onclick="_showSettingsDetail(\'' + cat.id + '\')">'
       + '<div class="inbox-card-content">'
-      + '<div class="inbox-card-row1"><span class="inbox-card-customer"><i class="ti ' + cat.icon + '" style="margin-right:7px;opacity:0.7"></i>' + cat.title + '</span></div>'
+      + '<div class="inbox-card-row1"><span class="inbox-card-customer"><i class="ti ' + cat.icon + ' settings-cat-icon"></i>' + cat.title + '</span></div>'
       + '<div class="inbox-card-subject">' + cat.desc + '</div>'
       + '</div></div>';
   }).join('');
-  if (_selectedSettingsCat) {
-    _showSettingsDetail(_selectedSettingsCat);
-  } else {
-    var detail = document.getElementById('inboxDetail');
-    if (detail) detail.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-settings"></i><p>Select a category</p></div>';
-  }
+  _showSettingsDetail(_selectedSettingsCat || _SETTINGS_CATS[0].id);
 }
 
 function _showSettingsDetail(catId) {
@@ -1861,59 +2029,193 @@ function _showSettingsDetail(catId) {
   var detail = document.getElementById('inboxDetail');
   if (!detail) return;
 
-  if (catId === 'payment') {
-    var rows = paymentOptions.map(function(p, i) {
-      return '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)">'
-        + '<span style="flex:1;font-weight:500;color:' + (p.archived?'var(--muted)':'var(--text)') + (p.archived?';text-decoration:line-through':'') + '">' + esc(p.name) + '</span>'
-        + '<span style="font-size:10px;color:var(--muted);padding:2px 7px;background:var(--surface2);border-radius:10px">' + (p.showRevenue?'revenue':'no revenue') + '</span>'
-        + '<button class="btn sm" onclick="_settingsToggleRevenue(' + i + ')" title="Toggle revenue tracking"><i class="ti ti-currency-dollar"></i></button>'
-        + '<button class="btn sm" onclick="_settingsToggleArchive(' + i + ')" title="' + (p.archived?'Restore':'Archive') + '"><i class="ti ti-' + (p.archived?'eye':'eye-off') + '"></i></button>'
-        + '</div>';
-    }).join('');
-    detail.innerHTML = '<div class="inbox-detail">'
-      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Payment Options</div></div></div>'
-      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">' + rows + '</div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + '<button class="btn sm" onclick="_settingsAddPayment()"><i class="ti ti-plus"></i> Add Option</button>'
-      + '<button class="btn sm" onclick="openSettings()"><i class="ti ti-external-link"></i> Full Settings</button>'
-      + '</div></div>';
-  } else if (catId === 'cats') {
-    var catRows = cats.filter(function(c){return !c.archived;}).map(function(c) {
-      var n = new Set(orders.filter(function(r){return String(r.catId)===String(c.id);}).map(function(r){return r.orderId;})).size;
-      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">'
-        + '<span style="flex:1;font-weight:500;color:var(--text)">' + esc(c.name) + '</span>'
-        + '<span style="font-family:monospace;font-size:11px;color:var(--muted)">$' + c.price.toFixed(2) + '</span>'
-        + '<span style="font-size:10px;color:var(--muted);padding:2px 7px;background:var(--surface2);border-radius:10px">' + n + ' orders</span>'
-        + '</div>';
-    }).join('');
+  if (catId === 'cats') {
     detail.innerHTML = '<div class="inbox-detail">'
       + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Categories &amp; Options</div></div></div>'
-      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px">' + (catRows||'<div style="padding:16px;color:var(--muted)">No categories</div>') + '</div>'
-      + '<button class="btn sm" onclick="openCatModal()"><i class="ti ti-external-link"></i> Open Category Editor</button>'
-      + '</div>';
+      + '<p class="settings-desc-text">Each category can have options — extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical icon-sm"></i> to reorder options.</p>'
+      + '<div class="cats-toolbar-row">'
+      + '<label class="show-archived-label">'
+      + '<input type="checkbox" id="showArchivedCb" onchange="toggleShowArchived(this)"> Show archived'
+      + '</label>'
+      + '<button class="btn success sm ml-auto" onclick="addCat()"><i class="ti ti-plus"></i> Add category</button>'
+      + '</div>'
+      + '<div id="catFlatList"></div>'
+      + '<div class="settings-actions-row">'
+      + '<button class="btn success" onclick="saveCatsAndOpts()"><i class="ti ti-cloud-upload"></i> Save</button>'
+      + '</div></div>';
+    if(typeof renderCatBlocks === 'function') {
+      var cb = document.getElementById('showArchivedCb');
+      if(cb) cb.checked = window.showArchivedCats || false;
+      renderCatBlocks();
+    }
   } else if (catId === 'colours') {
-    var colRows = colours.map(function(c) {
-      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border)">'
-        + '<div style="width:22px;height:22px;border-radius:50%;background:' + esc(c.code) + ';border:1px solid rgba(255,255,255,0.1);flex-shrink:0"></div>'
-        + '<span style="flex:1;font-weight:500;color:var(--text)">' + esc(c.name) + '</span>'
-        + '<span style="font-family:monospace;font-size:10px;color:var(--muted)">' + esc(c.code) + '</span>'
-        + '</div>';
-    }).join('');
     detail.innerHTML = '<div class="inbox-detail">'
       + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Colour Library</div></div></div>'
-      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;max-height:400px;overflow-y:auto;margin-bottom:12px">' + (colRows||'<div style="padding:16px;color:var(--muted)">No colours</div>') + '</div>'
-      + '<button class="btn sm" onclick="openColourModal()"><i class="ti ti-external-link"></i> Open Colour Editor</button>'
-      + '</div>';
+      + '<p class="settings-desc-text">Manage your available filament colours. Tick <strong class="text-emphasis">Available</strong> if you currently have that colour in stock.</p>'
+      + '<div class="settings-toolbar-row-end">'
+      + '<button class="btn success sm" onclick="addColour()"><i class="ti ti-plus"></i> Add colour</button>'
+      + '</div>'
+      + '<div class="colour-mgr-hdr"><span>Swatch</span><span>Name</span><span>Hex code</span><span>Available</span><span></span></div>'
+      + '<div id="colourList"></div>'
+      + '<div class="settings-actions-row">'
+      + '<button class="btn success" onclick="saveColours()"><i class="ti ti-cloud-upload"></i> Save</button>'
+      + '</div></div>';
+    if(typeof renderColourList === 'function') renderColourList();
   } else if (catId === 'users') {
     detail.innerHTML = '<div class="inbox-detail">'
       + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Users</div></div></div>'
-      + '<button class="btn sm" onclick="openUsersModal()"><i class="ti ti-external-link"></i> Manage Users</button>'
+      + '<p class="settings-desc-text">Invite team members to PrintDesk. They will receive an email to set their password.</p>'
+      + '<div class="settings-toolbar-row-end">'
+      + '<button class="btn success sm" onclick="openAddUserForm()"><i class="ti ti-plus"></i> Add user</button>'
+      + '</div>'
+      + '<div id="userForm" style="display:none">'
+      + '<div class="user-form-inner">'
+      + '<div class="field-row">'
+      + '<div class="field"><label>Display name</label><input type="text" id="uf-name" placeholder="Their name"></div>'
+      + '<div class="field"><label>Email</label><input type="email" id="uf-email" placeholder="user@example.com"></div>'
+      + '</div>'
+      + '<div class="field-row" id="uf-password-row" style="display:none">'
+      + '<div class="field"><label>New password</label><input type="password" id="uf-password" placeholder="Leave blank to keep current"></div>'
+      + '</div>'
+      + '<div id="uf-error" class="field-error-text" style="display:none"></div>'
+      + '<div class="user-form-actions">'
+      + '<button class="btn" onclick="closeUserForm()">Cancel</button>'
+      + '<button class="btn success" id="uf-save" onclick="saveUser()"><i class="ti ti-mail"></i> Send invite</button>'
+      + '</div></div></div>'
+      + '<div id="usersList"><div class="users-loading-placeholder"><i class="ti ti-loader-2"></i> Loading users…</div></div>'
+      + '</div>';
+    if(typeof loadUsers === 'function') { window.editingUserId = null; loadUsers(); }
+  } else if (catId === 'payment') {
+    var visibleDelivery = _showArchivedDelivery ? deliveryOptions : deliveryOptions.filter(function(d){return !d.archived;});
+    var deliveryRows = visibleDelivery.map(function(d) {
+      var i = deliveryOptions.indexOf(d);
+      return '<div' + (_deliveryReorderMode ? ' draggable="true" ondragstart="_reorderDragStart(event,\'delivery\',' + i + ')" ondragover="_reorderDragOver(event,\'delivery\',' + i + ')" ondrop="_reorderDrop(event,\'delivery\',' + i + ')" ondragleave="_reorderDragLeave(event)" ondragend="_reorderDragEnd(event)"' : '')
+        + ' class="settings-list-row">'
+        + (_deliveryReorderMode ? '<span class="opt-drag"><i class="ti ti-grip-vertical"></i></span>' : '')
+        + '<div class="icon-picker-wrap">'
+        + '<button class="icon-picker-btn" onclick="event.stopPropagation();toggleDeliveryIconPicker(' + i + ',this)" title="Change icon" ' + (d.archived?'disabled':'') + '><i class="ti ' + (d.icon||'ti-truck-delivery') + '"></i></button>'
+        + '<div class="icon-picker-list" id="dip-' + i + '" style="display:none">'
+        + DELIVERY_ICON_PACK.map(function(ic){
+            return '<button class="icon-picker-opt' + (ic===d.icon?' selected':'') + '" onclick="_settingsSetDeliveryIcon(' + i + ',\'' + ic + '\')" title="' + ic + '"><i class="ti ' + ic + '"></i></button>';
+          }).join('')
+        + '</div>'
+        + '</div>'
+        + '<span class="settings-list-name' + (_deliveryReorderMode?' reorder-indent':'') + (d.archived?' text-muted strikethrough':'') + '">' + esc(d.name) + '</span>'
+        + '<div class="cat-price-wrap"><span>$</span><input type="number" class="ns-init" value="' + d.price.toFixed(2) + '" step="0.01" min="0" ' + (d.archived?'disabled':'') + ' onchange="_settingsSetDeliveryPrice(' + i + ',this.value)"></div>'
+        + '<button class="btn sm" onclick="_settingsToggleDeliveryArchive(' + i + ')" title="' + (d.archived?'Restore':'Archive') + '"><i class="ti ti-' + (d.archived?'archive-off':'archive') + '"></i></button>'
+        + '</div>';
+    }).join('');
+    var visiblePayment = _showArchivedPayment ? paymentOptions : paymentOptions.filter(function(p){return !p.archived;});
+    var rows = visiblePayment.map(function(p) {
+      var i = paymentOptions.indexOf(p);
+      return '<div' + (_paymentReorderMode ? ' draggable="true" ondragstart="_reorderDragStart(event,\'payment\',' + i + ')" ondragover="_reorderDragOver(event,\'payment\',' + i + ')" ondrop="_reorderDrop(event,\'payment\',' + i + ')" ondragleave="_reorderDragLeave(event)" ondragend="_reorderDragEnd(event)"' : '')
+        + ' class="settings-list-row">'
+        + (_paymentReorderMode ? '<span class="opt-drag"><i class="ti ti-grip-vertical"></i></span>' : '')
+        + '<span class="settings-list-name' + (_paymentReorderMode?' reorder-indent':'') + (p.archived?' text-muted strikethrough':'') + '">' + esc(p.name) + '</span>'
+        + '<span class="revenue-badge">' + (p.showRevenue?'revenue':'no revenue') + '</span>'
+        + '<button class="btn sm" onclick="_settingsToggleRevenue(' + i + ')" title="Toggle revenue tracking"><i class="ti ti-currency-dollar"></i></button>'
+        + '<button class="btn sm" onclick="_settingsToggleArchive(' + i + ')" title="' + (p.archived?'Restore':'Archive') + '"><i class="ti ti-' + (p.archived?'archive-off':'archive') + '"></i></button>'
+        + '</div>';
+    }).join('');
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Post &amp; Pay</div></div></div>'
+      + '<div class="settings-section-title settings-section-title-tight">Delivery Methods</div>'
+      + '<p class="settings-desc-text">Manage how orders are delivered, and the price for each method.</p>'
+      + '<div class="settings-section-header-row">'
+      + '<button class="btn sm' + (_deliveryReorderMode?' primary':'') + '" onclick="_toggleDeliveryReorder()"><i class="ti ti-arrows-sort"></i> ' + (_deliveryReorderMode?'Done':'Reorder') + '</button>'
+      + '<div style="display:flex;gap:8px">'
+      + '<button class="btn sm' + (_showArchivedDelivery?' primary':'') + '" onclick="_toggleShowArchivedDelivery()"><i class="ti ti-' + (_showArchivedDelivery?'eye-off':'eye') + '"></i> ' + (_showArchivedDelivery?'Hide archived':'Show archived') + '</button>'
+      + '<button class="btn success sm" onclick="_settingsAddDelivery()"><i class="ti ti-plus"></i> Add Method</button>'
+      + '</div></div>'
+      + '<div id="deliveryAddForm" class="settings-add-form-row" style="display:none">'
+      + '<div class="icon-picker-wrap">'
+      + '<button class="icon-picker-btn" id="da-icon-btn" onclick="event.stopPropagation();toggleDeliveryIconPicker(\'new\',this)" title="Change icon"><i class="ti ' + _daNewIcon + '"></i></button>'
+      + '<div class="icon-picker-list" id="dip-new" style="display:none">'
+      + DELIVERY_ICON_PACK.map(function(ic){
+          return '<button class="icon-picker-opt' + (ic===_daNewIcon?' selected':'') + '" onclick="_settingsSetDeliveryIcon(\'new\',\'' + ic + '\')" title="' + ic + '"><i class="ti ' + ic + '"></i></button>';
+        }).join('')
+      + '</div>'
+      + '</div>'
+      + '<input type="text" id="da-name" placeholder="Delivery method name&hellip;" onkeydown="if(event.key===\'Enter\')_settingsSaveDelivery()" class="settings-add-input">'
+      + '<div class="cat-price-wrap"><span>$</span><input type="number" id="da-price" class="ns-init" value="0.00" step="0.01" min="0" onkeydown="if(event.key===\'Enter\')_settingsSaveDelivery()"></div>'
+      + '<button class="btn sm" onclick="_settingsCancelAddDelivery()">Cancel</button>'
+      + '<button class="btn sm primary" onclick="_settingsSaveDelivery()"><i class="ti ti-check"></i> Add</button>'
+      + '</div>'
+      + '<div class="settings-list-box mb-20">' + deliveryRows + '</div>'
+      + '<div class="settings-section-title settings-section-title-tight">Payment</div>'
+      + '<p class="settings-desc-text">Manage how customers pay. Enable <strong class="text-emphasis">revenue</strong> on a method to include it in sales totals.</p>'
+      + '<div class="settings-section-header-row">'
+      + '<button class="btn sm' + (_paymentReorderMode?' primary':'') + '" onclick="_togglePaymentReorder()"><i class="ti ti-arrows-sort"></i> ' + (_paymentReorderMode?'Done':'Reorder') + '</button>'
+      + '<div style="display:flex;gap:8px">'
+      + '<button class="btn sm' + (_showArchivedPayment?' primary':'') + '" onclick="_toggleShowArchivedPayment()"><i class="ti ti-' + (_showArchivedPayment?'eye-off':'eye') + '"></i> ' + (_showArchivedPayment?'Hide archived':'Show archived') + '</button>'
+      + '<button class="btn success sm" onclick="_settingsAddPayment()"><i class="ti ti-plus"></i> Add Option</button>'
+      + '</div></div>'
+      + '<div id="paymentAddForm" class="settings-add-form-row" style="display:none">'
+      + '<input type="text" id="pa-name" placeholder="Payment option name&hellip;" onkeydown="if(event.key===\'Enter\')_settingsSavePayment()" class="settings-add-input">'
+      + '<label class="revenue-checkbox-label"><input type="checkbox" id="pa-revenue" class="accent-checkbox"> Revenue</label>'
+      + '<button class="btn sm" onclick="_settingsCancelAddPayment()">Cancel</button>'
+      + '<button class="btn sm primary" onclick="_settingsSavePayment()"><i class="ti ti-check"></i> Add</button>'
+      + '</div>'
+      + '<div class="settings-list-box">' + rows + '</div>'
       + '</div>';
   } else if (catId === 'app') {
     detail.innerHTML = '<div class="inbox-detail">'
       + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">App Settings</div></div></div>'
-      + '<button class="btn sm" onclick="openSettings()"><i class="ti ti-external-link"></i> Open App Settings</button>'
+      + '<p class="settings-desc-text">Manage your account details and notification preferences.</p>'
+
+      + '<div class="settings-section"><div class="settings-section-title">Profile</div>'
+      + '<div class="field-row">'
+      + '<div class="field"><label>Display name</label><input type="text" id="settingsName" placeholder="Your name"></div>'
+      + '<div class="field"><label>Email</label><input type="email" id="settingsEmail" placeholder="you@example.com"></div>'
+      + '</div></div>'
+
+      + '<div class="settings-section"><div class="settings-section-title">Change password</div>'
+      + '<div class="field-row">'
+      + '<div class="field"><label>New password</label><input type="password" id="settingsPassword" placeholder="Leave blank to keep current"></div>'
+      + '<div class="field"><label>Confirm password</label><input type="password" id="settingsPasswordConfirm" placeholder="Repeat new password"></div>'
+      + '</div>'
+      + '<div id="settingsPasswordError" class="field-error-text" style="display:none"></div>'
+      + '</div>'
+
+      + '<div class="settings-section"><div class="settings-section-title">Notifications</div>'
+      + '<p class="settings-desc-text">Email alerts for new orders. Requires a free <strong class="text-emphasis">Resend</strong> account.</p>'
+      + '<div class="field field-mb-12"><label>Notification email</label><input type="email" id="settingsNotifyEmail" placeholder="you@example.com"></div>'
+      + '<div class="settings-toggle-stack">'
+      + '<div class="settings-toggle-box">'
+      + '<label class="settings-toggle-label">'
+      + '<input type="checkbox" id="settingsNotifyDaily" class="settings-checkbox">'
+      + '<span class="settings-toggle-title">Daily badge digest — 4PM Melbourne</span>'
+      + '</label>'
+      + '<div class="settings-toggle-hint">Sends a summary email if any badge orders were added that day.</div>'
+      + '</div>'
+      + '<div class="settings-toggle-box">'
+      + '<label class="settings-toggle-label settings-toggle-label-wrap">'
+      + '<input type="checkbox" id="settingsNotifyThreshold" class="settings-checkbox">'
+      + '<span class="settings-toggle-title">Urgent alert when</span>'
+      + '<input type="number" id="settingsNotifyCount" value="5" min="1" max="99" class="notify-count-input">'
+      + '<span class="settings-toggle-title">or more items added</span>'
+      + '</label>'
+      + '<div class="settings-toggle-hint">Checks every 15 minutes.</div>'
+      + '</div>'
+      + '<div class="last-alert-row">'
+      + '<span class="text-muted-12">Last alert sent</span>'
+      + '<span id="settingsNotifyLastSent" class="text-emphasis-12">—</span>'
+      + '</div>'
+      + '</div></div>'
+
+      + '<div class="settings-actions-row settings-actions-row-tight">'
+      + '<button class="btn success" id="settingsSaveBtn" onclick="applySettings()"><i class="ti ti-cloud-upload"></i> Save</button>'
+      + '</div>'
       + '</div>';
+
+    if(window.currentUser){
+      document.getElementById('settingsEmail').value = window.currentUser.email||'';
+      document.getElementById('settingsName').value = (window.currentUser.user_metadata||{}).display_name||'';
+    }
+    document.getElementById('settingsPassword').value = '';
+    document.getElementById('settingsPasswordConfirm').value = '';
+    document.getElementById('settingsPasswordError').style.display = 'none';
+    loadNotificationSettings();
   }
 }
 
@@ -1928,33 +2230,219 @@ function _settingsToggleArchive(i) {
   _showSettingsDetail('payment');
 }
 function _settingsAddPayment() {
-  var name = prompt('Payment option name:');
-  if (!name || !name.trim()) return;
-  var isRevenue = confirm('Does this payment option generate revenue?');
-  paymentOptions.push({name:name.trim(), archived:false, showRevenue:isRevenue});
+  document.getElementById('pa-name').value = '';
+  document.getElementById('pa-revenue').checked = false;
+  document.getElementById('paymentAddForm').style.display = 'flex';
+  document.getElementById('pa-name').focus();
+}
+function _settingsCancelAddPayment() {
+  document.getElementById('paymentAddForm').style.display = 'none';
+}
+function _settingsSavePayment() {
+  var name = document.getElementById('pa-name').value.trim();
+  if (!name) return;
+  var isRevenue = document.getElementById('pa-revenue').checked;
+  paymentOptions.push({name:name, archived:false, showRevenue:isRevenue});
   savePaymentOptions();
   _showSettingsDetail('payment');
 }
 
-// Users view
-function _renderViewUsers() {
-  _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Users</span></div>');
-  var detail = document.getElementById('inboxDetail');
-  if (detail) detail.innerHTML = '<div class="inbox-detail" style="max-width:560px">'
-    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Users</div></div></div>'
-    + '<div><button class="btn sm" onclick="openUsersModal()"><i class="ti ti-users"></i> Manage Users</button></div>'
-    + '</div>';
+function _settingsToggleDeliveryArchive(i) {
+  deliveryOptions[i].archived = !deliveryOptions[i].archived;
+  saveDeliveryOptions();
+  _showSettingsDetail('payment');
+}
+function _settingsSetDeliveryPrice(i, val) {
+  deliveryOptions[i].price = parseFloat(val) || 0;
+  saveDeliveryOptions();
+}
+var _daNewIcon = 'ti-truck-delivery';
+function toggleDeliveryIconPicker(key, btn) {
+  var list = document.getElementById('dip-' + key);
+  if (!list) return;
+  var isOpen = list.style.display !== 'none';
+  document.querySelectorAll('.icon-picker-list').forEach(function(el){ el.style.display = 'none'; });
+  if (isOpen) return;
+  var rect = btn.getBoundingClientRect();
+  var listWidth = 6 * 32 + 12;
+  list.style.left = Math.min(rect.left, window.innerWidth - listWidth - 8) + 'px';
+  list.style.top = (rect.bottom + 4) + 'px';
+  list.style.display = 'grid';
+}
+function _settingsSetDeliveryIcon(key, icon) {
+  document.querySelectorAll('.icon-picker-list').forEach(function(el){ el.style.display = 'none'; });
+  if (key === 'new') {
+    _daNewIcon = icon;
+    document.getElementById('da-icon-btn').innerHTML = '<i class="ti ' + icon + '"></i>';
+    return;
+  }
+  deliveryOptions[key].icon = icon;
+  saveDeliveryOptions();
+  _showSettingsDetail('payment');
+}
+function _settingsAddDelivery() {
+  document.getElementById('da-name').value = '';
+  document.getElementById('da-price').value = '0.00';
+  _daNewIcon = 'ti-truck-delivery';
+  document.getElementById('da-icon-btn').innerHTML = '<i class="ti ' + _daNewIcon + '"></i>';
+  document.getElementById('deliveryAddForm').style.display = 'flex';
+  document.getElementById('da-name').focus();
+}
+function _settingsCancelAddDelivery() {
+  document.getElementById('deliveryAddForm').style.display = 'none';
+}
+function _settingsSaveDelivery() {
+  var name = document.getElementById('da-name').value.trim();
+  if (!name) return;
+  var price = parseFloat(document.getElementById('da-price').value) || 0;
+  deliveryOptions.push({name:name, archived:false, price:price, icon:_daNewIcon});
+  saveDeliveryOptions();
+  _showSettingsDetail('payment');
 }
 
-// Update sidebar badge counts after data loads
-function updateSidebarBadges() {
-  var ordBadge = document.getElementById('badge-orders');
-  var custBadge = document.getElementById('badge-customers');
-  var colBadge = document.getElementById('badge-colours');
-  var catBadge = document.getElementById('badge-categories');
-  if (ordBadge) ordBadge.textContent = new Set(orders.map(function(r){return r.orderId;})).size;
-  if (custBadge) custBadge.textContent = customers.length;
-  if (colBadge) colBadge.textContent = colours.filter(function(c){return c.available!==false;}).length;
-  if (catBadge) catBadge.textContent = cats.filter(function(c){return !c.archived;}).length;
+function _toggleDeliveryReorder() { _deliveryReorderMode = !_deliveryReorderMode; _showSettingsDetail('payment'); }
+function _togglePaymentReorder() { _paymentReorderMode = !_paymentReorderMode; _showSettingsDetail('payment'); }
+function _toggleShowArchivedDelivery() { _showArchivedDelivery = !_showArchivedDelivery; _showSettingsDetail('payment'); }
+function _toggleShowArchivedPayment() { _showArchivedPayment = !_showArchivedPayment; _showSettingsDetail('payment'); }
+
+var _reorderDragArr = null, _reorderDragIdx = null;
+function _reorderDragStart(e, arrName, idx) {
+  _reorderDragArr = arrName; _reorderDragIdx = idx;
+  e.currentTarget.classList.add('dragging');
 }
+function _reorderDragOver(e, arrName, idx) {
+  e.preventDefault();
+  if (arrName === _reorderDragArr && idx !== _reorderDragIdx) e.currentTarget.classList.add('drag-over');
+}
+function _reorderDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function _reorderDragEnd(e) { e.currentTarget.classList.remove('dragging'); _reorderDragArr = null; _reorderDragIdx = null; }
+function _reorderDrop(e, arrName, idx) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (arrName !== _reorderDragArr || _reorderDragIdx === null || _reorderDragIdx === idx) return;
+  var arr = arrName === 'delivery' ? deliveryOptions : paymentOptions;
+  var moved = arr.splice(_reorderDragIdx, 1)[0];
+  arr.splice(idx, 0, moved);
+  if (arrName === 'delivery') saveDeliveryOptions(); else savePaymentOptions();
+  _showSettingsDetail('payment');
+}
+
+// Users view
+function _applyDetailFilters() {
+  var q = (window._itemSearch || '').toLowerCase().trim();
+  var sort = window._itemSort || 'default';
+  var dir = window._itemSortDir || 1;
+  var catCheckboxes = document.querySelectorAll('[data-detail-cat]');
+  var unchecked = new Set(Array.from(catCheckboxes).filter(function(c){return !c.checked;}).map(function(c){return c.dataset.detailCat;}));
+  var list = document.querySelector('.inbox-items-list');
+  if (!list) return;
+  var cards = Array.from(list.querySelectorAll('.inbox-item-card'));
+  cards.forEach(function(card) {
+    var vis = (!q || (card.dataset.search||'').includes(q)) && (!unchecked.size || !unchecked.has(card.dataset.catname));
+    card.style.display = vis ? '' : 'none';
+  });
+  var sorted = sort === 'default'
+    ? cards.slice().sort(function(a,b){return parseInt(a.dataset.idx||0)-parseInt(b.dataset.idx||0);})
+    : cards.filter(function(c){return c.style.display!=='none';}).sort(function(a,b){
+        if(sort==='textval') return (a.dataset.textval||'').localeCompare(b.dataset.textval||'')*dir;
+        if(sort==='cat') return (a.dataset.catname||'').localeCompare(b.dataset.catname||'')*dir;
+        if(sort==='price') return (parseFloat(a.dataset.price||0)-parseFloat(b.dataset.price||0))*dir;
+        if(sort==='qty') return (parseInt(a.dataset.qty||0)-parseInt(b.dataset.qty||0))*dir;
+        if(sort.indexOf('opt:')===0) return _optValFromCard(a,sort.slice(4)).localeCompare(_optValFromCard(b,sort.slice(4)))*dir;
+        return 0;
+      });
+  sorted.forEach(function(c){list.appendChild(c);});
+  var clr = document.getElementById('detailItemsClear');
+  if (clr) clr.style.display = q ? 'block' : 'none';
+  var fc = document.getElementById('detailFilterCount');
+  if (fc) { fc.style.display = unchecked.size ? 'inline' : 'none'; if (unchecked.size) fc.textContent = unchecked.size; }
+  var icon = document.getElementById('detailSortDirIcon');
+  if (icon) icon.className = dir > 0 ? 'ti ti-arrow-up' : 'ti ti-arrow-down';
+}
+
+function _positionDetailPanel(btn, panel) {
+  var r = btn.getBoundingClientRect();
+  panel.style.top = (r.bottom + 6) + 'px';
+  panel.style.right = (window.innerWidth - r.right) + 'px';
+  panel.style.left = 'auto';
+}
+
+function toggleDetailFilterPanel(e) {
+  e.stopPropagation();
+  var p = document.getElementById('detailFilterPanel');
+  var sp = document.getElementById('detailSortPanel');
+  if (sp) sp.style.display = 'none';
+  if (!p) return;
+  if (p.style.display !== 'none') { p.style.display = 'none'; return; }
+  _positionDetailPanel(e.currentTarget, p);
+  p.style.display = '';
+}
+
+function toggleDetailSortPanel(e) {
+  e.stopPropagation();
+  var p = document.getElementById('detailSortPanel');
+  var fp = document.getElementById('detailFilterPanel');
+  if (fp) fp.style.display = 'none';
+  if (!p) return;
+  if (p.style.display !== 'none') { p.style.display = 'none'; return; }
+  _positionDetailPanel(e.currentTarget, p);
+  p.style.display = '';
+}
+
+function _optValFromCard(card, optName) {
+  var str = card.dataset.optstr || '';
+  var parts = str.split('||');
+  for (var i = 0; i < parts.length; i++) {
+    var idx = parts[i].indexOf(':');
+    if (idx >= 0 && parts[i].slice(0, idx).trim() === optName) return parts[i].slice(idx + 1).trim().toLowerCase();
+  }
+  return '';
+}
+
+function _setDetailSort(field, label) {
+  window._itemSort = field;
+  document.querySelectorAll('[data-detail-sort]').forEach(function(el){el.classList.toggle('active', el.dataset.detailSort === field);});
+  var btn = document.getElementById('detailSortBtn');
+  if (btn) btn.innerHTML = '<i class="ti ti-arrows-sort"></i> ' + (label || 'Sort');
+  var sp = document.getElementById('detailSortPanel');
+  if (sp) sp.style.display = 'none';
+  _applyDetailFilters();
+}
+
+function updateSidebarBadges() {}
+
+function initSteppers(root) {
+  (root || document).querySelectorAll('input[type=number]:not(.ns-init)').forEach(function(input) {
+    if (input.closest('.stepper') || input.closest('.num-stepper')) return;
+    input.classList.add('ns-init');
+    var wrap = document.createElement('div');
+    wrap.className = 'num-stepper';
+    var w = input.style.width;
+    if (w) { wrap.style.width = w; input.style.width = ''; } else { wrap.style.width = '100%'; }
+    input.parentNode.insertBefore(wrap, input);
+    function fire() { input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new Event('change',{bubbles:true})); }
+    var dec = document.createElement('button');
+    dec.type = 'button'; dec.className = 'ns-btn'; dec.textContent = '−';
+    dec.addEventListener('click', function(){ input.stepDown(); fire(); });
+    var inc = document.createElement('button');
+    inc.type = 'button'; inc.className = 'ns-btn'; inc.textContent = '+';
+    inc.addEventListener('click', function(){ input.stepUp(); fire(); });
+    wrap.appendChild(dec); wrap.appendChild(input); wrap.appendChild(inc);
+  });
+}
+
+(function() {
+  var obs = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(node) {
+        if (node.nodeType !== 1) return;
+        initSteppers(node.matches && node.matches('input[type=number]') ? node.parentNode : node);
+      });
+    });
+  });
+  document.addEventListener('DOMContentLoaded', function() {
+    initSteppers(document.body);
+    obs.observe(document.body, {childList:true, subtree:true});
+  });
+})();
 

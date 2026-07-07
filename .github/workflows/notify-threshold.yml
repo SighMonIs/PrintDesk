@@ -26,8 +26,11 @@ jobs:
 
           def sb_get(path):
               req = urllib.request.Request(f"{SB_URL}/rest/v1/{path}", headers=HEADERS)
-              with urllib.request.urlopen(req) as r:
-                  return json.loads(r.read())
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  print(f'Supabase error on {path}: {e.code} {e.reason} — {e.read().decode()}'); exit(0)
 
           def sb_upsert(row):
               payload = json.dumps(row).encode()
