@@ -103,9 +103,26 @@ function _buildStatusBreadcrumb(orderId, status){
 function confirmStatusStep(orderId, newStatus){
   const rows = orders.filter(r=>String(r.orderId)===String(orderId));
   if(!rows.length || rows[0].status===newStatus) return;
+  const printedIdx = STATUS_FLOW.indexOf('Printed');
+  const movingBackAcrossPrinted = STATUS_FLOW.indexOf(rows[0].status) >= printedIdx && STATUS_FLOW.indexOf(newStatus) < printedIdx;
   showConfirm('Set this order to "' + newStatus + '"? This applies to all items in the order.', function(){
     selectOrderStatus(orderId, newStatus);
+    if(movingBackAcrossPrinted){
+      showConfirm('Mark all items in this order as NOT PRINTED too?', function(){
+        _markOrderItemsNotPrinted(orderId);
+      }, {confirmLabel:'Mark Not Printed', isDanger:false});
+    }
   }, {confirmLabel:'Set to '+newStatus, isDanger:false});
+}
+
+async function _markOrderItemsNotPrinted(orderId){
+  const rows = orders.filter(r=>String(r.orderId)===String(orderId));
+  for(const row of rows){ row.printed=false; }
+  renderTable();
+  try{
+    await sbPatch('orders','order_id=eq.'+encodeURIComponent(orderId),{printed:false});
+    setStatus('ok','Marked all items Not Printed');
+  }catch(e){ setStatus('err','Save failed: '+e.message); }
 }
 
 // ── Render table ───────────────────────────────────────────
