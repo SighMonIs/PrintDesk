@@ -170,7 +170,7 @@ body{overflow:hidden;background:var(--base);margin:0;padding:0;}
 .inbox-item-opt-label{color:var(--muted);}
 .inbox-item-opt-val{color:var(--text);}
 .inbox-item-swatches{display:flex;gap:3px;align-items:center;}
-.inbox-item-swatch{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,0.15);background:var(--sw,#ccc);}
+.inbox-item-swatch{position:relative;display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,0.15);background:var(--sw,#ccc);}
 .inbox-item-notes{margin-top:5px;}
 .inbox-item-notes i{font-size:12px;opacity:0.5;}
 .inbox-item-notes em{color:var(--muted);}

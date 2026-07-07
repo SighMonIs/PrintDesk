@@ -1512,12 +1512,11 @@ function _showInboxDetailFromData(orderId, rows) {
       if (isColour) {
         const swatches = val.split('|').map(name => {
           const c = colours.find(c => c.name.toLowerCase() === name.toLowerCase());
-          return '<span class="inbox-item-swatch" style="--sw:' + (c ? c.code : '#ccc') + '" title="' + esc(name) + '"></span>';
+          return '<span class="inbox-item-swatch" style="--sw:' + (c ? c.code : '#ccc') + '" data-tt="' + esc(name) + '"></span>';
         }).join('');
         return '<div class="inbox-item-opt">'
           + '<span class="inbox-item-opt-label">' + esc(opt.name) + ':</span>'
           + '<div class="inbox-item-swatches">' + swatches + '</div>'
-          + '<span class="inbox-item-opt-val">' + esc(val.replace(/\|/g, ', ')) + '</span>'
           + '</div>';
       }
       return '<div class="inbox-item-opt">'
