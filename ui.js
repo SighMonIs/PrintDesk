@@ -329,7 +329,7 @@ function ddChanged(idx,optId){
 }
 
 function availableColours(){
-  return colours.filter(c=>c.available);
+  return colours.filter(c=>c.available && !c.archived);
 }
 
 function buildColourPicker(id, selectedName, onChangeFn){
@@ -970,7 +970,7 @@ async function saveOrder(){
   orders=orders.filter(o=>o.orderId!==orderId);
   orders.unshift(...newRows);renderTable();
   try{
-    if(editOId) await sbDelete('orders', 'order_id=eq.'+encodeURIComponent(editOId));
+    if(editOId) await sbPatch('orders', 'order_id=eq.'+encodeURIComponent(editOId), {deleted:true});
     for(const row of newRows){
       await sbUpsert('orders', {
         id: row.id, order_id: row.orderId, customer: row.customer,
@@ -979,7 +979,8 @@ async function saveOrder(){
         cat_id: row.catId, qty: row.qty,
         price: row.price, total: row.total, status: row.status,
         date: row.date, notes: row.notes, options: row.options,
-        printed: row.printed, paid: row.paid, inv_consumed: row.inv_consumed
+        printed: row.printed, paid: row.paid, inv_consumed: row.inv_consumed,
+        deleted: false
       });
     }
     if(editOId && !holdStatus) await _maybeAdvanceStatus(orderId);
@@ -1147,8 +1148,8 @@ function deleteOrder(orderId){
 }
 
 // ── Soft delete: optimistic remove + a few seconds to undo before the
-// actual DELETE call fires. Shared by the header Delete button and the
-// remove-last-item flow.
+// order is marked deleted=true in the DB (never a real DELETE). Shared by
+// the header Delete button and the remove-last-item flow.
 const UNDO_GRACE_MS=7000;
 let _pendingOrderDeletes={};
 
@@ -1167,7 +1168,7 @@ function _deleteOrderWithUndo(orderId){
     delete _pendingOrderDeletes[orderId];
     setStatus('spin','Deleting…');
     try{
-      await sbDelete('orders','order_id=eq.'+encodeURIComponent(orderId));
+      await sbPatch('orders','order_id=eq.'+encodeURIComponent(orderId),{deleted:true});
       setStatus('ok','Deleted · '+uniqueOrderCount()+' orders');
     }catch(e){setStatus('err','Delete failed: '+e.message);}
   },UNDO_GRACE_MS);
@@ -1912,8 +1913,13 @@ function _renderViewInventory(filter) {
     return !q || i.name.toLowerCase().includes(q);
   });
   if (!shown.length) { list.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-package"></i> No inventory items</div>'; return; }
+  shown.sort(function(a,b){ return (a.archived?1:0) - (b.archived?1:0); });
   list.innerHTML = shown.map(function(i) {
     var isSelected = String(i.id) === String(_selectedInventoryItemId);
+    if (i.archived) {
+      return '<div class="inbox-card' + (isSelected?' selected':'') + '" onclick="_showInventoryDetail(\'' + esc(String(i.id)) + '\')">'
+        + '<div class="inbox-card-content"><span class="text-muted strikethrough">' + esc(i.name) + '</span></div></div>';
+    }
     var available = _inventoryAvailable(i.id);
     return '<div class="inbox-card' + (isSelected?' selected':'') + '" onclick="_showInventoryDetail(\'' + esc(String(i.id)) + '\')">'
       + '<div class="inbox-card-content">'
@@ -1939,6 +1945,10 @@ function _showInventoryDetail(itemId) {
   var available = received - consumed;
   var receipts = inventoryReceipts.filter(function(r){return r.itemId===itemId;}).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
   var consumption = inventoryConsumption.filter(function(c){return c.itemId===itemId;}).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  var hasHistory = receipts.length>0 || consumption.length>0;
+  var deleteOrArchiveBtn = hasHistory
+    ? '<button class="sort-btn-main" onclick="'+(i.archived?'unarchiveInventoryItem(\''+esc(String(i.id))+'\')':'archiveInventoryItem(\''+esc(String(i.id))+'\',\''+escJsAttr(i.name)+'\')')+'" title="'+(i.archived?'Restore item':'Archive item')+'"><i class="ti ti-'+(i.archived?'archive-off':'archive')+'"></i></button>'
+    : '<button class="sort-btn-main text-red" onclick="deleteInventoryItem(\''+esc(String(i.id))+'\',\''+escJsAttr(i.name)+'\')" title="Delete item"><i class="ti ti-trash"></i></button>';
   var html = '<div class="inbox-detail">'
     + '<div class="inbox-detail-header">'
     + '<div class="inbox-detail-header-top">'
@@ -1946,7 +1956,7 @@ function _showInventoryDetail(itemId) {
     + '<div class="inbox-detail-customer">' + esc(i.name) + '</div>'
     + '</div>'
     + '<button class="sort-btn-main" onclick="openEditInventoryItem(\''+esc(String(i.id))+'\')"><i class="ti ti-edit"></i> Edit</button>'
-    + '<button class="sort-btn-main text-red" onclick="deleteInventoryItem(\''+esc(String(i.id))+'\',\''+escJsAttr(i.name)+'\')" title="Delete item"><i class="ti ti-trash"></i></button>'
+    + deleteOrArchiveBtn
     + '</div></div>'
     + '<div class="inbox-detail-meta">'
     + '<div class="inbox-detail-meta-item"><i class="ti ti-package"></i><strong>' + available + ' available</strong></div>'

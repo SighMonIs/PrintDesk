@@ -568,7 +568,7 @@ async function loadAll(){
   setStatus('spin','Loading…');
   try{
     const [ordersRaw, catsRaw, optsRaw, coloursRaw, customersRaw, invItemsRaw, invReceiptsRaw, invConsumptionRaw] = await Promise.all([
-      sbGet('orders', '?order=order_id.asc&limit=10000'),
+      sbGet('orders', '?deleted=eq.false&order=order_id.asc&limit=10000'),
       sbGet('categories', '?order=id.asc'),
       sbGet('options', '?order=sort_order.asc,id.asc'),
       sbGet('colours', '?order=id.asc'),
@@ -655,7 +655,8 @@ function normaliseColour(c){
     id:        String(c.id||''),
     name:      String(c.name||''),
     code:      String(c.code||'#cccccc'),
-    available: c.available===true||String(c.available).toLowerCase()==='true'
+    available: c.available===true||String(c.available).toLowerCase()==='true',
+    archived:  Boolean(c.archived||false)
   };
 }
 function normaliseInventoryItem(i){

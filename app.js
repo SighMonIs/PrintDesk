@@ -714,7 +714,8 @@ async function saveInventoryItem(){
   if(!name){ errEl.textContent='Name is required.'; errEl.style.display=''; return; }
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> Saving…';
   try{
-    const row = { id: editingInventoryItemId||nextInventoryItemId(), name, notes, archived:false };
+    const existing = editingInventoryItemId && inventoryItems.find(i=>i.id===editingInventoryItemId);
+    const row = { id: editingInventoryItemId||nextInventoryItemId(), name, notes, archived: existing ? existing.archived : false };
     await sbUpsert('inventory_items', row);
     if(editingInventoryItemId){
       const idx=inventoryItems.findIndex(i=>i.id===editingInventoryItemId);
@@ -753,6 +754,26 @@ function deleteInventoryItem(id, name){
       alert(msg);
     }
   });
+}
+
+async function archiveInventoryItem(id, name){
+  showConfirm(`Archive inventory item "${name}"? It has stock history, so it'll be moved to the bottom of the list instead of deleted.`, async () => {
+    try{
+      await sbPatch('inventory_items', 'id=eq.'+encodeURIComponent(id), {archived:true});
+      const i = inventoryItems.find(i=>i.id===id);
+      if(i) i.archived = true;
+      _refreshInventoryView();
+    }catch(e){ alert('Archive failed: '+e.message); }
+  }, {confirmLabel:'Archive', isDanger:false});
+}
+
+async function unarchiveInventoryItem(id){
+  try{
+    await sbPatch('inventory_items', 'id=eq.'+encodeURIComponent(id), {archived:false});
+    const i = inventoryItems.find(i=>i.id===id);
+    if(i) i.archived = false;
+    _refreshInventoryView();
+  }catch(e){ alert('Restore failed: '+e.message); }
 }
 
 // ── Inventory stock receiving (inline log entry form) ────────
@@ -1362,20 +1383,50 @@ async function generateBadge(url) {
 }
 
 // ── Colours modal ─────────────────────────────────────────
+// Colour names referenced by any completed order's colour-type option
+// values — used to block permanently deleting a colour that's part of
+// historical order data (offer Archive instead, same pattern as categories).
+function usedColourNames(){
+  const used=new Set();
+  orders.filter(o=>o.status==='Complete').forEach(o=>{
+    if(!o.options) return;
+    o.options.split('||').forEach(part=>{
+      const idx=part.indexOf(':'); if(idx<0) return;
+      const fieldName=part.slice(0,idx).trim();
+      const opt=opts.find(op=>op.name===fieldName && (op.display==='colour'||op.name.toLowerCase().includes('colour')||op.name.toLowerCase().includes('color')));
+      if(!opt) return;
+      part.slice(idx+1).split('|').map(s=>s.trim()).filter(Boolean).forEach(name=>used.add(name.toLowerCase()));
+    });
+  });
+  return used;
+}
+
 function renderColourList(){
-  document.getElementById('colourList').innerHTML=colours.map((c,i)=>`
-    <div class="colour-row">
+  const used=usedColourNames();
+  document.getElementById('colourList').innerHTML=colours.map((c,i)=>{
+    const isUsed=used.has((c.name||'').toLowerCase());
+    const delBtn = c.archived
+      ? `<button class="icon-btn" onclick="unarchiveColour(${i})" title="Unarchive"><i class="ti ti-archive-off"></i></button>`
+      : isUsed
+        ? `<button class="icon-btn" onclick="archiveColour(${i})" title="Archive — used in completed orders"><i class="ti ti-archive"></i></button>`
+        : `<button class="icon-btn del" onclick="removeColour(${i})"><i class="ti ti-trash"></i></button>`;
+    return `
+    <div class="colour-row${c.archived?' colour-archived':''}">
       <div class="colour-swatch" style="background:${esc(c.code||'#cccccc')}"></div>
-      <input type="text" value="${esc(c.name)}" placeholder="Colour name" oninput="colours[${i}].name=this.value">
+      <input type="text" value="${esc(c.name)}" placeholder="Colour name" oninput="colours[${i}].name=this.value" ${c.archived?'disabled':''}>
       <div class="colour-hex-wrap">
         <input type="text" value="${esc(c.code||'#cccccc')}" placeholder="#000000" maxlength="7"
-          oninput="colours[${i}].code=this.value;updateSwatch(${i},this.value)">
+          oninput="colours[${i}].code=this.value;updateSwatch(${i},this.value)" ${c.archived?'disabled':''}>
         <button class="copy-hex-btn" onclick="copyHex('${esc(c.code||'')}',this)" title="Copy hex code"><i class="ti ti-copy"></i></button>
       </div>
-      <div class="avail-check"><input type="checkbox" ${(c.available===true||String(c.available).toLowerCase()==='true'||c.available==='TRUE'||c.available===1)?'checked':''} onchange="colours[${i}].available=this.checked" title="Available"></div>
-      <button class="icon-btn del" onclick="removeColour(${i})"><i class="ti ti-trash"></i></button>
-    </div>`).join('');
+      <div class="avail-check"><input type="checkbox" ${(c.available===true||String(c.available).toLowerCase()==='true'||c.available==='TRUE'||c.available===1)?'checked':''} onchange="colours[${i}].available=this.checked" title="Available" ${c.archived?'disabled':''}></div>
+      ${delBtn}
+    </div>`;
+  }).join('');
 }
+
+function archiveColour(i){colours[i].archived=true;renderColourList();}
+function unarchiveColour(i){colours[i].archived=false;renderColourList();}
 
 function updateSwatch(i, code){
   // Update the swatch colour live as hex is typed, without full re-render
@@ -1406,7 +1457,7 @@ function copyHex(code, btn){
 }
 
 function addColour(){
-  colours.push({id:nextColourId(),name:'',code:'#cccccc',available:true});
+  colours.push({id:nextColourId(),name:'',code:'#cccccc',available:true,archived:false});
   renderColourList();
 }
 function removeColour(i){colours.splice(i,1);renderColourList();}
@@ -1414,7 +1465,7 @@ function removeColour(i){colours.splice(i,1);renderColourList();}
 async function saveColours(){
   setStatus('spin','Saving colours…');
   try{
-    await sbReplace('colours', colours.map(c=>({id:c.id,name:c.name,code:c.code,available:c.available})));
+    await sbReplace('colours', colours.map(c=>({id:c.id,name:c.name,code:c.code,available:c.available,archived:c.archived||false})));
     setStatus('ok','Colours saved · '+colours.length+' colours');
   }catch(e){
     setStatus('err','Save failed: '+e.message);

@@ -823,6 +823,7 @@ input[type=number]{-moz-appearance:textfield;}
 .cat-archived{opacity:0.45;}
 .cat-archived .cat-block-hdr{background:var(--surface);}
 .cat-archived input,.cat-archived select{color:var(--muted)!important;}
+.colour-archived{opacity:0.45;}
 
 /* ── Filter panel ── */
 .filter-wrap{position:relative;}
