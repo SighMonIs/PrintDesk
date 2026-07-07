@@ -11,7 +11,6 @@ function applySidebarMode(mode){
   const sidebar = document.getElementById('sidebar');
   const app     = document.getElementById('mainApp');
 
-  // Remove all mode classes
   sidebar.classList.remove('pinned','force-collapsed');
   app.classList.remove('sidebar-pinned');
 
@@ -21,42 +20,11 @@ function applySidebarMode(mode){
   } else if(mode === 'collapsed'){
     sidebar.classList.add('force-collapsed');
   }
-  // 'hover' = default, no extra classes needed
-
-  updateSidebarMenuDots();
-}
-
-function updateSidebarMenuDots(){
-  ['expanded','collapsed','hover'].forEach(m=>{
-    const dot = document.getElementById('dot'+m.charAt(0).toUpperCase()+m.slice(1));
-    if(dot) dot.classList.toggle('active', sidebarMode===m);
-  });
 }
 
 function setSidebarMode(mode){
   applySidebarMode(mode);
-  closeSidebarMenu();
   savePreferences();
-}
-
-function toggleSidebarMenu(e){
-  e.stopPropagation();
-  const menu = document.getElementById('sidebarMenu');
-  if(menu.classList.contains('open')){
-    menu.classList.remove('open');
-    return;
-  }
-  // Position relative to the button using fixed coords
-  const btn  = document.getElementById('sidebarPin');
-  const rect = btn.getBoundingClientRect();
-  menu.style.top  = (rect.bottom + 4) + 'px';
-  menu.style.left = rect.left + 'px';
-  menu.classList.add('open');
-  updateSidebarMenuDots();
-}
-
-function closeSidebarMenu(){
-  document.getElementById('sidebarMenu').classList.remove('open');
 }
 
 // Mobile sidebar
@@ -68,11 +36,8 @@ function closeMobileSidebar(){
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sidebarOverlay').classList.remove('mobile-open');
 }
-// Close menu and mobile sidebar on outside click
+// Close mobile sidebar on outside click
 document.addEventListener('click', e=>{
-  if(!e.target.closest('#sidebarMenu') && !e.target.closest('#sidebarPin')){
-    closeSidebarMenu();
-  }
   if(window.innerWidth<=640 && e.target.closest('.sidebar-item')){
     closeMobileSidebar();
   }
@@ -290,7 +255,7 @@ async function loadPreferences(){
     if(rows.length){
       const p = rows[0];
       if(p.accent_colour)  applyAccent(p.accent_colour, p.accent_colour2||darken(p.accent_colour,0.18), false);
-      if(p.sort_key){ sortKey=p.sort_key; sortDir=p.sort_dir||1; updateSortArrow(); }
+      if(p.sort_key){ sortKey=p.sort_key; sortDir=p.sort_dir||1; updateSortUI(); }
       if(p.sidebar_pinned !== undefined){ sidebarMode = p.sidebar_pinned === true ? 'expanded' : (p.sidebar_mode||'hover'); applySidebarMode(sidebarMode); }
     }
   } catch(e) { console.warn('Could not load preferences:', e); }
@@ -350,7 +315,6 @@ function sbUrl(table, query){
 }
 
 // ── State ──────────────────────────────────────────────────
-let GAS_URL = ''; // kept for legacy refs, not used
 let orders    = [];
 let cats      = [];   // [{id,name,price}]
 let opts      = [];   // [{id,catId,name,display,options}]
@@ -382,11 +346,6 @@ function padN(n,l){return String(n).padStart(l,'0');}
 function nextOrderId(){
   const nums=orders.map(o=>o.orderId).filter(id=>/^O\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(1)));
   return 'O'+padN((nums.length?Math.max(...nums):0)+1,10);
-}
-function nextRowId(){
-  // Legacy numeric IDs — kept for reference only, not used for new rows
-  const nums=orders.map(o=>o.id).filter(id=>/^\d+$/.test(String(id))).map(id=>parseInt(id));
-  return padN((nums.length?Math.max(...nums):0)+1,10);
 }
 function makeRowId(orderId, itemIndex){
   // Format: O0001-1, O0001-2 etc — ties each row to its order
@@ -541,17 +500,6 @@ function normalise(o){
     customer_id: String(o.customer_id                  ||'')
   };
 }
-
-function defaultCats(){
-  return[
-    {id:'C0001',name:'Miniatures',price:12},
-    {id:'C0002',name:'Functional Parts',price:18},
-    {id:'C0003',name:'Cosplay Props',price:35},
-    {id:'C0004',name:'Decorative',price:15},
-    {id:'C0005',name:'Custom',price:25}
-  ];
-}
-
 
 function normaliseCustomer(c){
   return{

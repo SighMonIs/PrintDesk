@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6,18 +6,20 @@
 <title>PrintDesk</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
-<script src="config.js" onerror="console.warn('config.js not found &rdquo; using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=3.5.73">
+<script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
+<link rel="stylesheet" href="styles.css?v=1.1.0">
+<link rel="stylesheet" href="basic.css?v=1.1.0" id="basicOverride" disabled>
 
 <script>
 // Fallback if config.js missing
 window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
+if(localStorage.getItem('pd_stylish')==='0') document.getElementById('basicOverride').disabled=false;
 </script>
 </head>
 
 <body>
 
-<!-- â•â• Set Password Screen (for invited users) â•â• -->
+<!-- ══ Set Password Screen (for invited users) ══ -->
 <div id="setPasswordScreen" class="login-screen" style="display:none">
   <div class="login-card">
     <div class="login-logo">PrintDesk</div>
@@ -71,161 +73,123 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
     </div>
   </div>
 
-  <!-- Sidebar -->
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-top">
-      <div class="sidebar-logo">
-        <i class="ti ti-printer sidebar-logo-icon"></i>
-        <span class="sidebar-label sidebar-logo-text">PrintDesk</span>
-      </div>
-      <div class="sidebar-top-actions">
-        <button class="sidebar-pin" id="sidebarPin" onclick="toggleSidebarMenu(event)" title="Sidebar controls">
-          <i class="ti ti-layout-sidebar"></i>
-        </button>
-        <button class="sidebar-close-btn" onclick="closeMobileSidebar()" title="Close">
-          <i class="ti ti-x"></i>
-        </button>
-      </div>
-      <!-- Sidebar controls popup -->
-      <div class="sidebar-menu" id="sidebarMenu">
-        <div class="sidebar-menu-title">Sidebar Controls</div>
-        <button class="sidebar-menu-item" id="smExpanded" onclick="setSidebarMode('expanded')">
-          <span class="sidebar-menu-dot" id="dotExpanded"></span> Expanded
-        </button>
-        <button class="sidebar-menu-item" id="smCollapsed" onclick="setSidebarMode('collapsed')">
-          <span class="sidebar-menu-dot" id="dotCollapsed"></span> Collapsed
-        </button>
-        <button class="sidebar-menu-item" id="smHover" onclick="setSidebarMode('hover')">
-          <span class="sidebar-menu-dot" id="dotHover"></span> Expand on hover
-        </button>
-      </div>
+  <!-- Top bar -->
+  <nav class="topbar" id="sidebar">
+    <div class="topbar-logo">
+      <i class="ti ti-printer"></i>
     </div>
-    <div class="sidebar-nav">
-      <button class="sidebar-item primary-item" onclick="openAddModal()">
-        <i class="ti ti-plus"></i><span class="sidebar-label">New Order</span>
+    <div class="topbar-nav">
+      <button class="topbar-item primary-item" onclick="openAddModal()" title="New Order">
+        <i class="ti ti-plus"></i>
+        <span class="sidebar-badge" id="badge-orders"></span>
       </button>
-      <div class="sidebar-divider"></div>
-      <button class="sidebar-item" onclick="openCustomersModal()">
-        <i class="ti ti-address-book"></i><span class="sidebar-label">Customers</span>
+      <button class="topbar-item active" data-view="orders" onclick="setSidebarView('orders')" title="Orders">
+        <i class="ti ti-inbox"></i>
       </button>
-      <button class="sidebar-item" onclick="openColourModal()">
-        <i class="ti ti-brush"></i><span class="sidebar-label">Colours</span>
+      <button class="topbar-item" data-view="customers" onclick="setSidebarView('customers')" title="Customers">
+        <i class="ti ti-address-book"></i>
+        <span class="sidebar-badge" id="badge-customers"></span>
       </button>
-      <button class="sidebar-item" onclick="openCatModal()">
-        <i class="ti ti-category"></i><span class="sidebar-label">Categories</span>
+      <button class="topbar-item" data-view="colours" onclick="setSidebarView('colours')" title="Colours">
+        <i class="ti ti-brush"></i>
+        <span class="sidebar-badge" id="badge-colours"></span>
       </button>
-      <button class="sidebar-item" onclick="openStatsModal()">
-        <i class="ti ti-chart-bar"></i><span class="sidebar-label">Stats</span>
+      <button class="topbar-item" data-view="categories" onclick="setSidebarView('categories')" title="Categories">
+        <i class="ti ti-category"></i>
+        <span class="sidebar-badge" id="badge-categories"></span>
       </button>
-      <button class="sidebar-item" onclick="window.location.href='/badge/'">
-        <i class="ti ti-badge"></i><span class="sidebar-label">Badges</span>
+      <button class="topbar-item" data-view="stats" onclick="setSidebarView('stats')" title="Stats">
+        <i class="ti ti-chart-bar"></i>
+      </button>
+      <button class="topbar-item" onclick="window.location.href='/badge/'" title="Badges">
+        <i class="ti ti-badge"></i>
       </button>
     </div>
-    <div class="sidebar-bottom">
-      <div class="sidebar-divider"></div>
-      <button class="sidebar-item" onclick="openSettings()">
-        <i class="ti ti-settings"></i><span class="sidebar-label">Settings</span>
+    <div class="topbar-end">
+      <button class="topbar-item" data-view="settings" onclick="setSidebarView('settings')" title="Settings">
+        <i class="ti ti-settings"></i>
       </button>
-      <button class="sidebar-item" onclick="openUsersModal()">
-        <i class="ti ti-users"></i><span class="sidebar-label">Users</span>
+      <button class="topbar-item" data-view="users" onclick="setSidebarView('users')" title="Users">
+        <i class="ti ti-users"></i>
       </button>
-      <button class="sidebar-item sidebar-logout" onclick="doLogout()">
-        <i class="ti ti-logout"></i><span class="sidebar-label">Sign out</span>
+      <button class="topbar-item topbar-logout" onclick="doLogout()" title="Sign out">
+        <i class="ti ti-logout"></i>
       </button>
-
     </div>
   </nav>
 
-  <!-- Mobile overlay -->
-  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+<div class="inbox-layout" id="mainContent">
 
-  <!-- Mobile top bar: hamburger + search (hidden on desktop via CSS) -->
-  <div class="mobile-topbar">
-    <button class="mobile-hamburger" style="position:static;flex-shrink:0;margin:0" onclick="openMobileSidebar()">
-      <i class="ti ti-menu-2"></i>
-    </button>
-    <input type="text" id="search-mobile" placeholder="Search&hellip;" oninput="document.getElementById('search').value=this.value;renderTable()">
-  </div>
+  <!-- Hidden table for renderTable() compatibility -->
+  <table style="display:none"><tbody id="tbody"></tbody></table>
 
-<div class="app" id="mainContent">
-
-  <!-- Hidden stat elements still needed for updateStats() -->
-  <span id="s-total" style="display:none"></span>
-  <span id="s-pending" style="display:none"></span>
-  <span id="s-printing" style="display:none"></span>
-  <span id="s-completed" style="display:none"></span>
-  <span id="s-revenue" style="display:none"></span>
-  <span id="s-cat-breakdown" style="display:none"></span>
-  <span id="s-badge-breakdown" style="display:none"></span>
-  <span id="s-payment-breakdown" style="display:none"></span>
-
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <input type="text" id="search" placeholder="Search&hellip;" oninput="renderTable()">
-    <div class="filter-wrap" id="filterWrap">      <button class="btn" id="filterBtn" onclick="toggleFilterPanel(event)">
-        <i class="ti ti-filter"></i> Filters <span id="filterCount" style="display:none;background:var(--accent);color:var(--bg);font-size:10px;padding:1px 6px;border-radius:999px;margin-left:4px"></span>
-      </button>
-      <div class="filter-panel" id="filterPanel" style="display:none">
-        <div class="filter-section-title">Status</div>
-        <label class="filter-check"><input type="checkbox" data-filter="status" value="Pending" checked onchange="renderTable();updateFilterCount()"> Pending</label>
-        <label class="filter-check"><input type="checkbox" data-filter="status" value="Printing" checked onchange="renderTable();updateFilterCount()"> Printing</label>
-        <label class="filter-check"><input type="checkbox" data-filter="status" value="Complete" checked onchange="renderTable();updateFilterCount()"> Complete</label>
-        <label class="filter-check"><input type="checkbox" data-filter="status" value="On Hold" checked onchange="renderTable();updateFilterCount()"> On Hold</label>
-        <label class="filter-check"><input type="checkbox" data-filter="status" value="Cancelled" checked onchange="renderTable();updateFilterCount()"> Cancelled</label>
-        <div class="filter-section-title" style="margin-top:10px">Category</div>
-        <div id="filterCatChecks"></div>
-        <div class="filter-section-title" style="margin-top:10px">Payment</div>
-        <div id="filterPayChecks"></div>
+  <!-- ── Column 2: Order list ── -->
+  <div class="inbox-list-col">
+    <div class="inbox-list-header">
+      <div class="inbox-search-row">
+        <i class="ti ti-search inbox-search-icon"></i>
+        <input type="text" id="search" placeholder="Search&hellip;" oninput="renderTable()">
+        <input type="text" id="search-mobile" style="display:none" oninput="document.getElementById('search').value=this.value;renderTable()">
+      </div>
+      <div class="inbox-tabs-pill" style="margin-bottom:0">
+        <button class="inbox-tab-pill active" data-tab="all"      onclick="setInboxTab('all')">All</button>
+        <button class="inbox-tab-pill"        data-tab="pending"   onclick="setInboxTab('pending')">Pending</button>
+        <button class="inbox-tab-pill"        data-tab="printing"  onclick="setInboxTab('printing')">Printing</button>
+        <button class="inbox-tab-pill"        data-tab="complete"  onclick="setInboxTab('complete')">Complete</button>
+      </div>
+      <div class="inbox-sort-row">
+        <div class="sort-btn-wrap" id="sortWrap">
+          <div class="sort-btn-group">
+            <button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)">
+              <i class="ti ti-arrows-sort"></i>
+            </button>
+            <button class="sort-btn-dir" id="sortDirBtn" onclick="toggleSortDir()" title="Toggle sort direction">
+              <i class="ti ti-arrow-up" id="sortDirIcon"></i>
+            </button>
+          </div>
+          <div class="sort-panel" id="sortPanel" style="display:none"></div>
+        </div>
+      </div>
+      <!-- Hidden filter panel still needed for category/payment filtering -->
+      <div class="filter-wrap" id="filterWrap" style="display:none">
+        <div class="filter-panel" id="filterPanel" style="display:none">
+          <div class="filter-section-title">Status</div>
+          <label class="filter-check"><input type="checkbox" data-filter="status" value="Pending" checked onchange="renderTable();updateFilterCount()"> Pending</label>
+          <label class="filter-check"><input type="checkbox" data-filter="status" value="Printing" checked onchange="renderTable();updateFilterCount()"> Printing</label>
+          <label class="filter-check"><input type="checkbox" data-filter="status" value="Complete" checked onchange="renderTable();updateFilterCount()"> Complete</label>
+          <label class="filter-check"><input type="checkbox" data-filter="status" value="On Hold" checked onchange="renderTable();updateFilterCount()"> On Hold</label>
+          <label class="filter-check"><input type="checkbox" data-filter="status" value="Cancelled" checked onchange="renderTable();updateFilterCount()"> Cancelled</label>
+          <div class="filter-section-title" style="margin-top:10px">Category</div>
+          <div id="filterCatChecks"></div>
+          <div class="filter-section-title" style="margin-top:10px">Payment</div>
+          <div id="filterPayChecks"></div>
+        </div>
+        <span id="filterCount" style="display:none"></span>
       </div>
     </div>
-    <div class="sort-btn-wrap" id="sortWrap">
-      <div class="sort-btn-group">
-        <button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)">
-          <i class="ti ti-arrows-sort"></i> Sort
-        </button>
-        <button class="sort-btn-dir" id="sortDirBtn" onclick="toggleSortDir()" title="Toggle sort direction">
-          <i class="ti ti-arrow-up" id="sortDirIcon"></i>
-        </button>
-      </div>
-      <div class="sort-panel" id="sortPanel" style="display:none"></div>
+    <div class="inbox-list" id="inboxList">
+      <div class="inbox-empty-state"><i class="ti ti-loader-2"></i> Loading&hellip;</div>
     </div>
-  </div>
-  <div class="tbl-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th style="width:44px" data-key="orderId" >#</th>
-          <th style="width:130px" data-key="customer" >Customer</th>
-          <th style="width:170px">Address</th>
-          <th style="width:150px" data-key="catId" >Category</th>
-          <th style="width:160px">Options</th>
-          <th style="width:36px"></th>
-          <th style="width:44px" data-key="qty" >Qty</th>
-          <th style="width:80px" data-key="total" >Total</th>
-          <th style="width:78px;text-align:center" data-key="status" >Status</th>
-          <th style="width:40px;text-align:center">$</th>
-          <th style="width:66px;text-align:right">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
-  <footer class="site-footer">
-    <div class="footer-line">&copy; 2026 PrintDesk. All rights reserved.</div>
-    <div class="footer-line">
-      <span>Built with <i class="ti ti-heart" style="font-size:11px;color:var(--red)"></i> for 3D printing by Claude</span>
-    </div>
-    <div class="footer-line">
-      <span id="footerVersion">v3.5.78</span>
-      <span class="footer-sep">&middot;</span>
+    <div class="inbox-list-footer">
+      <span id="footerVersion">v1.1.1</span>
+      <span style="color:var(--border2)">&middot;</span>
       <span id="statusMsg" class="footer-status">Loading&hellip;</span>
     </div>
-  </footer>
-</div><!-- end app/mainContent -->
+  </div>
+
+  <!-- ── Column 3: Order detail ── -->
+  <div class="inbox-detail-col" id="inboxDetail">
+    <div class="inbox-no-selection">
+      <i class="ti ti-inbox"></i>
+      <p>Select an order</p>
+    </div>
+  </div>
+
+</div><!-- end inbox-layout/mainContent -->
 </div><!-- end mainApp -->
 
 
-<!-- â•â• Order Modal â•â• -->
+<!-- ══ Order Modal ══ -->
 <div class="modal-bg" id="orderModal" onclick="if(event.target===this)closeModal()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title-row">
@@ -250,7 +214,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 
     <!-- New customer details panel -->
     <div id="newCustomerPanel" style="display:none;background:rgba(92,184,122,0.06);border:1px solid rgba(92,184,122,0.25);border-radius:var(--radius-lg);padding:12px 14px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:500;color:var(--green);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px"><i class="ti ti-user-plus" style="margin-right:6px"></i>New customer &rdquo; add details</div>
+      <div style="font-size:11px;font-weight:500;color:var(--green);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px"><i class="ti ti-user-plus" style="margin-right:6px"></i>New customer — add details</div>
       <div class="field-row">
         <div class="field"><label>Email</label><input type="email" id="nc-email" placeholder="optional"></div>
         <div class="field"><label>Phone</label><input type="tel" id="nc-phone" placeholder="optional"></div>
@@ -294,7 +258,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<!-- â•â• Note Modal â•â• -->
+<!-- ══ Note Modal ══ -->
 <div class="modal-bg" id="noteModal" onclick="if(event.target===this)closeNoteModal()">
   <div class="modal sm" onclick="event.stopPropagation()">
     <div class="modal-title" id="noteModalTitle">Note</div>
@@ -303,11 +267,11 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<!-- â•â• Categories Modal â•â• -->
+<!-- ══ Categories Modal ══ -->
 <div class="modal-bg" id="catModal" onclick="if(event.target===this)closeCatModal()">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:720px">
     <div class="modal-title">Manage categories</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Each category can have options &rdquo; extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical" style="font-size:12px"></i> to reorder options.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.7">Each category can have options — extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical" style="font-size:12px"></i> to reorder options.</p>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <label class="toolbar-check" style="height:28px;padding:0 8px;font-size:11px">
         <input type="checkbox" id="showArchivedCb" onchange="toggleShowArchived(this)"> Show archived
@@ -323,7 +287,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Colours Modal â•â• -->
+<!-- ══ Colours Modal ══ -->
 <div class="modal-bg" id="colourModal" onclick="if(event.target===this)closeColourModal()">
   <div class="modal md" onclick="event.stopPropagation()">
     <div class="modal-title"><i class="ti ti-brush" style="margin-right:8px;vertical-align:-2px"></i>Colours</div>
@@ -341,7 +305,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Stats Modal â•â• -->
+<!-- ══ Stats Modal ══ -->
 <div class="modal-bg" id="statsModal" onclick="if(event.target===this)closeStatsModal()">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:640px">
     <div class="modal-title"><i class="ti ti-chart-bar" style="margin-right:8px;vertical-align:-2px"></i>Stats</div>
@@ -352,7 +316,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<!-- â•â• Settings Modal â•â• -->
+<!-- ══ Settings Modal ══ -->
 <!-- Badge Batch Modal -->
 <div class="modal-bg" id="badgeBatchModal">
   <div class="modal sm" onclick="event.stopPropagation()">
@@ -436,12 +400,21 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
             <i class="ti ti-chevron-down cp-arrow"></i>
           </div>
           <div class="colour-picker-list" id="cpl-accent-sel" style="display:none">
-            <div class="cp-none" onclick="selectAccentColour('','',this)">&rdquo; none / custom &rdquo;</div>
+            <div class="cp-none" onclick="selectAccentColour('','',this)">— none / custom —</div>
           </div>
         </div>
       </div>
     </div>
     <input type="color" id="customColour" style="display:none" oninput="previewAccent(this.value)">
+
+    <div class="settings-section">
+      <div class="settings-section-title">Appearance</div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="settingsStylish" checked style="accent-color:var(--accent);width:14px;height:14px" onchange="applyStylish(this.checked)">
+        <span style="font-size:12px;font-weight:500">Stylish</span>
+      </label>
+      <div style="font-size:11px;color:var(--muted);padding-left:22px">Untick for a plain grey/black/white look with no shadows or effects.</div>
+    </div>
 
     <div class="settings-section">
       <div class="settings-section-title">Payment options</div>
@@ -468,7 +441,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 14px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:4px">
             <input type="checkbox" id="settingsNotifyDaily" style="accent-color:var(--accent);width:14px;height:14px">
-            <span style="font-size:12px;font-weight:500">Daily badge digest &rdquo; 4PM Melbourne</span>
+            <span style="font-size:12px;font-weight:500">Daily badge digest — 4PM Melbourne</span>
           </label>
           <div style="font-size:11px;color:var(--muted);padding-left:22px">Sends a summary email if any badge orders were added that day. No email if nothing new.</div>
         </div>
@@ -493,7 +466,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Users Modal â•â• -->
+<!-- ══ Users Modal ══ -->
 <div class="modal-bg" id="usersModal" onclick="if(event.target===this)closeUsersModal()">
   <div class="modal md" onclick="event.stopPropagation()">
     <div class="modal-title-row">
@@ -535,7 +508,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Customers Modal â•â• -->
+<!-- ══ Customers Modal ══ -->
 <div class="modal-bg" id="customersModal" onclick="if(event.target===this)closeCustomersModal()">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:640px">
     <div class="modal-title-row">
@@ -579,7 +552,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
 </div>
 
 
-<!-- â•â• Confirm Dialog â•â• -->
+<!-- ══ Confirm Dialog ══ -->
 <div class="confirm-bg" id="confirmDialog">
   <div class="confirm-box" onclick="event.stopPropagation()">
     <div class="confirm-msg" id="confirmMsg"></div>
@@ -602,9 +575,9 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   </div>
 </div>
 
-<script src="api.js?v=3.5.73"></script>
-<script src="ui.js?v=3.5.73"></script>
-<script src="app.js?v=3.5.73"></script>
+<script src="api.js?v=1.1.0"></script>
+<script src="ui.js?v=1.1.0"></script>
+<script src="app.js?v=1.1.0"></script>
 </body>
 </html>
 

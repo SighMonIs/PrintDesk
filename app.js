@@ -548,7 +548,7 @@ function openAddCustomer(){
   document.getElementById('cf-title').textContent='Add customer';
   document.getElementById('customerForm').style.display='';
   document.getElementById('cf-name').focus();
-  setTimeout(()=>attachNominatim(document.getElementById('cf-address'), null), 50);
+  setTimeout(()=>attachGooglePlaces(document.getElementById('cf-address'), null), 50);
 }
 
 function openEditCustomer(id){
@@ -564,7 +564,7 @@ function openEditCustomer(id){
   document.getElementById('cf-title').textContent='Edit customer';
   document.getElementById('customerForm').style.display='';
   document.getElementById('cf-name').focus();
-  setTimeout(()=>attachNominatim(document.getElementById('cf-address'), null), 50);
+  setTimeout(()=>attachGooglePlaces(document.getElementById('cf-address'), null), 50);
 }
 
 function closeCustomerForm(){
@@ -1020,44 +1020,52 @@ function _batchBuildFilenameMap(items) {
   };
 }
 
+async function _runBadgeLoop(items, assets, onProgress) {
+  const entries = [], skipped = [], fnMap = _batchBuildFilenameMap(items);
+  for (let i = 0; i < items.length; i++) {
+    const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
+    const name = (rawName || 'NAME').toUpperCase();
+    onProgress(i, items.length, name);
+    await new Promise(r => setTimeout(r, 0));
+    const layerConfig = assets.layerConfig.map(l => ({ ...l }));
+    if (colourStr) {
+      colourStr.split('|').map(s => s.trim()).forEach((colName, idx) => {
+        if (idx >= layerConfig.length) return;
+        const c = colours.find(c => c.name.toLowerCase() === colName.toLowerCase());
+        if (c) { layerConfig[idx].hex = c.code; layerConfig[idx].colourId = c.id; }
+      });
+    }
+    const backing = _badgeBuildBacking(backingStr);
+    if (backing) {
+      const bb = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
+      if (bb.x2 - bb.x1 < (backing.type === 'round' ? backing.diameter : (backing.w || 0))) {
+        skipped.push(name); continue;
+      }
+    }
+    const _kc = backing?.type === 'keychain';
+    const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc });
+    entries.push({ name: fnMap.next(rawName, backingStr), data: result.zip });
+  }
+  return { entries, skipped };
+}
+
+async function _ensureBadgeDeps(assets) {
+  await _loadBadge3mfDeps();
+  if (!_badgeFont) {
+    _badgeFont = await new Promise((res, rej) =>
+      opentype.load(assets.fontPath, (err, f) => err ? rej(err) : res(f))
+    );
+  }
+}
+
 async function generateAllBadgesZip(items) {
   if (!items || !items.length) return;
   const total = items.length;
   _batchShowProgress(`Generating ${total} badges…`);
   try {
-    await _loadBadge3mfDeps();
     const assets = await _loadBadgeAssets();
-    if (!_badgeFont) {
-      _badgeFont = await new Promise((res, rej) =>
-        opentype.load(assets.fontPath, (err, f) => err ? rej(err) : res(f))
-      );
-    }
-    const entries = []; const skipped = [];
-    const fnMap = _batchBuildFilenameMap(items);
-    for (let i = 0; i < items.length; i++) {
-      const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
-      const name = (rawName || 'NAME').toUpperCase();
-      _batchUpdateProgress(i, total, name);
-      await new Promise(r => setTimeout(r, 0)); // yield to browser to repaint
-      const layerConfig = assets.layerConfig.map(l => ({ ...l }));
-      if (colourStr) {
-        colourStr.split('|').map(s => s.trim()).forEach((colName, idx) => {
-          if (idx >= layerConfig.length) return;
-          const c = colours.find(c => c.name.toLowerCase() === colName.toLowerCase());
-          if (c) { layerConfig[idx].hex = c.code; layerConfig[idx].colourId = c.id; }
-        });
-      }
-      const backing = _badgeBuildBacking(backingStr);
-      if (backing) {
-        const bb2 = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
-        if (bb2.x2 - bb2.x1 < (backing.type === 'round' ? backing.diameter : (backing.w || 0))) {
-          skipped.push(name); continue;
-        }
-      }
-      const _kc = backing?.type === 'keychain';
-      const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc });
-      entries.push({ name: fnMap.next(rawName, backingStr), data: result.zip });
-    }
+    await _ensureBadgeDeps(assets);
+    const { entries, skipped } = await _runBadgeLoop(items, assets, (i, n, name) => _batchUpdateProgress(i, n, name));
     _batchUpdateProgress(total, total, 'Building ZIP…');
     await new Promise(r => setTimeout(r, 0));
     const zipData = _buildOuterZip(entries);
@@ -1078,52 +1086,19 @@ async function generateAllBadges(items) {
   const total = items.length;
   _batchShowProgress(`Generating ${total} badges…`);
   try {
-    await _loadBadge3mfDeps();
     const assets = await _loadBadgeAssets();
-    if (!_badgeFont) {
-      _badgeFont = await new Promise((res, rej) =>
-        opentype.load(assets.fontPath, (err, f) => err ? rej(err) : res(f))
-      );
-    }
-    const files = [];
-    const fnMap = _batchBuildFilenameMap(items);
-    for (let i = 0; i < items.length; i++) {
-      const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
-      const name = (rawName || 'NAME').toUpperCase();
-      _batchUpdateProgress(i, total * 2, name);
-      await new Promise(r => setTimeout(r, 0));
-      const layerConfig = assets.layerConfig.map(l => ({ ...l }));
-      if (colourStr) {
-        colourStr.split('|').map(s => s.trim()).forEach((colName, idx) => {
-          if (idx >= layerConfig.length) return;
-          const c = colours.find(c => c.name.toLowerCase() === colName.toLowerCase());
-          if (c) { layerConfig[idx].hex = c.code; layerConfig[idx].colourId = c.id; }
-        });
-      }
-      const backing = _badgeBuildBacking(backingStr);
-      if (backing) {
-        const bb2 = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
-        if (bb2.x2 - bb2.x1 < (backing.type === 'round' ? backing.diameter : (backing.w || 0))) {
-          files.push({ skipped: name }); continue;
-        }
-      }
-      const _kc2 = backing?.type === 'keychain';
-      const result = generate3MF({ name, layerConfig, backing: _kc2 ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc2 });
-      files.push({ ...result, filename: fnMap.next(rawName, backingStr) });
-    }
-    const toDownload = files.filter(f => !f.skipped);
-    const skipped = files.filter(f => f.skipped).map(f => f.skipped);
-    for (let i = 0; i < toDownload.length; i++) {
-      _batchUpdateProgress(total + i, total * 2, `Downloading ${toDownload[i].filename}…`);
-      const { zip, filename } = toDownload[i];
-      const b = new Blob([zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
+    await _ensureBadgeDeps(assets);
+    const { entries, skipped } = await _runBadgeLoop(items, assets, (i, n, name) => _batchUpdateProgress(i, n * 2, name));
+    for (let i = 0; i < entries.length; i++) {
+      _batchUpdateProgress(total + i, total * 2, `Downloading ${entries[i].name}…`);
+      const b = new Blob([entries[i].data], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
       const u = URL.createObjectURL(b);
       const a = document.createElement('a');
-      a.href = u; a.download = filename; a.click();
+      a.href = u; a.download = entries[i].name; a.click();
       URL.revokeObjectURL(u);
       await new Promise(r => setTimeout(r, 250));
     }
-    _batchShowDone(`${toDownload.length} of ${total} badges downloaded`, skipped);
+    _batchShowDone(`${entries.length} of ${total} badges downloaded`, skipped);
   } catch(e) {
     console.error('Generate all badges error:', e);
     _batchShowError(e.message);
@@ -1138,14 +1113,8 @@ async function generateBadge(url) {
     const backingStr = params.get('backing') || 'Magnet';
     const colourStr  = params.get('colours') || '';
 
-    await _loadBadge3mfDeps();
     const assets = await _loadBadgeAssets();
-
-    if (!_badgeFont) {
-      _badgeFont = await new Promise((res, rej) =>
-        opentype.load(assets.fontPath, (err, f) => err ? rej(err) : res(f))
-      );
-    }
+    await _ensureBadgeDeps(assets);
 
     const layerConfig = assets.layerConfig.map(l => ({ ...l }));
     if (colourStr) {
@@ -1191,7 +1160,6 @@ async function generateBadge(url) {
 
 // ── Stats modal ────────────────────────────────────────────
 function openStatsModal(){
-  updateStats();
   const grid = document.getElementById('statsGrid');
 
   // Collect data
@@ -1318,15 +1286,12 @@ function removeColour(i){colours.splice(i,1);renderColourList();}
 
 async function saveColours(){
   setStatus('spin','Saving colours…');
-  console.log('Saving colours:', colours);
   try{
-    const result=await apiPayload({action:'saveColours',colours});
-    console.log('Save result:', result);
+    await sbReplace('colours', colours.map(c=>({id:c.id,name:c.name,code:c.code,available:c.available})));
     setStatus('ok','Colours saved · '+colours.length+' colours');
     closeColourModal();
   }catch(e){
     setStatus('err','Save failed: '+e.message);
-    alert('Save failed: '+e.message);
   }
 }
 
@@ -1342,6 +1307,11 @@ function applyAccent(a,a2,save=true){
     localStorage.setItem('pd_accent',JSON.stringify({a,a2}));
     savePreferences();
   }
+}
+function applyStylish(on,save=true){
+  const link=document.getElementById('basicOverride');
+  if(link) link.disabled=on;
+  if(save) localStorage.setItem('pd_stylish',on?'1':'0');
 }
 function previewAccent(hex){
   const a2=darken(hex,0.18);
@@ -1436,6 +1406,7 @@ function openSettings(){
   buildAccentSwatches();
   const s=localStorage.getItem('pd_accent');
   if(s){try{document.getElementById('customColour').value=JSON.parse(s).a;}catch(e){}}
+  document.getElementById('settingsStylish').checked=localStorage.getItem('pd_stylish')!=='0';
   renderPaymentSettings();
   loadNotificationSettings();
   document.getElementById('settingsModal').classList.add('open');
@@ -1497,15 +1468,12 @@ function addPaymentOption(){
 }
 
 function rebuildPaymentDropdowns(){
-  // Update all payment selects in open modals
-  ['f-payment'].forEach(id=>{
-    const sel = document.getElementById(id);
-    if(!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = getActivePaymentOptions()
-      .map(p=>`<option value="${esc(p.name)}" ${p.name===cur?'selected':''}>${esc(p.name)}</option>`)
-      .join('');
-  });
+  const sel = document.getElementById('f-payment');
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = getActivePaymentOptions()
+    .map(p=>`<option value="${esc(p.name)}" ${p.name===cur?'selected':''}>${esc(p.name)}</option>`)
+    .join('');
 }
 
 function closeSettings(){document.getElementById('settingsModal').classList.remove('open');}

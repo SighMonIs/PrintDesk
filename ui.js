@@ -1,4 +1,4 @@
-// ── Custom status dropdown ─────────────────────────────────
+﻿// ── Custom status dropdown ─────────────────────────────────
 function toggleStatusDd(rowId, btn){
   // Close all other open dropdowns
   document.querySelectorAll('.status-dd-list.open').forEach(el=>{
@@ -52,7 +52,7 @@ async function selectOrderStatus(orderId, newStatus, optEl){
   list?.querySelectorAll('.status-dd-opt').forEach(o=>o.classList.toggle('active',o.textContent.trim()===newStatus));
   const rows = orders.filter(r=>String(r.orderId)===String(orderId));
   for(const row of rows){ row.status=newStatus; }
-  updateStats(); renderTable();
+  renderTable();
   try{
     await sbUpsert('orders', rows.map(row=>({id:row.id,order_id:row.orderId,customer:row.customer,customer_id:row.customer_id||null,address:row.address,delivery:row.delivery,payment:row.payment,cat_id:row.catId,qty:row.qty,price:row.price,total:row.total,status:newStatus,date:row.date,notes:row.notes,options:row.options})));
     setStatus('ok','All items updated');
@@ -89,66 +89,6 @@ function wasPreviouslyMade(o, madeSet){
 }
 
 // ── Render table ───────────────────────────────────────────
-
-function updateStats(){
-  // ── Box 1: Total items by category ──────────────────────
-  document.getElementById('s-total').textContent = orders.length;
-  const catCounts={};
-  orders.forEach(o=>{
-    const cat=cats.find(c=>String(c.id)===String(o.catId));
-    const name=cat?cat.name:'Unknown';
-    catCounts[name]=(catCounts[name]||0)+1;
-  });
-  document.getElementById('s-cat-breakdown').innerHTML =
-    Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>
-      `<div class="stat-break-row"><span class="stat-break-label">${esc(name)}</span><span class="stat-break-val">${count}</span></div>`
-    ).join('');
-
-  // ── Box 2: Pending / Printing ────────────────────────────
-  document.getElementById('s-pending').textContent  = orders.filter(o=>o.status==='Pending').length;
-  document.getElementById('s-printing').textContent = orders.filter(o=>o.status==='Printing').length;
-
-  // ── Box 3: Completed + Name Badge breakdown ──────────────
-  const completed=orders.filter(o=>o.status==='Complete');
-  document.getElementById('s-completed').textContent = completed.length;
-  // Find Name Badge category
-  const badgeCat=cats.find(c=>c.name.toLowerCase().includes('name badge'));
-  if(badgeCat){
-    const badgeOrders=completed.filter(o=>String(o.catId)===String(badgeCat.id));
-    const pinCount=badgeOrders.filter(o=>o.options&&o.options.toLowerCase().includes('pin')).length;
-    const magCount=badgeOrders.filter(o=>o.options&&o.options.toLowerCase().includes('magnet')).length;
-    document.getElementById('s-badge-breakdown').innerHTML =
-      `<div class="stat-break-row"><span class="stat-break-label">Pin</span><span class="stat-break-val">${pinCount}</span></div>`+
-      `<div class="stat-break-row"><span class="stat-break-label">Magnet</span><span class="stat-break-val">${magCount}</span></div>`;
-  } else {
-    document.getElementById('s-badge-breakdown').innerHTML='';
-  }
-
-  // ── Box 4: Payment breakdown ─────────────────────────────
-  // Use unique orderIds for per-order payment (payment is per order not per item)
-  const seenOrders={};
-  completed.forEach(o=>{
-    if(!seenOrders[o.orderId]){
-      const pay=(o.payment&&o.payment.trim())?o.payment.trim():'No';
-      seenOrders[o.orderId]={payment:pay,total:0};
-    }
-    seenOrders[o.orderId].total+=o.total;
-  });
-  const payBreakdown={No:0,Free:0,Simon:0,Wade:0};
-  const payRevenue={Simon:0,Wade:0};
-  Object.values(seenOrders).forEach(({payment,total})=>{
-    const p=payment||'No';
-    if(p==='No') payBreakdown.No++;
-    else if(p==='Free') payBreakdown.Free++;
-    else if(p==='Simon'){payBreakdown.Simon++;payRevenue.Simon+=total;}
-    else if(p==='Wade'){payBreakdown.Wade++;payRevenue.Wade+=total;}
-  });
-  document.getElementById('s-payment-breakdown').innerHTML =
-    `<div class="stat-break-row"><span class="stat-break-label">No</span><span class="stat-break-val">${payBreakdown.No}</span></div>`+
-    `<div class="stat-break-row"><span class="stat-break-label">Free</span><span class="stat-break-val">${payBreakdown.Free}</span></div>`+
-    `<div class="stat-break-row"><span class="stat-break-label">Simon</span><span class="stat-break-val">$${payRevenue.Simon.toFixed(2)}</span></div>`+
-    `<div class="stat-break-row"><span class="stat-break-label">Wade</span><span class="stat-break-val">$${payRevenue.Wade.toFixed(2)}</span></div>`;
-}
 
 function uniqueOrderCount(){return new Set(orders.map(o=>o.orderId)).size;}
 
@@ -205,10 +145,8 @@ function renderTable(){
     return aNum-bNum;
   });
 
-  updateStats();
-
   const tbody=document.getElementById('tbody');
-  if(!list.length){tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;return;}
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="11" data-label=""><div class="empty"><i class="ti ti-inbox"></i>No orders yet.</div></td></tr>`;renderInboxList([]);return;}
 
   const seen=new Set();
   let groupIdx=0;
@@ -216,6 +154,7 @@ function renderTable(){
   const orderItemCount={};
   list.forEach(o=>{orderItemCount[o.orderId]=(orderItemCount[o.orderId]||0)+1;});
 
+  renderInboxList(list);
   tbody.innerHTML=list.map(o=>{
     const isFirst=!seen.has(o.orderId);
     if(isFirst){ if(seen.size>0) groupIdx++; seen.add(o.orderId); }
@@ -494,7 +433,6 @@ function renderTable(){
 }
 
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function updateSortArrow(){ updateSortUI(); }
 function sortBy(k){
   if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}
   savePreferences();
@@ -510,11 +448,6 @@ function initAutocomplete(){
   if(acInst) return;
   acInst = true;
   attachGooglePlaces(input, document.getElementById('addrTick'));
-}
-
-function attachNominatim(input, tickEl){
-  // Now uses Google Maps Places instead of Nominatim
-  attachGooglePlaces(input, tickEl);
 }
 
 function attachGooglePlaces(input, tickEl){
@@ -538,9 +471,6 @@ function attachGooglePlaces(input, tickEl){
   });
 }
 
-async function fetchNominatim(q, input, list, tickEl){
-  // No longer used — kept as stub to avoid reference errors
-}
 
 // ── Model rows ─────────────────────────────────────────────
 function catOptions(selId){
@@ -655,8 +585,7 @@ function ddChanged(idx,optId){
 }
 
 function availableColours(){
-  // Only show colours marked as available
-  return colours.filter(c=>c.available===true||String(c.available).toLowerCase()==='true'||c.available==='TRUE');
+  return colours.filter(c=>c.available);
 }
 
 function buildColourPicker(id, selectedName, onChangeFn){
@@ -751,10 +680,6 @@ function getColourCode(name){
   if(!name)return'transparent';
   const c=colours.find(c=>c.name===name);
   return c?c.code:'transparent';
-}
-
-function layerChanged(idx,optId,layerNum,val){
-  collectOpts(idx);
 }
 
 // Collect all option values for a model row into a pipe-separated string
@@ -1211,7 +1136,6 @@ async function updateStatus(orderId,rowId,newStatus,sel){
   const prevStatus=row.status;
   // Update local state
   row.status=newStatus;
-  updateStats();
   try{
     // Update status via Supabase upsert
     await sbUpsert('orders', {
@@ -1420,3 +1344,617 @@ document.addEventListener('click', e=>{
     if(panel) panel.style.display = 'none';
   }
 });
+
+
+// -- Inbox view -----------------------------------------------------
+let _inboxSelectedOrderId = null;
+let _inboxTab = 'all';
+
+function setInboxTab(tab) {
+  _inboxTab = tab;
+  document.querySelectorAll('.inbox-tab-pill').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  renderTable();
+}
+
+function _avatarColor(name) {
+  const palette = ['#5b9cf6','#5cb87a','#e8a93a','#e07c3a','#9b8af6','#e05c5c','#3ab8b8','#c47ab8'];
+  let h = 0;
+  for (let i = 0; i < (name||'').length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return palette[Math.abs(h) % palette.length];
+}
+
+function _initials(name) {
+  if (!name) return '?';
+  const p = name.trim().split(/\s+/);
+  return p.length >= 2 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : name[0].toUpperCase();
+}
+
+function renderInboxList(list) {
+  updateSidebarBadges();
+  if (_sidebarView !== 'orders') return;
+  const el = document.getElementById('inboxList');
+  if (!el) return;
+
+  // Apply tab filter
+  let filtered = list;
+  if (_inboxTab === 'pending')  filtered = list.filter(r => (r.status||'Pending') === 'Pending');
+  if (_inboxTab === 'printing') filtered = list.filter(r => r.status === 'Printing');
+  if (_inboxTab === 'complete') filtered = list.filter(r => r.status === 'Complete');
+
+  const orderIds = [];
+  const orderMap = new Map();
+  filtered.forEach(row => {
+    const oid = String(row.orderId);
+    if (!orderMap.has(oid)) { orderIds.push(oid); orderMap.set(oid, []); }
+    orderMap.get(oid).push(row);
+  });
+
+  if (!orderIds.length) {
+    el.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-inbox"></i>No orders</div>';
+    _inboxClearDetailIfGone(orderIds);
+    return;
+  }
+
+  el.innerHTML = orderIds.map(oid => {
+    const rows = orderMap.get(oid);
+    const first = rows[0];
+    const total = rows.reduce((s, r) => s + r.total, 0);
+    const status = first.status || 'Pending';
+    const blClass = 'bl-' + status.toLowerCase().replace(' ', '-');
+    const isSelected = oid === String(_inboxSelectedOrderId);
+    const catNames = [...new Set(rows.map(r => {
+      const cat = cats.find(c => String(c.id) === String(r.catId));
+      return cat ? cat.name : null;
+    }).filter(Boolean))].join(', ');
+    const itemLabel = rows.length === 1 ? '1 item' : rows.length + ' items';
+    const orderNum = orderNumFromId(oid);
+    const avatarColor = _avatarColor(first.customer || '');
+    const initials = _initials(first.customer || '');
+    const statusColor = {Pending:'rgba(232,169,58,0.15)',Printing:'rgba(91,156,246,0.15)',Complete:'rgba(92,184,122,0.15)','On Hold':'rgba(224,124,58,0.15)',Cancelled:'rgba(224,92,92,0.15)'}[status]||'rgba(136,136,133,0.15)';
+    const statusText = {Pending:'var(--amber)',Printing:'var(--blue)',Complete:'var(--green)','On Hold':'var(--orange)',Cancelled:'var(--red)'}[status]||'var(--muted)';
+
+    return '<div class="inbox-card ' + blClass + (isSelected ? ' selected' : '') + '" onclick="showInboxDetail(\'' + esc(oid) + '\')">'
+      + '<div class="inbox-card-content">'
+      + '<div class="inbox-card-row1">'
+      + '<span class="inbox-card-customer">' + (esc(first.customer) || '?') + '</span>'
+      + '<span class="inbox-card-num">' + orderNum + '</span>'
+      + '</div>'
+      + '<div class="inbox-card-subject">' + (esc(catNames) || '?') + ' &middot; ' + itemLabel + '</div>'
+      + '<div class="inbox-card-footer">'
+      + '<span class="inbox-card-status" style="background:' + statusColor + ';color:' + statusText + '">' + status + '</span>'
+      + '<span class="inbox-card-total">$' + total.toFixed(2) + '</span>'
+      + '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  _inboxClearDetailIfGone(orderIds);
+
+  if (_inboxSelectedOrderId && orderIds.includes(String(_inboxSelectedOrderId))) {
+    _showInboxDetailFromData(String(_inboxSelectedOrderId), orderMap.get(String(_inboxSelectedOrderId)));
+  }
+}
+
+function _inboxClearDetailIfGone(orderIds) {
+  if (_inboxSelectedOrderId && !orderIds.includes(String(_inboxSelectedOrderId))) {
+    _inboxSelectedOrderId = null;
+    const d = document.getElementById('inboxDetail');
+    if (d) d.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-inbox"></i><p>Select an order</p></div>';
+  }
+}
+
+function showInboxDetail(orderId) {
+  _inboxSelectedOrderId = orderId;
+  document.querySelectorAll('.inbox-card').forEach(el => {
+    const onclick = el.getAttribute('onclick') || '';
+    el.classList.toggle('selected', onclick.indexOf(orderId) !== -1);
+  });
+  const rows = orders.filter(r => String(r.orderId) === String(orderId));
+  _showInboxDetailFromData(orderId, rows);
+}
+
+function _showInboxDetailFromData(orderId, rows) {
+  const detailEl = document.getElementById('inboxDetail');
+  if (!detailEl || !rows || !rows.length) return;
+
+  const first = rows[0];
+  const status = first.status || 'Pending';
+  const bc = 'b-' + status.toLowerCase().replace(' ', '-');
+  const total = rows.reduce((s, r) => s + r.total, 0);
+  const orderNum = orderNumFromId(orderId);
+  const madeSet = buildMadeSet();
+
+  const statusOpts = ['Pending','Printing','Complete','On Hold','Cancelled'].map(s =>
+    '<div class="status-dd-opt b-' + s.toLowerCase().replace(' ','-') + (status===s?' active':'') + '"'
+    + ' onclick="selectOrderStatus(\'' + esc(String(orderId)) + '\',\'' + s + '\',this)">' + s + '</div>'
+  ).join('');
+
+  const statusDd = '<div class="status-dd-wrap">'
+    + '<button class="status-dd-btn order-status-dd ' + bc + '" onclick="toggleStatusDd(\'order-' + esc(String(orderId)) + '\',this)">'
+    + '<span>' + esc(status) + '</span><i class="ti ti-chevron-down"></i>'
+    + '</button>'
+    + '<div class="status-dd-list" id="sdd-order-' + esc(String(orderId)) + '">' + statusOpts + '</div>'
+    + '</div>';
+
+  const deliveryIcon = first.delivery === 'Pick Up' ? '<i class="ti ti-hand-stop"></i>' : '<i class="ti ti-mail"></i>';
+
+  const itemsHtml = rows.map(row => {
+    const cat = cats.find(c => String(c.id) === String(row.catId));
+    const parsedOpts = {};
+    if (row.options) row.options.split('||').forEach(p => {
+      const idx = p.indexOf(':'); if (idx >= 0) parsedOpts[p.slice(0,idx).trim()] = p.slice(idx+1).trim();
+    });
+    const catOpts = opts.filter(o => String(o.catId) === String(row.catId));
+    const prevMade = wasPreviouslyMade(row, madeSet);
+    const isBadge = cat && cat.name.toLowerCase().indexOf('name badge') !== -1;
+
+    const optLines = catOpts.map(opt => {
+      const val = parsedOpts[opt.name];
+      if (!val) return '';
+      const isColour = opt.display === 'colour' || opt.name.toLowerCase().indexOf('colour') !== -1;
+      if (isColour) {
+        const swatches = val.split('|').map(name => {
+          const c = colours.find(c => c.name.toLowerCase() === name.toLowerCase());
+          return '<span class="inbox-item-swatch" style="background:' + (c ? c.code : '#ccc') + '" title="' + esc(name) + '"></span>';
+        }).join('');
+        return '<div class="inbox-item-opt">'
+          + '<span class="inbox-item-opt-label">' + esc(opt.name) + ':</span>'
+          + '<div class="inbox-item-swatches">' + swatches + '</div>'
+          + '<span class="inbox-item-opt-val">' + esc(val.replace(/\|/g, ', ')) + '</span>'
+          + '</div>';
+      }
+      return '<div class="inbox-item-opt">'
+        + '<span class="inbox-item-opt-label">' + esc(opt.name) + ':</span>'
+        + '<span class="inbox-item-opt-val">' + esc(val) + '</span>'
+        + '</div>';
+    }).filter(Boolean).join('');
+
+    const badgeParams = new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''});
+    const badgeBtn = isBadge
+      ? '<button class="icon-btn" title="Generate Badge" onclick="generateBadge(\'/badge/?' + badgeParams + '\')"><i class="ti ti-badge"></i></button>'
+      : '';
+
+    return '<div class="inbox-item-card">'
+      + '<div class="inbox-item-left">'
+      + '<div class="inbox-item-qty">' + row.qty + '</div>'
+      + '<div class="inbox-item-qty-label">qty</div>'
+      + '<div class="inbox-item-price">$' + row.total.toFixed(2) + '</div>'
+      + '</div>'
+      + '<div class="inbox-item-divider"></div>'
+      + '<div class="inbox-item-right">'
+      + '<div class="inbox-item-cat">' + (cat ? esc(cat.name) : '?') + (prevMade ? ' <span class="made-tick"><i class="ti ti-circle-check-filled"></i></span>' : '') + '</div>'
+      + optLines
+      + (row.notes ? '<div class="inbox-item-opt" style="margin-top:5px"><i class="ti ti-notes" style="font-size:12px;opacity:0.5"></i> <em style="color:var(--muted)">' + esc(row.notes) + '</em></div>' : '')
+      + '</div>'
+      + (badgeBtn ? '<div class="inbox-item-actions">' + badgeBtn + '</div>' : '')
+      + '</div>';
+  }).join('');
+
+  const badgeRows = rows.filter(r => {
+    const c = cats.find(c => String(c.id) === String(r.catId));
+    return c && c.name.toLowerCase().indexOf('name badge') !== -1;
+  });
+  const batchItems = badgeRows.map(r => {
+    const p = {};
+    if (r.options) r.options.split('||').forEach(s => { const i = s.indexOf(':'); if (i >= 0) p[s.slice(0,i).trim()] = s.slice(i+1).trim(); });
+    return {name: p['Text']||'', backing: p['Backing']||'', colours: p['Colours']||''};
+  });
+  const bulkBadgeBtn = badgeRows.length
+    ? '<button class="btn sm" onclick="openBadgeBatchModal(' + JSON.stringify(batchItems) + ',\'' + esc(first.customer) + '\')"><i class="ti ti-badges"></i> ' + (badgeRows.length > 1 ? 'All Badges' : 'Badge') + '</button>'
+    : '';
+
+  const printBtn = first.address
+    ? '<button class="icon-btn" style="margin-left:4px" onclick="printShippingLabel(\'' + esc(first.customer) + '\',\'' + esc(first.address) + '\',\'' + esc(String(orderId)) + '\')" title="Print label"><i class="ti ti-printer"></i></button>'
+    : '';
+
+  detailEl.innerHTML = '<div class="inbox-detail">'
+    + '<div class="inbox-detail-header">'
+    + '<div class="inbox-detail-header-top">'
+    + '<div class="inbox-detail-customer">' + (esc(first.customer) || '?') + '</div>'
+    + '<div class="inbox-detail-num">' + orderNum + '</div>'
+    + '</div>'
+    + '<div class="inbox-detail-header-bot">'
+    + statusDd
+    + '<div style="flex:1"></div>'
+    + '<button class="btn sm" onclick="openEdit(\'' + esc(String(orderId)) + '\')"><i class="ti ti-edit"></i> Edit</button>'
+    + '<button class="btn sm icon-only" onclick="deleteOrder(\'' + esc(String(orderId)) + '\')" title="Delete order" style="border-color:rgba(224,92,92,0.3);color:var(--red)"><i class="ti ti-trash"></i></button>'
+    + '</div>'
+    + '</div>'
+
+    + '<div class="inbox-detail-meta">'
+    + '<div class="inbox-detail-meta-item">' + deliveryIcon + '<strong>' + esc(first.delivery || 'Post') + '</strong></div>'
+    + (first.payment ? '<div class="inbox-detail-meta-item"><i class="ti ti-credit-card"></i><strong>' + esc(first.payment) + '</strong></div>' : '')
+    + (first.address ? '<div class="inbox-detail-meta-item"><i class="ti ti-map-pin"></i><strong>' + esc(first.address) + '</strong>' + printBtn + '</div>' : '')
+    + '</div>'
+
+    + '<div>'
+    + '<div class="inbox-detail-items-hdr">'
+    + '<div class="inbox-detail-items-label">Items (' + rows.length + ')</div>'
+    + bulkBadgeBtn
+    + '</div>'
+    + '<div class="inbox-items-list">' + itemsHtml + '</div>'
+    + '</div>'
+
+    + '<div class="inbox-detail-total">'
+    + '<span class="inbox-detail-total-label">Order total</span>'
+    + '<span class="inbox-detail-total-val">$' + total.toFixed(2) + '</span>'
+    + '</div>'
+    + '</div>';
+}
+
+// -- Multi-view sidebar system ------------------------------------
+let _sidebarView = 'orders';
+let _selectedCustomerId = null;
+
+function setSidebarView(view) {
+  _sidebarView = view;
+  document.querySelectorAll('.topbar-item[data-view]').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.view === view);
+  });
+  _inboxSelectedOrderId = null;
+  var detail = document.getElementById('inboxDetail');
+  if (detail) detail.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-inbox"></i><p>Select an item</p></div>';
+  if (view === 'orders') _renderViewOrders();
+  else if (view === 'customers') _renderViewCustomers('');
+  else if (view === 'colours') _renderViewColours();
+  else if (view === 'categories') _renderViewCategories();
+  else if (view === 'stats') _renderViewStats();
+  else if (view === 'settings') _renderViewSettings();
+  else if (view === 'users') _renderViewUsers();
+}
+
+function _setListPane(headerHtml) {
+  var col = document.querySelector('.inbox-list-col');
+  var footer = col.querySelector('.inbox-list-footer').outerHTML;
+  col.innerHTML = '<div class="inbox-list-header" style="padding:12px 14px">' + headerHtml + '</div>'
+    + '<div class="inbox-list" id="inboxList"></div>'
+    + footer;
+}
+
+// Orders view: restore the full orders header + renderTable
+function _renderViewOrders() {
+  var col = document.querySelector('.inbox-list-col');
+  var footer = col.querySelector('.inbox-list-footer').outerHTML;
+  var activeTab = _inboxTab || 'all';
+  col.innerHTML = '<div class="inbox-list-header">'
+    + '<div class="inbox-search-row">'
+    + '<i class="ti ti-search inbox-search-icon"></i>'
+    + '<input type="text" id="search" placeholder="Search…" oninput="renderTable()">'
+    + '</div>'
+    + '<div class="inbox-tabs-pill">'
+    + ['all','pending','printing','complete'].map(function(t) {
+        var label = t.charAt(0).toUpperCase() + t.slice(1);
+        return '<button class="inbox-tab-pill' + (activeTab===t?' active':'') + '" data-tab="' + t + '" onclick="setInboxTab(\'' + t + '\')">' + label + '</button>';
+      }).join('')
+    + '</div>'
+    + '<div class="inbox-sort-row">'
+    + '<div class="sort-btn-wrap" id="sortWrap">'
+    + '<div class="sort-btn-group">'
+    + '<button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)"><i class="ti ti-arrows-sort"></i></button>'
+    + '<button class="sort-btn-dir" id="sortDirBtn" onclick="toggleSortDir()" title="Toggle sort direction"><i class="ti ti-arrow-up" id="sortDirIcon"></i></button>'
+    + '</div>'
+    + '<div class="sort-panel" id="sortPanel" style="display:none"></div>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="inbox-list" id="inboxList"></div>'
+    + footer;
+  renderTable();
+}
+
+// Customers view
+function _renderViewCustomers(filter) {
+  filter = filter || '';
+  _setListPane(
+    '<div class="inbox-view-header">'
+    + '<span class="inbox-view-title">Customers</span>'
+    + '<span class="inbox-view-count">' + customers.length + '</span>'
+    + '</div>'
+    + '<div class="inbox-search-row">'
+    + '<i class="ti ti-search inbox-search-icon"></i>'
+    + '<input type="text" placeholder="Search customers…" value="' + esc(filter) + '" oninput="_renderViewCustomers(this.value)">'
+    + '</div>'
+  );
+  var list = document.getElementById('inboxList');
+  var q = filter.toLowerCase();
+  var shown = customers.filter(function(c) {
+    return !q || c.name.toLowerCase().includes(q) || (c.email||'').toLowerCase().includes(q);
+  });
+  if (!shown.length) { list.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-users"></i> No customers</div>'; return; }
+  list.innerHTML = shown.map(function(c) {
+    var ordSet = new Set(orders.filter(function(r) { return String(r.customer_id)===String(c.id)||r.customer===c.name; }).map(function(r){return r.orderId;}));
+    var ordCount = ordSet.size;
+    var isSelected = String(c.id) === String(_selectedCustomerId);
+    var av = _avatarColor(c.name);
+    var ini = _initials(c.name);
+    return '<div class="inbox-card' + (isSelected?' selected':'') + '" onclick="_showCustomerDetail(\'' + esc(String(c.id)) + '\')">'
+      + '<div class="inbox-card-content">'
+      + '<div class="inbox-card-row1"><span class="inbox-card-customer">' + esc(c.name) + '</span>'
+      + (ordCount ? '<span class="inbox-card-num">' + ordCount + ' order' + (ordCount!==1?'s':'') + '</span>' : '')
+      + '</div>'
+      + '<div class="inbox-card-subject">' + (esc(c.email) || '<em style="opacity:0.4">No email</em>') + '</div>'
+      + '<div class="inbox-card-footer"><span style="font-size:11px;color:var(--muted)">' + (esc(c.phone)||'') + '</span></div>'
+      + '</div></div>';
+  }).join('');
+}
+
+function _showCustomerDetail(customerId) {
+  _selectedCustomerId = customerId;
+  document.querySelectorAll('#inboxList .inbox-card').forEach(function(el) {
+    el.classList.toggle('selected', (el.getAttribute('onclick')||'').includes(customerId));
+  });
+  var c = customers.find(function(x){return String(x.id)===String(customerId);});
+  if (!c) return;
+  var detail = document.getElementById('inboxDetail');
+  if (!detail) return;
+  var custOrders = orders.filter(function(r){return String(r.customer_id)===String(customerId)||r.customer===c.name;});
+  var orderIds = [...new Set(custOrders.map(function(r){return r.orderId;}))];
+  var orderMap = new Map();
+  custOrders.forEach(function(r){if(!orderMap.has(r.orderId))orderMap.set(r.orderId,[]);orderMap.get(r.orderId).push(r);});
+  var av = _avatarColor(c.name);
+  var ini = _initials(c.name);
+  var totalSpend = custOrders.reduce(function(s,r){return s+r.total;},0);
+  var html = '<div class="inbox-detail">'
+    + '<div class="inbox-detail-header">'
+    + '<div class="inbox-detail-header-top">'
+    + '<div style="flex:1;min-width:0">'
+    + '<div class="inbox-detail-customer">' + esc(c.name) + '</div>'
+    + (c.email?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc(c.email)+'</div>':'')
+    + '</div>'
+    + '<button class="btn sm" onclick="openCustomersModal(\''+esc(String(c.id))+'\')"><i class="ti ti-edit"></i> Edit</button>'
+    + '</div></div>'
+    + '<div class="inbox-detail-meta">'
+    + (c.phone?'<div class="inbox-detail-meta-item"><i class="ti ti-phone"></i><strong>'+esc(c.phone)+'</strong></div>':'')
+    + (c.address?'<div class="inbox-detail-meta-item"><i class="ti ti-map-pin"></i><strong>'+esc(c.address)+'</strong></div>':'')
+    + (c.notes?'<div class="inbox-detail-meta-item"><i class="ti ti-notes"></i><em>'+esc(c.notes)+'</em></div>':'')
+    + '<div class="inbox-detail-meta-item"><i class="ti ti-shopping-cart"></i><strong>'+orderIds.length+' order'+(orderIds.length!==1?'s':'')+'</strong></div>'
+    + '<div class="inbox-detail-meta-item"><i class="ti ti-currency-dollar"></i><strong>$'+totalSpend.toFixed(2)+' total</strong></div>'
+    + '</div>';
+  if (orderIds.length) {
+    html += '<div><div class="inbox-detail-items-hdr"><div class="inbox-detail-items-label">Orders ('+orderIds.length+')</div></div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px">';
+    orderIds.forEach(function(oid){
+      var rows = orderMap.get(oid);
+      var first = rows[0];
+      var total = rows.reduce(function(s,r){return s+r.total;},0);
+      var status = first.status||'Pending';
+      var bc = 'b-'+status.toLowerCase().replace(' ','-');
+      var orderNum = orderNumFromId(oid);
+      var catNames = [...new Set(rows.map(function(r){var cat=cats.find(function(c){return String(c.id)===String(r.catId);});return cat?cat.name:null;}).filter(Boolean))].join(', ');
+      html += '<div class="inbox-item-card" style="cursor:pointer" onclick="_switchToOrder(\''+esc(String(oid))+'\')">'
+        + '<div class="inbox-item-left"><div class="inbox-item-qty">'+rows.length+'</div><div class="inbox-item-qty-label">items</div><div class="inbox-item-price">$'+total.toFixed(2)+'</div></div>'
+        + '<div class="inbox-item-divider"></div>'
+        + '<div class="inbox-item-right"><div class="inbox-item-cat">'+orderNum+' &mdash; '+esc(catNames)+'</div>'
+        + '<div style="margin-top:4px"><span class="'+bc+'" style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px">'+status+'</span></div>'
+        + '</div></div>';
+    });
+    html += '</div></div>';
+  } else {
+    html += '<div class="inbox-empty-state"><i class="ti ti-shopping-cart-off"></i> No orders yet</div>';
+  }
+  html += '</div>';
+  detail.innerHTML = html;
+}
+
+function _switchToOrder(orderId) {
+  setSidebarView('orders');
+  setTimeout(function(){showInboxDetail(orderId);}, 80);
+}
+
+// Colours view
+function _renderViewColours() {
+  _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Colours</span><span class="inbox-view-count">'+colours.filter(function(c){return c.available!==false;}).length+'</span></div>');
+  var list = document.getElementById('inboxList');
+  if (!colours.length) { list.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-palette"></i> No colours</div>'; return; }
+  list.innerHTML = colours.map(function(c){
+    return '<div class="inbox-card" style="align-items:center;padding:10px 14px">'
+      + '<div style="width:30px;height:30px;border-radius:50%;background:'+esc(c.code)+';border:1px solid rgba(255,255,255,0.1);flex-shrink:0"></div>'
+      + '<div class="inbox-card-content" style="margin-left:2px">'
+      + '<div class="inbox-card-customer">'+esc(c.name)+'</div>'
+      + '<div class="inbox-card-subject" style="font-family:monospace">'+esc(c.code)+'</div>'
+      + '</div>'
+      + (c.available===false?'<span class="inbox-card-num" style="color:var(--red)">archived</span>':'')
+      + '</div>';
+  }).join('');
+}
+
+// Categories view
+function _renderViewCategories() {
+  _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Categories</span><span class="inbox-view-count">'+cats.filter(function(c){return !c.archived;}).length+'</span></div>');
+  var list = document.getElementById('inboxList');
+  var active = cats.filter(function(c){return !c.archived;});
+  if (!active.length) { list.innerHTML = '<div class="inbox-empty-state"><i class="ti ti-category"></i> No categories</div>'; return; }
+  list.innerHTML = active.map(function(c){
+    var catOpts = opts.filter(function(o){return String(o.catId)===String(c.id)&&!o.archived;});
+    var ordCount = new Set(orders.filter(function(r){return String(r.catId)===String(c.id);}).map(function(r){return r.orderId;})).size;
+    return '<div class="inbox-card" style="padding:12px 14px">'
+      + '<div class="inbox-card-avatar" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);font-size:14px"><i class="ti ti-category"></i></div>'
+      + '<div class="inbox-card-content">'
+      + '<div class="inbox-card-row1"><span class="inbox-card-customer">'+esc(c.name)+'</span><span class="inbox-card-num">$'+c.price.toFixed(2)+'</span></div>'
+      + '<div class="inbox-card-subject">'+catOpts.length+' option'+(catOpts.length!==1?'s':'')+'</div>'
+      + '<div class="inbox-card-footer"><span class="inbox-card-num">'+ordCount+' order'+(ordCount!==1?'s':'')+'</span></div>'
+      + '</div></div>';
+  }).join('');
+}
+
+// Stats view
+function _renderViewStats() {
+  _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Stats</span></div>');
+  var pending = orders.filter(function(r){return (r.status||'Pending')==='Pending';});
+  var printing = orders.filter(function(r){return r.status==='Printing';});
+  var complete = orders.filter(function(r){return r.status==='Complete';});
+  var revenue = orders.filter(function(r){var p=paymentOptions.find(function(p){return p.name===r.payment;});return p&&p.showRevenue;}).reduce(function(s,r){return s+r.total;},0);
+  var uniqueOrders = new Set(orders.map(function(r){return r.orderId;})).size;
+  var detail = document.getElementById('inboxDetail');
+  if (detail) detail.innerHTML = '<div class="inbox-detail" style="max-width:600px">'
+    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Stats</div></div></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+    + _statCard('Orders', uniqueOrders, 'ti-shopping-cart', '')
+    + _statCard('Pending', new Set(pending.map(function(r){return r.orderId;})).size, 'ti-clock', 'var(--amber)')
+    + _statCard('Printing', new Set(printing.map(function(r){return r.orderId;})).size, 'ti-printer', 'var(--blue)')
+    + _statCard('Complete', new Set(complete.map(function(r){return r.orderId;})).size, 'ti-check', 'var(--green)')
+    + _statCard('Revenue', '$'+revenue.toFixed(2), 'ti-currency-dollar', 'var(--green)')
+    + _statCard('Customers', customers.length, 'ti-users', '')
+    + '</div></div>';
+  var catBreakdown = cats.filter(function(c){return !c.archived;}).map(function(c){
+    var n = new Set(orders.filter(function(r){return String(r.catId)===String(c.id);}).map(function(r){return r.orderId;})).size;
+    return {name:c.name, n:n};
+  }).filter(function(x){return x.n>0;}).sort(function(a,b){return b.n-a.n;});
+  var list = document.getElementById('inboxList');
+  var max = catBreakdown.length ? catBreakdown[0].n : 1;
+  list.innerHTML = catBreakdown.map(function(x){
+    return '<div class="inbox-card" style="padding:12px 14px">'
+      + '<div class="inbox-card-content">'
+      + '<div class="inbox-card-row1"><span class="inbox-card-customer">'+esc(x.name)+'</span><span class="inbox-card-num">'+x.n+'</span></div>'
+      + '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:8px">'
+      + '<div style="height:4px;background:var(--accent);border-radius:2px;width:'+Math.round(x.n/max*100)+'%"></div>'
+      + '</div></div></div>';
+  }).join('') || '<div class="inbox-empty-state"><i class="ti ti-chart-bar"></i> No data</div>';
+}
+
+function _statCard(label, val, icon, color) {
+  return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;display:flex;flex-direction:column;gap:6px">'
+    + '<div style="display:flex;align-items:center;gap:8px;color:'+(color||'var(--muted)')+'">'
+    + '<i class="ti '+icon+'" style="font-size:18px"></i>'
+    + '<span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">'+label+'</span>'
+    + '</div>'
+    + '<div style="font-size:24px;font-weight:700;color:var(--text)">'+val+'</div>'
+    + '</div>';
+}
+
+// Settings view
+var _selectedSettingsCat = null;
+var _SETTINGS_CATS = [
+  {id:'payment',  icon:'ti-credit-card', title:'Payment Options',      desc:'Manage payment methods and revenue tracking'},
+  {id:'cats',     icon:'ti-category',    title:'Categories & Options',  desc:'Product categories and their options'},
+  {id:'colours',  icon:'ti-brush',       title:'Colour Library',        desc:'Available colour swatches'},
+  {id:'users',    icon:'ti-users',       title:'Users',                 desc:'Invite and manage app users'},
+  {id:'app',      icon:'ti-settings',    title:'App Settings',          desc:'Notifications, accent colour and more'},
+];
+
+function _renderViewSettings() {
+  _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Settings</span></div>');
+  var list = document.getElementById('inboxList');
+  list.innerHTML = _SETTINGS_CATS.map(function(cat) {
+    var sel = cat.id === _selectedSettingsCat;
+    return '<div class="inbox-card' + (sel?' selected':'') + '" onclick="_showSettingsDetail(\'' + cat.id + '\')">'
+      + '<div class="inbox-card-content">'
+      + '<div class="inbox-card-row1"><span class="inbox-card-customer"><i class="ti ' + cat.icon + '" style="margin-right:7px;opacity:0.7"></i>' + cat.title + '</span></div>'
+      + '<div class="inbox-card-subject">' + cat.desc + '</div>'
+      + '</div></div>';
+  }).join('');
+  if (_selectedSettingsCat) {
+    _showSettingsDetail(_selectedSettingsCat);
+  } else {
+    var detail = document.getElementById('inboxDetail');
+    if (detail) detail.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-settings"></i><p>Select a category</p></div>';
+  }
+}
+
+function _showSettingsDetail(catId) {
+  _selectedSettingsCat = catId;
+  document.querySelectorAll('#inboxList .inbox-card').forEach(function(el) {
+    el.classList.toggle('selected', (el.getAttribute('onclick')||'').includes("'" + catId + "'"));
+  });
+  var detail = document.getElementById('inboxDetail');
+  if (!detail) return;
+
+  if (catId === 'payment') {
+    var rows = paymentOptions.map(function(p, i) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)">'
+        + '<span style="flex:1;font-weight:500;color:' + (p.archived?'var(--muted)':'var(--text)') + (p.archived?';text-decoration:line-through':'') + '">' + esc(p.name) + '</span>'
+        + '<span style="font-size:10px;color:var(--muted);padding:2px 7px;background:var(--surface2);border-radius:10px">' + (p.showRevenue?'revenue':'no revenue') + '</span>'
+        + '<button class="btn sm" onclick="_settingsToggleRevenue(' + i + ')" title="Toggle revenue tracking"><i class="ti ti-currency-dollar"></i></button>'
+        + '<button class="btn sm" onclick="_settingsToggleArchive(' + i + ')" title="' + (p.archived?'Restore':'Archive') + '"><i class="ti ti-' + (p.archived?'eye':'eye-off') + '"></i></button>'
+        + '</div>';
+    }).join('');
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Payment Options</div></div></div>'
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">' + rows + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="btn sm" onclick="_settingsAddPayment()"><i class="ti ti-plus"></i> Add Option</button>'
+      + '<button class="btn sm" onclick="openSettings()"><i class="ti ti-external-link"></i> Full Settings</button>'
+      + '</div></div>';
+  } else if (catId === 'cats') {
+    var catRows = cats.filter(function(c){return !c.archived;}).map(function(c) {
+      var n = new Set(orders.filter(function(r){return String(r.catId)===String(c.id);}).map(function(r){return r.orderId;})).size;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">'
+        + '<span style="flex:1;font-weight:500;color:var(--text)">' + esc(c.name) + '</span>'
+        + '<span style="font-family:monospace;font-size:11px;color:var(--muted)">$' + c.price.toFixed(2) + '</span>'
+        + '<span style="font-size:10px;color:var(--muted);padding:2px 7px;background:var(--surface2);border-radius:10px">' + n + ' orders</span>'
+        + '</div>';
+    }).join('');
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Categories &amp; Options</div></div></div>'
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px">' + (catRows||'<div style="padding:16px;color:var(--muted)">No categories</div>') + '</div>'
+      + '<button class="btn sm" onclick="openCatModal()"><i class="ti ti-external-link"></i> Open Category Editor</button>'
+      + '</div>';
+  } else if (catId === 'colours') {
+    var colRows = colours.map(function(c) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border)">'
+        + '<div style="width:22px;height:22px;border-radius:50%;background:' + esc(c.code) + ';border:1px solid rgba(255,255,255,0.1);flex-shrink:0"></div>'
+        + '<span style="flex:1;font-weight:500;color:var(--text)">' + esc(c.name) + '</span>'
+        + '<span style="font-family:monospace;font-size:10px;color:var(--muted)">' + esc(c.code) + '</span>'
+        + '</div>';
+    }).join('');
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Colour Library</div></div></div>'
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;max-height:400px;overflow-y:auto;margin-bottom:12px">' + (colRows||'<div style="padding:16px;color:var(--muted)">No colours</div>') + '</div>'
+      + '<button class="btn sm" onclick="openColourModal()"><i class="ti ti-external-link"></i> Open Colour Editor</button>'
+      + '</div>';
+  } else if (catId === 'users') {
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Users</div></div></div>'
+      + '<button class="btn sm" onclick="openUsersModal()"><i class="ti ti-external-link"></i> Manage Users</button>'
+      + '</div>';
+  } else if (catId === 'app') {
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">App Settings</div></div></div>'
+      + '<button class="btn sm" onclick="openSettings()"><i class="ti ti-external-link"></i> Open App Settings</button>'
+      + '</div>';
+  }
+}
+
+function _settingsToggleRevenue(i) {
+  paymentOptions[i].showRevenue = !paymentOptions[i].showRevenue;
+  savePaymentOptions();
+  _showSettingsDetail('payment');
+}
+function _settingsToggleArchive(i) {
+  paymentOptions[i].archived = !paymentOptions[i].archived;
+  savePaymentOptions();
+  _showSettingsDetail('payment');
+}
+function _settingsAddPayment() {
+  var name = prompt('Payment option name:');
+  if (!name || !name.trim()) return;
+  var isRevenue = confirm('Does this payment option generate revenue?');
+  paymentOptions.push({name:name.trim(), archived:false, showRevenue:isRevenue});
+  savePaymentOptions();
+  _showSettingsDetail('payment');
+}
+
+// Users view
+function _renderViewUsers() {
+  _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Users</span></div>');
+  var detail = document.getElementById('inboxDetail');
+  if (detail) detail.innerHTML = '<div class="inbox-detail" style="max-width:560px">'
+    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Users</div></div></div>'
+    + '<div><button class="btn sm" onclick="openUsersModal()"><i class="ti ti-users"></i> Manage Users</button></div>'
+    + '</div>';
+}
+
+// Update sidebar badge counts after data loads
+function updateSidebarBadges() {
+  var ordBadge = document.getElementById('badge-orders');
+  var custBadge = document.getElementById('badge-customers');
+  var colBadge = document.getElementById('badge-colours');
+  var catBadge = document.getElementById('badge-categories');
+  if (ordBadge) ordBadge.textContent = new Set(orders.map(function(r){return r.orderId;})).size;
+  if (custBadge) custBadge.textContent = customers.length;
+  if (colBadge) colBadge.textContent = colours.filter(function(c){return c.available!==false;}).length;
+  if (catBadge) catBadge.textContent = cats.filter(function(c){return !c.archived;}).length;
+}
+
