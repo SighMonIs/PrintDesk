@@ -70,10 +70,13 @@ async function selectOrderStatus(orderId, newStatus, optEl){
   if(btn){ btn.className='status-dd-btn order-status-dd b-'+newStatus.toLowerCase().replace(' ','-'); btn.innerHTML='<span>'+newStatus+'</span><i class="ti ti-chevron-down"></i>'; }
   list?.querySelectorAll('.status-dd-opt').forEach(o=>o.classList.toggle('active',o.textContent.trim()===newStatus));
   const rows = orders.filter(r=>String(r.orderId)===String(orderId));
-  for(const row of rows){ row.status=newStatus; }
+  // Reaching Printed/Complete via the breadcrumb means every item is printed —
+  // keep the per-item Printed/Not Printed toggles in sync with the order status.
+  const markPrinted = newStatus==='Printed' || newStatus==='Complete';
+  for(const row of rows){ row.status=newStatus; if(markPrinted) row.printed=true; }
   renderTable();
   try{
-    await sbUpsert('orders', rows.map(row=>({id:row.id,order_id:row.orderId,customer:row.customer,customer_id:row.customer_id||null,address:row.address,delivery:row.delivery,payment:row.payment,cat_id:row.catId,qty:row.qty,price:row.price,total:row.total,status:newStatus,date:row.date,notes:row.notes,options:row.options})));
+    await sbUpsert('orders', rows.map(row=>({id:row.id,order_id:row.orderId,customer:row.customer,customer_id:row.customer_id||null,address:row.address,delivery:row.delivery,payment:row.payment,cat_id:row.catId,qty:row.qty,price:row.price,total:row.total,status:newStatus,printed:row.printed,date:row.date,notes:row.notes,options:row.options})));
     if(newStatus==='Complete') await _consumeInventoryForOrder(rows);
     setStatus('ok','All items updated');
   }catch(e){ setStatus('err','Save failed'); }
@@ -1209,7 +1212,7 @@ function populateCatFilter(){
   if(catEl){
     catEl.innerHTML = cats.filter(c=>!c.archived).map(c=>`
       <label class="filter-check">
-        <input type="checkbox" data-filter="cat" value="${esc(c.id)}" checked onchange="renderTable();updateFilterCount()">
+        <input type="checkbox" data-filter="cat" value="${esc(c.id)}" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()">
         ${esc(c.name)}
       </label>`).join('');
   }
@@ -1217,10 +1220,67 @@ function populateCatFilter(){
   if(payEl){
     payEl.innerHTML = paymentOptions.filter(p=>!p.archived).map(p=>`
       <label class="filter-check">
-        <input type="checkbox" data-filter="pay" value="${esc(p.name)}" checked onchange="renderTable();updateFilterCount()">
+        <input type="checkbox" data-filter="pay" value="${esc(p.name)}" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()">
         ${esc(p.name)}
       </label>`).join('');
   }
+}
+
+// ── Filter defaults (localStorage) ──────────────────────────
+const FILTER_DEFAULT_KEY = 'pd_filterDefault';
+
+function _currentFilterState(){
+  const state = {};
+  ['status','cat','pay'].forEach(f=>{
+    state[f] = Array.from(document.querySelectorAll(`[data-filter="${f}"]`)).map(el=>({v:el.value, c:el.checked}));
+  });
+  return state;
+}
+
+function saveFilterAsDefault(){
+  localStorage.setItem(FILTER_DEFAULT_KEY, JSON.stringify(_currentFilterState()));
+  updateFilterDefaultBtn();
+  setStatus('ok','Default filter saved');
+}
+
+function applyFilterDefault(){
+  const raw = localStorage.getItem(FILTER_DEFAULT_KEY);
+  if(!raw) return; // no saved default — leave everything checked (existing behaviour)
+  let saved;
+  try{ saved = JSON.parse(raw); }catch(e){ return; }
+  ['status','cat','pay'].forEach(f=>{
+    (saved[f]||[]).forEach(({v,c})=>{
+      const el = document.querySelector(`[data-filter="${f}"][value="${CSS.escape(v)}"]`);
+      if(el) el.checked = c;
+    });
+  });
+}
+
+function resetFilterToDefault(){
+  document.querySelectorAll('[data-filter]').forEach(el=>el.checked=true);
+  applyFilterDefault();
+  renderTable();
+  updateFilterCount();
+  updateFilterDefaultBtn();
+}
+
+function updateFilterDefaultBtn(){
+  const btn = document.getElementById('filterResetBtn');
+  if(!btn) return;
+  const raw = localStorage.getItem(FILTER_DEFAULT_KEY);
+  const defaultState = raw ? (()=>{ try{ return JSON.parse(raw); }catch(e){ return null; } })() : null;
+  const current = _currentFilterState();
+  const matchesDefault = ['status','cat','pay'].every(f=>{
+    const cur = current[f], def = defaultState ? defaultState[f] : null;
+    // No saved default for this group — "default" means everything checked
+    if(!def) return cur.every(x=>x.c);
+    if(cur.length !== def.length) return false;
+    return cur.every(x=>{
+      const match = def.find(d=>d.v===x.v);
+      return match && match.c === x.c;
+    });
+  });
+  btn.style.display = matchesDefault ? 'none' : '';
 }
 
 function getFilterValues(filter){
@@ -1503,7 +1563,7 @@ function _showInboxDetailFromData(orderId, rows) {
     // Any category with a "Backing" option can generate a 3MF — the generator
     // itself (badge/render.js) already supports Pin/Magnet/Keychain backings,
     // this isn't specific to the "Name Badge" category.
-    const isBadge = catOpts.some(o => o.name.trim().toLowerCase() === 'backing');
+    const isBadge = catOpts.some(o => o.name.trim().toLowerCase().includes('backing'));
 
     const optLines = catOpts.map(opt => {
       const val = parsedOpts[opt.name];
@@ -1527,7 +1587,7 @@ function _showInboxDetailFromData(orderId, rows) {
 
     const badgeParams = new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''});
     const badgeBtn = isBadge
-      ? '<button class="sort-btn-main" title="Generate Badge" onclick="generateBadge(\'/badge/?' + badgeParams + '\')"><i class="ti ti-badge"></i> Download 3MF</button>'
+      ? '<button class="sort-btn-main" title="Generate Badge" onclick="generateBadge(\'/badge/?' + badgeParams + '\')"><i class="ti ti-badge"></i> Download</button>'
       : '';
 
     const searchText = [cat ? cat.name : '', Object.values(parsedOpts).join(' '), row.notes || ''].join(' ').toLowerCase();
@@ -1562,7 +1622,7 @@ function _showInboxDetailFromData(orderId, rows) {
 
   const badgeRows = rows.filter(r => {
     const rowCatOpts = opts.filter(o => String(o.catId) === String(r.catId));
-    return rowCatOpts.some(o => o.name.trim().toLowerCase() === 'backing');
+    return rowCatOpts.some(o => o.name.trim().toLowerCase().includes('backing'));
   });
   const batchItems = badgeRows.map(r => {
     const p = {};
@@ -1570,7 +1630,7 @@ function _showInboxDetailFromData(orderId, rows) {
     return {name: p['Text']||'', backing: p['Backing']||'', colours: p['Colours']||''};
   });
   const bulkBadgeBtn = badgeRows.length
-    ? '<button class="sort-btn-main ml-auto" onclick="openBadgeBatchModal(' + esc(JSON.stringify(batchItems)) + ',\'' + escJsAttr(first.customer) + '\')"><i class="ti ti-badges"></i> Download All 3MF</button>'
+    ? '<button class="sort-btn-main ml-auto" onclick="openBadgeBatchModal(' + esc(JSON.stringify(batchItems)) + ',\'' + escJsAttr(first.customer) + '\')"><i class="ti ti-badges"></i> Download All</button>'
     : '';
 
   const printBtn = first.address
@@ -1682,14 +1742,17 @@ function _renderViewOrders() {
     + '<div class="filter-panel" id="filterPanel" style="display:none">'
     + '<div class="filter-section-title">Status</div>'
     + ['Pending','Confirmed','Printed','Complete','On Hold','Cancelled'].map(function(s){
-        return '<label class="filter-check"><input type="checkbox" data-filter="status" value="' + s + '" checked onchange="renderTable();updateFilterCount()"> ' + s + '</label>';
+        return '<label class="filter-check"><input type="checkbox" data-filter="status" value="' + s + '" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()"> ' + s + '</label>';
       }).join('')
     + '<div class="filter-section-title filter-section-title-mt10">Category</div>'
     + '<div id="filterCatChecks"></div>'
     + '<div class="filter-section-title filter-section-title-mt10">Payment</div>'
     + '<div id="filterPayChecks"></div>'
+    + '<div class="filter-panel-divider"></div>'
+    + '<button class="filter-save-default-btn" onclick="saveFilterAsDefault()"><i class="ti ti-device-floppy"></i> Save as default</button>'
     + '</div>'
     + '</div>'
+    + '<button class="sort-btn-main" id="filterResetBtn" style="display:none" data-tt="Reset to default filter" onclick="resetFilterToDefault()"><i class="ti ti-refresh"></i></button>'
     + '<div class="sort-btn-wrap" id="sortWrap">'
     + '<div class="sort-btn-group">'
     + '<button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)"><i class="ti ti-arrows-sort"></i></button>'
@@ -1702,7 +1765,9 @@ function _renderViewOrders() {
     + '<div class="inbox-list" id="inboxList"></div>'
     + footer;
   populateCatFilter();
+  applyFilterDefault();
   updateFilterCount();
+  updateFilterDefaultBtn();
   updateSortUI();
   renderTable();
 }

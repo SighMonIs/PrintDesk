@@ -551,6 +551,9 @@ async function loadAll(){
     inventoryReceipts    = DEV_FIXTURES.inventoryReceipts.map(normaliseInventoryReceipt);
     inventoryConsumption = DEV_FIXTURES.inventoryConsumption.map(normaliseInventoryConsumption);
     populateCatFilter();
+    applyFilterDefault();
+    updateFilterCount();
+    updateFilterDefaultBtn();
     renderTable();
     setStatus('ok','Connected (dev fixtures)');
     return;
@@ -584,6 +587,9 @@ async function loadAll(){
     inventoryConsumption = invConsumptionRaw.map(normaliseInventoryConsumption);
     if(!cats.length) setStatus('warn','No categories found — add some in Categories');
     populateCatFilter();
+    applyFilterDefault();
+    updateFilterCount();
+    updateFilterDefaultBtn();
     await loadPreferences();  // load sort prefs before rendering
     renderTable();
     setStatus('ok','Connected');

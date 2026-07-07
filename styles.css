@@ -850,6 +850,14 @@ input[type=number]{-moz-appearance:textfield;}
   accent-color:var(--accent);cursor:pointer;flex-shrink:0;
 }
 .filter-check:hover{color:var(--accent);}
+.filter-panel-divider{height:1px;background:var(--border);margin:10px 0 8px;}
+.filter-save-default-btn{
+  width:100%;height:30px;border:1px solid var(--border2);border-radius:var(--radius);
+  background:none;color:var(--muted);font-size:11px;font-family:inherit;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:background 0.12s,color 0.12s,border-color 0.12s;
+}
+.filter-save-default-btn:hover{background:var(--surface);color:var(--accent);border-color:var(--accent2);}
 .paid-btn{
   height:34px;padding:0 16px;border:1px solid transparent;border-radius:var(--radius);
   font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;

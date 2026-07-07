@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=1.6.7">
+<link rel="stylesheet" href="styles.css?v=1.6.8">
 
 <script>
 // Fallback if config.js missing
@@ -129,18 +129,21 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
           </button>
           <div class="filter-panel" id="filterPanel" style="display:none">
             <div class="filter-section-title">Status</div>
-            <label class="filter-check"><input type="checkbox" data-filter="status" value="Pending" checked onchange="renderTable();updateFilterCount()"> Pending</label>
-            <label class="filter-check"><input type="checkbox" data-filter="status" value="Confirmed" checked onchange="renderTable();updateFilterCount()"> Confirmed</label>
-            <label class="filter-check"><input type="checkbox" data-filter="status" value="Printed" checked onchange="renderTable();updateFilterCount()"> Printed</label>
-            <label class="filter-check"><input type="checkbox" data-filter="status" value="Complete" checked onchange="renderTable();updateFilterCount()"> Complete</label>
-            <label class="filter-check"><input type="checkbox" data-filter="status" value="On Hold" checked onchange="renderTable();updateFilterCount()"> On Hold</label>
-            <label class="filter-check"><input type="checkbox" data-filter="status" value="Cancelled" checked onchange="renderTable();updateFilterCount()"> Cancelled</label>
+            <label class="filter-check"><input type="checkbox" data-filter="status" value="Pending" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()"> Pending</label>
+            <label class="filter-check"><input type="checkbox" data-filter="status" value="Confirmed" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()"> Confirmed</label>
+            <label class="filter-check"><input type="checkbox" data-filter="status" value="Printed" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()"> Printed</label>
+            <label class="filter-check"><input type="checkbox" data-filter="status" value="Complete" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()"> Complete</label>
+            <label class="filter-check"><input type="checkbox" data-filter="status" value="On Hold" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()"> On Hold</label>
+            <label class="filter-check"><input type="checkbox" data-filter="status" value="Cancelled" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()"> Cancelled</label>
             <div class="filter-section-title filter-section-title-mt10">Category</div>
             <div id="filterCatChecks"></div>
             <div class="filter-section-title filter-section-title-mt10">Payment</div>
             <div id="filterPayChecks"></div>
+            <div class="filter-panel-divider"></div>
+            <button class="filter-save-default-btn" onclick="saveFilterAsDefault()"><i class="ti ti-device-floppy"></i> Save as default</button>
           </div>
         </div>
+        <button class="sort-btn-main" id="filterResetBtn" style="display:none" data-tt="Reset to default filter" onclick="resetFilterToDefault()"><i class="ti ti-refresh"></i></button>
         <div class="sort-btn-wrap" id="sortWrap">
           <div class="sort-btn-group">
             <button class="sort-btn-main" id="sortBtn" onclick="toggleSortPanel(event)">
@@ -158,7 +161,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <div class="inbox-empty-state"><i class="ti ti-loader-2"></i> Loading&hellip;</div>
     </div>
     <div class="inbox-list-footer">
-      <span id="footerVersion">v1.6.7</span>
+      <span id="footerVersion">v1.6.8</span>
       <span class="footer-dot-sep">&middot;</span>
       <span id="statusMsg" class="footer-status">Loading&hellip;</span>
     </div>
@@ -249,8 +252,8 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   <button class="btn sm" onclick="_undoToastAction()">Undo</button>
 </div>
 
-<script src="api.js?v=1.6.7"></script>
-<script src="ui.js?v=1.6.7"></script>
-<script src="app.js?v=1.6.7"></script>
+<script src="api.js?v=1.6.8"></script>
+<script src="ui.js?v=1.6.8"></script>
+<script src="app.js?v=1.6.8"></script>
 </body>
 </html>
