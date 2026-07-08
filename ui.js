@@ -966,12 +966,16 @@ async function saveOrder(){
   }));
   // When editing preserve the existing status/printed/inv_consumed (per item) and paid (per order)
   const holdStatus = document.getElementById('f-holdstatus')?.value || '';
+  const qtyChanges = new Map(); // rowId -> previous qty, only for rows already consumed from stock
   if(editOId){
     const existingPaid = orders.find(o=>o.orderId===editOId)?.paid||false;
     newRows.forEach(nr=>{
       nr.paid = existingPaid;
       const existing=orders.find(o=>o.orderId===editOId&&o.model===nr.model);
-      if(existing){ nr.status=existing.status; nr.printed=existing.printed; nr.inv_consumed=existing.inv_consumed; }
+      if(existing){
+        nr.status=existing.status; nr.printed=existing.printed; nr.inv_consumed=existing.inv_consumed;
+        if(existing.inv_consumed && existing.qty!==nr.qty) qtyChanges.set(nr.id, existing.qty);
+      }
     });
     if(holdStatus){
       newRows.forEach(nr=>{ nr.status = holdStatus; });
@@ -999,6 +1003,9 @@ async function saveOrder(){
         printed: row.printed, paid: row.paid, inv_consumed: row.inv_consumed,
         deleted: false
       });
+    }
+    for(const row of newRows){
+      if(qtyChanges.has(row.id)) await _reconcileInventoryQtyChange(row, qtyChanges.get(row.id));
     }
     if(editOId && !holdStatus) await _maybeAdvanceStatus(orderId);
     setStatus('ok','Saved · '+uniqueOrderCount()+' orders');
@@ -1072,17 +1079,35 @@ async function toggleOrderPaid(orderId, checked){
   renderTable();
 }
 
-// Matches each row's option values (e.g. "Backing:Magnet") against inventory item
+// Matches a row's option values (e.g. "Backing:Magnet") against inventory item
 // names by exact text — no explicit linking needed, just name the item to match.
+function _matchedInventoryItems(row){
+  if(!row.options) return [];
+  const values = row.options.split('||').map(p=>p.includes(':')?p.split(':').slice(1).join(':').trim():'').filter(Boolean);
+  return values.map(v=>inventoryItems.find(i=>i.name.toLowerCase()===v.toLowerCase())).filter(Boolean);
+}
+
+// When an already-consumed row's qty changes on a later edit, log a delta
+// entry (can be negative) rather than ever touching the original record —
+// inventory_consumption stays an append-only ledger.
+async function _reconcileInventoryQtyChange(row, prevQty){
+  const delta = row.qty - prevQty;
+  if(!delta) return;
+  for(const item of _matchedInventoryItems(row)){
+    const rec = {id: nextInventoryConsumptionId(), item_id: item.id, order_id: row.orderId, qty: delta, date: todayISO()};
+    try{
+      await sbUpsert('inventory_consumption', rec);
+      inventoryConsumption.push(normaliseInventoryConsumption(rec));
+    }catch(e){ /* non-fatal */ }
+  }
+}
+
 // Guarded by row.inv_consumed so re-processing an already-Complete order never
 // double-counts stock usage.
 async function _consumeInventoryForOrder(rows){
   for(const row of rows){
     if(row.inv_consumed || !row.options) continue;
-    const values = row.options.split('||').map(p=>p.includes(':')?p.split(':').slice(1).join(':').trim():'').filter(Boolean);
-    for(const value of values){
-      const item = inventoryItems.find(i=>i.name.toLowerCase()===value.toLowerCase());
-      if(!item) continue;
+    for(const item of _matchedInventoryItems(row)){
       const rec = {id: nextInventoryConsumptionId(), item_id: item.id, order_id: row.orderId, qty: row.qty, date: todayISO()};
       try{
         await sbUpsert('inventory_consumption', rec);
