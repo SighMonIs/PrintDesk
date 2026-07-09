@@ -144,7 +144,7 @@ body{overflow:hidden;background:var(--base);margin:0;padding:0;}
 .inbox-detail-meta-item strong{color:var(--text);font-weight:500;}
 
 .inbox-items-panel{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;padding-top:10px;background:#131313;}
-.inbox-detail-items-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 15px;}
+.inbox-detail-items-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;padding:0 15px;}
 .inbox-detail-items-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
 .inbox-items-list{display:flex;flex-direction:column;gap:8px;}
 
