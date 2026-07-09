@@ -1382,6 +1382,108 @@ async function generateBadge(url) {
   }
 }
 
+// ── Invoice PDF ─────────────────────────────────────────────
+let _jsPDFReady = false;
+async function _loadJsPDF(){
+  if (_jsPDFReady) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = res; s.onerror = () => rej(new Error('Failed to load jsPDF'));
+    document.head.appendChild(s);
+  });
+  _jsPDFReady = true;
+}
+
+async function generateInvoice(orderId){
+  setStatus('spin', 'Generating invoice…');
+  try{
+    const rows = orders.filter(r => String(r.orderId) === String(orderId));
+    if (!rows.length) throw new Error('Order not found');
+    await _loadJsPDF();
+
+    const first = rows[0];
+    const deliveryCost = deliveryOptions.find(d => d.name === first.delivery)?.price || 0;
+    const total = rows.reduce((s, r) => s + r.total, 0) + deliveryCost;
+    const orderNum = orderNumFromId(orderId);
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
+    doc.text('PrintDesk', 15, y);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(12);
+    doc.text('INVOICE', pageW - 15, y, { align: 'right' });
+    y += 6;
+    doc.setFontSize(10); doc.setTextColor(100);
+    doc.text('Order ' + orderNum, pageW - 15, y, { align: 'right' }); y += 5;
+    doc.text(toDisplay(first.date) || '', pageW - 15, y, { align: 'right' });
+    doc.setTextColor(0);
+    y += 12;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('Bill To', 15, y); y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(first.customer || '', 15, y); y += 5;
+    if (first.address) {
+      first.address.split(/,\s*|\n/).map(s => s.trim()).filter(Boolean).forEach(line => {
+        doc.text(line, 15, y); y += 5;
+      });
+    }
+    y += 4;
+    doc.text('Delivery: ' + (first.delivery || 'Post'), 15, y);
+    doc.text('Payment: ' + (first.payment || 'No'), pageW - 15, y, { align: 'right' });
+    y += 10;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFillColor(240, 240, 240);
+    doc.rect(15, y - 5, pageW - 30, 8, 'F');
+    doc.text('Item', 17, y);
+    doc.text('Qty', pageW - 70, y, { align: 'right' });
+    doc.text('Price', pageW - 45, y, { align: 'right' });
+    doc.text('Total', pageW - 17, y, { align: 'right' });
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+
+    rows.forEach(row => {
+      const cat = cats.find(c => String(c.id) === String(row.catId));
+      doc.text(cat ? cat.name : '?', 17, y);
+      doc.text(String(row.qty), pageW - 70, y, { align: 'right' });
+      doc.text('$' + row.price.toFixed(2), pageW - 45, y, { align: 'right' });
+      doc.text('$' + row.total.toFixed(2), pageW - 17, y, { align: 'right' });
+      y += 7;
+      if (row.notes) {
+        doc.setFontSize(8); doc.setTextColor(120);
+        doc.text(row.notes, 17, y); y += 5;
+        doc.setFontSize(10); doc.setTextColor(0);
+      }
+      if (y > 270) { doc.addPage(); y = 20; }
+    });
+
+    if (deliveryCost) {
+      doc.text('Delivery (' + first.delivery + ')', 17, y);
+      doc.text('$' + deliveryCost.toFixed(2), pageW - 17, y, { align: 'right' });
+      y += 7;
+    }
+
+    y += 3;
+    doc.setDrawColor(200); doc.line(15, y, pageW - 15, y);
+    y += 8;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('Total', pageW - 45, y, { align: 'right' });
+    doc.text('$' + total.toFixed(2), pageW - 17, y, { align: 'right' });
+
+    const filename = 'Invoice_' + orderNum.replace('#', '') + '_' + (first.customer || '').replace(/[^a-z0-9]/gi, '') + '.pdf';
+    doc.save(filename);
+    setStatus('ok', 'Invoice downloaded');
+  }catch(e){
+    console.error('Invoice generation error:', e);
+    setStatus('err', 'Invoice failed: ' + _errMsg(e));
+  }
+}
+
 // ── Colours modal ─────────────────────────────────────────
 // Colour names referenced by any completed order's colour-type option
 // values — used to block permanently deleting a colour that's part of

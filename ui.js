@@ -1680,6 +1680,8 @@ function _showInboxDetailFromData(orderId, rows) {
     ? '<button class="sort-btn-main" onclick="printShippingLabel(\'' + escJsAttr(first.customer) + '\',\'' + escJsAttr(first.address) + '\',\'' + esc(String(orderId)) + '\')" title="Print label"><i class="ti ti-printer"></i> Shipping Label</button>'
     : '';
 
+  const invoiceBtn = '<button class="sort-btn-main" onclick="generateInvoice(\'' + esc(String(orderId)) + '\')" title="Download invoice"><i class="ti ti-file-invoice"></i> Invoice</button>';
+
   detailEl.innerHTML = '<div class="inbox-detail">'
     + '<div class="inbox-detail-header">'
     + '<div class="inbox-detail-header-top">'
@@ -1701,6 +1703,7 @@ function _showInboxDetailFromData(orderId, rows) {
     + '<div class="inbox-items-panel">'
     + '<div class="inbox-detail-items-hdr">'
     + printBtn
+    + invoiceBtn
     + bulkBadgeBtn
     + '</div>'
     + '<div class="detail-toolbar-row">'
