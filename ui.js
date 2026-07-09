@@ -1131,7 +1131,7 @@ async function _maybeAdvanceStatus(orderId){
   const paid = rows[0].paid;
   let next=null;
   if(status==='Printed' && paid) next='Complete';
-  else if((status==='Pending'||status==='Confirmed') && allPrinted) next = paid?'Complete':'Printed';
+  else if((status==='Pending'||status==='Confirmed') && allPrinted) next='Printed';
   if(!next) return;
   rows.forEach(r=>r.status=next);
   try{
