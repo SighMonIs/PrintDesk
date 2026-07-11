@@ -1548,6 +1548,7 @@ function showInboxDetail(orderId) {
   });
   const rows = orders.filter(r => String(r.orderId) === String(orderId));
   _showInboxDetailFromData(orderId, rows);
+  _mobileShowDetail();
 }
 
 function _showInboxDetailFromData(orderId, rows) {
@@ -1741,7 +1742,31 @@ let _sidebarView = 'orders';
 let _selectedCustomerId = null;
 let _selectedInventoryItemId = null;
 
+// Mobile: hamburger nav menu
+function toggleMobileMenu(e) {
+  e.stopPropagation();
+  document.getElementById('sidebar').classList.toggle('menu-open');
+}
+function closeMobileMenu() {
+  document.getElementById('sidebar').classList.remove('menu-open');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#topbarMenuPanel') && !e.target.closest('#topbarHamburger')) closeMobileMenu();
+});
+
+// Mobile: slide the detail column over the list column
+function _mobileShowDetail() {
+  var app = document.getElementById('mainApp');
+  if (app) app.classList.add('mobile-detail-open');
+}
+function _mobileShowList() {
+  var app = document.getElementById('mainApp');
+  if (app) app.classList.remove('mobile-detail-open');
+}
+
 function setSidebarView(view) {
+  closeMobileMenu();
+  _mobileShowList();
   _sidebarView = view;
   document.querySelectorAll('.topbar-item[data-view]').forEach(function(el) {
     el.classList.toggle('active', el.dataset.view === view);
@@ -1923,6 +1948,7 @@ function _showCustomerDetail(customerId) {
   }
   html += '</div>';
   detail.innerHTML = html;
+  _mobileShowDetail();
 }
 
 function _switchToOrder(orderId) {
@@ -2055,6 +2081,7 @@ function _showInventoryDetail(itemId) {
       : '<div class="inbox-empty-state"><i class="ti ti-package-off"></i> Not used by any completed order yet</div>')
     + '</div>';
   detail.innerHTML = html;
+  _mobileShowDetail();
 }
 
 // Categories view
@@ -2119,6 +2146,7 @@ function _renderViewStats() {
       + '<div class="stat-bar-fill" style="width:'+Math.round(x.n/max*100)+'%"></div>'
       + '</div></div></div>';
   }).join('') || '<div class="inbox-empty-state"><i class="ti ti-chart-bar"></i> No data</div>';
+  _mobileShowDetail();
 }
 
 function _statCard(label, val, icon, color) {
@@ -2355,6 +2383,7 @@ function _showSettingsDetail(catId) {
     document.getElementById('settingsPasswordError').style.display = 'none';
     loadNotificationSettings();
   }
+  _mobileShowDetail();
 }
 
 function _settingsToggleRevenue(i) {

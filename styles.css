@@ -673,8 +673,10 @@ input[type=number]{-moz-appearance:textfield;}
   height:34px;display:flex;align-items:center;gap:8px;
   flex-shrink:0;margin-right:6px;
 }
+.topbar-menu-panel{display:contents;}
 .topbar-nav{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;}
 .topbar-end{display:flex;align-items:center;gap:4px;}
+.topbar-back,.topbar-hamburger{display:none;}
 .topbar-item{
   display:flex;align-items:center;justify-content:center;
   background:transparent;border:none;cursor:pointer;
@@ -945,3 +947,32 @@ input[type=number]{-moz-appearance:textfield;}
 .inbox-item-card:hover{background:var(--surface2);}
 .inbox-detail-meta{background:transparent;border:none;border-radius:0;}
 .inbox-detail-total{background:transparent;border:none;border-radius:0;}
+
+/* ── Mobile: hamburger menu + slide-over detail column ── */
+@media (max-width: 640px) {
+  #mainApp{margin:0;height:100vh;max-width:100%;}
+  .topbar{position:relative;border-radius:0;}
+  .topbar-hamburger{display:flex;margin-left:auto;}
+  .topbar-back{display:none;flex:1;justify-content:center;}
+  #mainApp.mobile-detail-open .topbar-back{display:flex;}
+  .topbar-menu-panel{
+    display:none;position:absolute;top:100%;right:8px;margin-top:6px;
+    flex-direction:column;gap:2px;background:var(--surface);
+    border:1px solid var(--border2);border-radius:10px;padding:6px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:200;min-width:180px;
+  }
+  .topbar.menu-open .topbar-menu-panel{display:flex;}
+  .topbar-menu-panel .topbar-nav,.topbar-menu-panel .topbar-end{
+    flex-direction:column;align-items:stretch;gap:2px;
+  }
+  .topbar-menu-panel .topbar-item{justify-content:flex-start;width:100%;height:38px;}
+
+  .inbox-layout{position:relative;border-radius:0;border:none;}
+  .inbox-list-col{width:100%;margin:0;box-shadow:none;}
+  .inbox-detail-col{
+    position:absolute;inset:0;z-index:2;
+    background:var(--bg);transform:translateX(100%);
+    transition:transform 0.2s ease;
+  }
+  #mainApp.mobile-detail-open .inbox-detail-col{transform:translateX(0);}
+}

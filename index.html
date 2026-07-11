@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=1.7.5">
+<link rel="stylesheet" href="styles.css?v=1.7.6">
 
 <script>
 // Fallback if config.js missing
@@ -82,31 +82,39 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       </svg>
       <span class="logo">PrintDesk</span>
     </div>
-    <div class="topbar-nav">
-      <button class="topbar-item active ti-e" data-view="orders" onclick="setSidebarView('orders')" title="Orders">
-        <i class="ti ti-inbox"></i><span class="ti-label">Orders</span>
-      </button>
-      <button class="topbar-item ti-e" data-view="customers" onclick="setSidebarView('customers')" title="Customers">
-        <i class="ti ti-address-book"></i><span class="ti-label">Customers</span>
-      </button>
-      <button class="topbar-item ti-e" data-view="inventory" onclick="setSidebarView('inventory')" title="Inventory">
-        <i class="ti ti-package"></i><span class="ti-label">Inventory</span>
-      </button>
-      <button class="topbar-item ti-e" data-view="stats" onclick="setSidebarView('stats')" title="Stats">
-        <i class="ti ti-chart-bar"></i><span class="ti-label">Stats</span>
-      </button>
-      <button class="topbar-item ti-e" onclick="window.open('badge/','_blank')" title="Badges (opens in new tab)">
-        <i class="ti ti-badge"></i><span class="ti-label">Badges</span><i class="ti ti-external-link external-link-icon"></i>
-      </button>
+    <button class="topbar-item topbar-back" id="topbarBackBtn" onclick="_mobileShowList()" title="Back">
+      <i class="ti ti-arrow-left"></i>
+    </button>
+    <div class="topbar-menu-panel" id="topbarMenuPanel">
+      <div class="topbar-nav">
+        <button class="topbar-item active ti-e" data-view="orders" onclick="setSidebarView('orders')" title="Orders">
+          <i class="ti ti-inbox"></i><span class="ti-label">Orders</span>
+        </button>
+        <button class="topbar-item ti-e" data-view="customers" onclick="setSidebarView('customers')" title="Customers">
+          <i class="ti ti-address-book"></i><span class="ti-label">Customers</span>
+        </button>
+        <button class="topbar-item ti-e" data-view="inventory" onclick="setSidebarView('inventory')" title="Inventory">
+          <i class="ti ti-package"></i><span class="ti-label">Inventory</span>
+        </button>
+        <button class="topbar-item ti-e" data-view="stats" onclick="setSidebarView('stats')" title="Stats">
+          <i class="ti ti-chart-bar"></i><span class="ti-label">Stats</span>
+        </button>
+        <button class="topbar-item ti-e" onclick="window.open('badge/','_blank');closeMobileMenu()" title="Badges (opens in new tab)">
+          <i class="ti ti-badge"></i><span class="ti-label">Badges</span><i class="ti ti-external-link external-link-icon"></i>
+        </button>
+      </div>
+      <div class="topbar-end">
+        <button class="topbar-item ti-e" data-view="settings" onclick="setSidebarView('settings')" title="Settings">
+          <i class="ti ti-settings"></i><span class="ti-label">Settings</span>
+        </button>
+        <button class="topbar-item topbar-logout ti-e" onclick="doLogout()" title="Sign out">
+          <i class="ti ti-logout"></i><span class="ti-label">Sign out</span>
+        </button>
+      </div>
     </div>
-    <div class="topbar-end">
-      <button class="topbar-item ti-e" data-view="settings" onclick="setSidebarView('settings')" title="Settings">
-        <i class="ti ti-settings"></i><span class="ti-label">Settings</span>
-      </button>
-      <button class="topbar-item topbar-logout ti-e" onclick="doLogout()" title="Sign out">
-        <i class="ti ti-logout"></i><span class="ti-label">Sign out</span>
-      </button>
-    </div>
+    <button class="topbar-item topbar-hamburger" id="topbarHamburger" onclick="toggleMobileMenu(event)" title="Menu">
+      <i class="ti ti-menu-2"></i>
+    </button>
   </nav>
 
 <div class="inbox-layout" id="mainContent">
@@ -161,7 +169,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <div class="inbox-empty-state"><i class="ti ti-loader-2"></i> Loading&hellip;</div>
     </div>
     <div class="inbox-list-footer">
-      <span id="footerVersion">v1.7.5</span>
+      <span id="footerVersion">v1.7.6</span>
       <span class="footer-dot-sep">&middot;</span>
       <span id="statusMsg" class="footer-status">Loading&hellip;</span>
     </div>
@@ -252,8 +260,8 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   <button class="btn sm" onclick="_undoToastAction()">Undo</button>
 </div>
 
-<script src="api.js?v=1.7.5"></script>
-<script src="ui.js?v=1.7.5"></script>
-<script src="app.js?v=1.7.5"></script>
+<script src="api.js?v=1.7.6"></script>
+<script src="ui.js?v=1.7.6"></script>
+<script src="app.js?v=1.7.6"></script>
 </body>
 </html>
