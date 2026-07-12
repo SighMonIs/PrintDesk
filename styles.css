@@ -975,4 +975,6 @@ input[type=number]{-moz-appearance:textfield;}
     transition:transform 0.2s ease;
   }
   #mainApp.mobile-detail-open .inbox-detail-col{transform:translateX(0);}
+
+  .inbox-detail{padding:0.75rem;}
 }
