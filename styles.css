@@ -674,7 +674,7 @@ input[type=number]{-moz-appearance:textfield;}
 .topbar-menu-panel{display:contents;}
 .topbar-nav{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;}
 .topbar-end{display:flex;align-items:center;gap:4px;}
-.topbar-back,.topbar-hamburger{display:none;}
+.topbar-item.topbar-back,.topbar-item.topbar-hamburger{display:none;}
 .topbar-item{
   display:flex;align-items:center;justify-content:center;
   background:transparent;border:none;cursor:pointer;
@@ -950,7 +950,7 @@ input[type=number]{-moz-appearance:textfield;}
 @media (max-width: 640px) {
   #mainApp{margin:0;height:100vh;max-width:100%;}
   .topbar{position:relative;border-radius:0;}
-  .topbar-hamburger{display:flex;margin-left:auto;min-width:44px;min-height:44px;}
+  .topbar-item.topbar-hamburger{display:flex;margin-left:auto;min-width:44px;min-height:44px;}
   .topbar-back{display:none;flex:0 0 auto;gap:6px;margin-left:8px;padding:0 12px;min-height:40px;}
   #mainApp.mobile-detail-open .topbar-back{display:flex;}
   #sidebar .topbar-back{
