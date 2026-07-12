@@ -433,13 +433,14 @@ function renderLayerSelectors(idx, optId, savedVal){
 
 function buildLayerSwatch(id, selectedName, layerNum, onChangeFn){
   const avail = availableColours();
+  // Every layer must have a colour — default to the first available one instead of none.
+  if(!selectedName) selectedName = avail[0]?.name || '';
   const sel   = avail.find(c=>c.name===selectedName);
   const swatchBg = sel ? sel.code : 'transparent';
   const label    = sel ? sel.name : '— none —';
   return `<div class="layer-swatch-wrap" id="cpw-${id}" data-value="${esc(selectedName||'')}">
     <button type="button" class="layer-swatch-btn" style="--sw:${swatchBg}" data-tt="Layer ${layerNum}: ${esc(label)}" onclick="event.stopPropagation();toggleLayerSwatchPicker('${id}',this)"></button>
     <div class="layer-swatch-picker" id="lsp-${id}" style="display:none">
-      <button type="button" class="layer-swatch-opt layer-swatch-opt-none" data-name="" data-tt="— none —" onclick="selectLayerSwatch('${id}','',${onChangeFn})"></button>
       ${avail.map(c=>`<button type="button" class="layer-swatch-opt${c.name===selectedName?' selected':''}" style="--sw:${esc(c.code)}" data-name="${esc(c.name)}" data-tt="${esc(c.name)}" onclick="selectLayerSwatch('${id}','${escJsAttr(c.name)}',${onChangeFn})"></button>`).join('')}
     </div>
   </div>`;
