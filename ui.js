@@ -297,9 +297,8 @@ function renderModelOpts(idx, catId, savedOpts){
           ${savedCombos.length?`<optgroup label="── Saved combinations ──">${comboOptions}</optgroup>`:''}
         </select>`;
         const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label>`+
-          `<div class="opt-row-colour-inline">${selectHtml}`+
-          `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="1" style="${ddVal==='Custom'?'':'display:none'}"></div>`+
-          `</div></div>`;
+          `<div class="opt-row-colour-inline">${selectHtml}</div></div>`+
+          `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="1" style="${ddVal==='Custom'?'':'display:none'}"></div>`;
         if(ddVal==='Custom') setTimeout(()=>renderLayerSelectors(idx,opt.id,customVal),0);
         else if(ddVal&&ddVal!=='Custom') setTimeout(()=>applyComboToLayers(idx,opt.id,ddVal),0);
         return rowHtml;
@@ -452,10 +451,10 @@ function toggleLayerSwatchPicker(id, btn){
   if(!list) return;
   if(list.style.display!=='none'){ list.style.display='none'; return; }
   const rect=btn.getBoundingClientRect();
-  const listWidth=6*28+12;
+  list.style.display='grid';
+  const listWidth=list.offsetWidth;
   list.style.left=Math.min(rect.left, window.innerWidth-listWidth-8)+'px';
   list.style.top=(rect.bottom+4)+'px';
-  list.style.display='grid';
 }
 
 function selectLayerSwatch(id, name, onChangeFn){
