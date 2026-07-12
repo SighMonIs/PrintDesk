@@ -552,8 +552,10 @@ function addModelRow(d){
     <button type="button" class="rm-btn-corner" onclick="removeModel(this)" title="Remove Item"><i class="ti ti-trash"></i></button>
     <div class="model-row-top">
       <div class="opt-row"><label>Category</label><select id="mc-${idx}" onchange="catChanged(${idx})">${catOptions(d.catId)}</select></div>
-      <div class="prefix-input-wrap"><span>×</span><input type="number" class="ns-init" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"></div>
-      <div class="prefix-input-wrap"><span>$</span><input type="number" class="ns-init" id="mp-${idx}" value="${d.price?Number(d.price).toFixed(2):''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"></div>
+      <div class="model-row-qtyprice">
+        <div class="prefix-input-wrap"><span>×</span><input type="number" class="ns-init" id="mq-${idx}" value="${d.qty||1}" min="1" oninput="calcTotal()"></div>
+        <div class="prefix-input-wrap"><span>$</span><input type="number" class="ns-init" id="mp-${idx}" value="${d.price?Number(d.price).toFixed(2):''}" step="0.01" min="0" placeholder="0.00" oninput="calcTotal()"></div>
+      </div>
     </div>
     <div class="model-options" id="mo-${idx}"></div>
     <div class="opt-row opt-row-notes">

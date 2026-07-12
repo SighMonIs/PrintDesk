@@ -408,6 +408,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .rm-btn-corner{position:absolute;top:1px;right:1px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:0 var(--radius) 0 var(--radius);border:1px solid rgba(224,92,92,0.5);background:rgba(224,92,92,0.08);color:var(--red);cursor:pointer;font-size:14px;transition:all 0.12s;z-index:1;}
 .rm-btn-corner:hover{background:rgba(224,92,92,0.18);border-color:rgba(224,92,92,0.8);}
 .model-row-top{display:grid;grid-template-columns:1fr 56px 70px;gap:6px;align-items:center;padding-right:32px;}
+.model-row-qtyprice{display:contents;}
 .total-val{font-size:14px;font-weight:700;color:var(--text);flex-shrink:0;white-space:nowrap;}
 .total-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;flex-shrink:0;}
 .prefix-input-wrap{display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);}
@@ -1015,10 +1016,15 @@ input[type=number]{-moz-appearance:textfield;}
   }
   .layer-swatch-opt{width:34px;height:34px;}
 
-  /* The 32px right-padding on .model-row-top exists to keep Category clear of
-     the trash icon (top:1px;right:1px). On mobile Category is forced onto its
-     own row above Qty/Price, so only that row overlaps the icon — Qty/Price
-     don't need the reserved space and were being squeezed by it too. */
+  /* Qty/Price sit on their own row below Category on mobile. .opt-row's
+     internal grid (100px label + 8px gap) puts the actual <select> 108px in
+     from the row edge, with 32px reserved on the right to clear the trash
+     icon — indent this wrapper the same amount so Qty+Price match the
+     dropdown's own left/right edges exactly, split into an even 50/50. */
   .model-row-top{padding-right:0;}
   .model-row-top .opt-row:first-child{padding-right:32px;}
+  .model-row-qtyprice{
+    display:grid;grid-template-columns:1fr 1fr;gap:6px;
+    grid-column:1/-1;margin-left:108px;margin-right:32px;
+  }
 }
