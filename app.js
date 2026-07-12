@@ -1,14 +1,21 @@
 // ── Payment options config ────────────────────────────────
-// Edit via Settings modal. Stored in localStorage for now.
-let paymentOptions = JSON.parse(localStorage.getItem('pd_payment_opts')||'null') || [
+// Stored in Supabase (payment_options table). These arrays start empty and
+// are populated by loadAll() — DEFAULT_PAYMENT_OPTIONS is only used to seed
+// the table the first time it's empty (see _seedPaymentOptionsIfEmpty).
+let paymentOptions = [];
+const DEFAULT_PAYMENT_OPTIONS = [
   {name:'No',   archived:false, showRevenue:false},
   {name:'Free', archived:false, showRevenue:false},
   {name:'Simon',archived:false, showRevenue:true},
   {name:'Wade', archived:false, showRevenue:true}
 ];
 
-function savePaymentOptions(){
-  localStorage.setItem('pd_payment_opts', JSON.stringify(paymentOptions));
+async function savePaymentOptions(){
+  try{
+    await sbReplace('payment_options', paymentOptions.map((p,i)=>({
+      id:p.id, name:p.name, show_revenue:!!p.showRevenue, archived:!!p.archived, sort_order:i
+    })));
+  }catch(e){ setStatus('err','Save failed: '+e.message); }
 }
 
 function getActivePaymentOptions(){
@@ -16,7 +23,9 @@ function getActivePaymentOptions(){
 }
 
 // ── Delivery options config ──────────────────────────────
-let deliveryOptions = JSON.parse(localStorage.getItem('pd_delivery_opts')||'null') || [
+// Stored in Supabase (delivery_options table) — see note above.
+let deliveryOptions = [];
+const DEFAULT_DELIVERY_OPTIONS = [
   {name:'Post',    archived:false, price:0, icon:'ti-mail'},
   {name:'Pick Up', archived:false, price:0, icon:'ti-hand-stop'}
 ];
@@ -28,8 +37,12 @@ const DELIVERY_ICON_PACK = [
   'ti-parking','ti-door','ti-gift','ti-shopping-bag','ti-clock','ti-calendar-event'
 ];
 
-function saveDeliveryOptions(){
-  localStorage.setItem('pd_delivery_opts', JSON.stringify(deliveryOptions));
+async function saveDeliveryOptions(){
+  try{
+    await sbReplace('delivery_options', deliveryOptions.map((d,i)=>({
+      id:d.id, name:d.name, price:d.price||0, icon:d.icon||'ti-truck-delivery', archived:!!d.archived, sort_order:i
+    })));
+  }catch(e){ setStatus('err','Save failed: '+e.message); }
 }
 
 function getActiveDeliveryOptions(){

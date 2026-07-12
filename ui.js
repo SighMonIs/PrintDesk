@@ -2483,7 +2483,7 @@ function _settingsSavePayment() {
   var name = document.getElementById('pa-name').value.trim();
   if (!name) return;
   var isRevenue = document.getElementById('pa-revenue').checked;
-  paymentOptions.push({name:name, archived:false, showRevenue:isRevenue});
+  paymentOptions.push({id:nextPaymentId(), name:name, archived:false, showRevenue:isRevenue});
   savePaymentOptions();
   _showSettingsDetail('payment');
 }
@@ -2536,7 +2536,7 @@ function _settingsSaveDelivery() {
   var name = document.getElementById('da-name').value.trim();
   if (!name) return;
   var price = parseFloat(document.getElementById('da-price').value) || 0;
-  deliveryOptions.push({name:name, archived:false, price:price, icon:_daNewIcon});
+  deliveryOptions.push({id:nextDeliveryId(), name:name, archived:false, price:price, icon:_daNewIcon});
   saveDeliveryOptions();
   _showSettingsDetail('payment');
 }

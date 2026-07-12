@@ -1,47 +1,3 @@
-// ── Sidebar ────────────────────────────────────────────────
-// modes: 'hover' (default), 'expanded' (pinned open), 'collapsed' (always closed)
-let sidebarMode = 'hover';
-
-function initSidebar(){
-  applySidebarMode(sidebarMode);
-}
-
-function applySidebarMode(mode){
-  sidebarMode = mode;
-  const sidebar = document.getElementById('sidebar');
-  const app     = document.getElementById('mainApp');
-
-  sidebar.classList.remove('pinned','force-collapsed');
-  app.classList.remove('sidebar-pinned');
-
-  if(mode === 'expanded'){
-    sidebar.classList.add('pinned');
-    app.classList.add('sidebar-pinned');
-  } else if(mode === 'collapsed'){
-    sidebar.classList.add('force-collapsed');
-  }
-}
-
-function setSidebarMode(mode){
-  applySidebarMode(mode);
-  savePreferences();
-}
-
-// Mobile sidebar
-function openMobileSidebar(){
-  document.getElementById('sidebar').classList.add('mobile-open');
-  document.getElementById('sidebarOverlay').classList.add('mobile-open');
-}
-function closeMobileSidebar(){
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebarOverlay').classList.remove('mobile-open');
-}
-// Close mobile sidebar on outside click
-document.addEventListener('click', e=>{
-  if(window.innerWidth<=640 && e.target.closest('.sidebar-item')){
-    closeMobileSidebar();
-  }
-});
 
 
 // ── Confirm dialog ─────────────────────────────────────────
@@ -237,7 +193,6 @@ async function doLogout(){
 function showApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = '';
-  initSidebar();
   setTimeout(updateSortUI, 100);
   loadAll();
 }
@@ -255,7 +210,6 @@ async function loadPreferences(){
     if(rows.length){
       const p = rows[0];
       if(p.sort_key){ sortKey=p.sort_key; sortDir=p.sort_dir||1; updateSortUI(); }
-      if(p.sidebar_pinned !== undefined){ sidebarMode = p.sidebar_pinned === true ? 'expanded' : (p.sidebar_mode||'hover'); applySidebarMode(sidebarMode); }
     }
   } catch(e) { console.warn('Could not load preferences:', e); }
 }
@@ -266,8 +220,6 @@ async function savePreferences(){
     user_id:        currentUser.id,
     sort_key:       sortKey,
     sort_dir:       sortDir,
-    sidebar_pinned: sidebarMode==='expanded',
-    sidebar_mode:   sidebarMode,
     updated_at:     new Date().toISOString()
   };
   try {
@@ -369,6 +321,14 @@ function nextColourId(){
 function nextOptId(){
   const nums=opts.map(o=>o.id).filter(id=>/^O\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(1)));
   return 'O'+padN((nums.length?Math.max(...nums):0)+1,4);
+}
+function nextDeliveryId(){
+  const nums=deliveryOptions.map(d=>d.id).filter(id=>/^DEL\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(3)));
+  return 'DEL'+padN((nums.length?Math.max(...nums):0)+1,4);
+}
+function nextPaymentId(){
+  const nums=paymentOptions.map(p=>p.id).filter(id=>/^PAY\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(3)));
+  return 'PAY'+padN((nums.length?Math.max(...nums):0)+1,4);
 }
 function nextInventoryItemId(){
   const nums=inventoryItems.map(i=>i.id).filter(id=>/^INV\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(3)));
@@ -550,6 +510,8 @@ async function loadAll(){
     inventoryItems       = DEV_FIXTURES.inventoryItems.map(normaliseInventoryItem);
     inventoryReceipts    = DEV_FIXTURES.inventoryReceipts.map(normaliseInventoryReceipt);
     inventoryConsumption = DEV_FIXTURES.inventoryConsumption.map(normaliseInventoryConsumption);
+    if(!deliveryOptions.length) deliveryOptions = DEFAULT_DELIVERY_OPTIONS.map((d,i)=>({id:'DEL'+padN(i+1,4), ...d}));
+    if(!paymentOptions.length) paymentOptions = DEFAULT_PAYMENT_OPTIONS.map((p,i)=>({id:'PAY'+padN(i+1,4), ...p}));
     populateCatFilter();
     applyFilterDefault();
     updateFilterCount();
@@ -567,7 +529,7 @@ async function loadAll(){
   }
   setStatus('spin','Loading…');
   try{
-    const [ordersRaw, catsRaw, optsRaw, coloursRaw, customersRaw, invItemsRaw, invReceiptsRaw, invConsumptionRaw] = await Promise.all([
+    const [ordersRaw, catsRaw, optsRaw, coloursRaw, customersRaw, invItemsRaw, invReceiptsRaw, invConsumptionRaw, deliveryRaw, paymentRaw] = await Promise.all([
       sbGet('orders', '?deleted=eq.false&order=order_id.asc&limit=10000'),
       sbGet('categories', '?order=id.asc'),
       sbGet('options', '?order=sort_order.asc,id.asc'),
@@ -575,7 +537,9 @@ async function loadAll(){
       sbGet('customers', '?order=name.asc'),
       sbGet('inventory_items', '?order=name.asc'),
       sbGet('inventory_receipts', '?order=date.asc'),
-      sbGet('inventory_consumption', '?order=date.asc')
+      sbGet('inventory_consumption', '?order=date.asc'),
+      sbGet('delivery_options', '?order=sort_order.asc,id.asc'),
+      sbGet('payment_options', '?order=sort_order.asc,id.asc')
     ]);
     orders    = ordersRaw.map(normalise);
     cats      = catsRaw.map(normaliseCat);
@@ -585,6 +549,10 @@ async function loadAll(){
     inventoryItems       = invItemsRaw.map(normaliseInventoryItem);
     inventoryReceipts    = invReceiptsRaw.map(normaliseInventoryReceipt);
     inventoryConsumption = invConsumptionRaw.map(normaliseInventoryConsumption);
+    if(deliveryRaw.length) deliveryOptions = deliveryRaw.map(normaliseDelivery);
+    else await _seedDeliveryOptionsIfEmpty();
+    if(paymentRaw.length) paymentOptions = paymentRaw.map(normalisePayment);
+    else await _seedPaymentOptionsIfEmpty();
     if(!cats.length) setStatus('warn','No categories found — add some in Categories');
     populateCatFilter();
     applyFilterDefault();
@@ -594,6 +562,28 @@ async function loadAll(){
     renderTable();
     setStatus('ok','Connected');
   }catch(e){setStatus('err','Load failed: '+e.message);}
+}
+
+// One-time migration: delivery/payment options used to live only in this
+// browser's localStorage. The first time the Supabase table comes back
+// empty, seed it from whatever's in localStorage here (or the hardcoded
+// defaults if there's nothing), then clear the local copy — after this,
+// the database is the source of truth on every device.
+async function _seedDeliveryOptionsIfEmpty(){
+  let local = null;
+  try{ local = JSON.parse(localStorage.getItem('pd_delivery_opts')||'null'); }catch(e){}
+  const base = (local && local.length) ? local : DEFAULT_DELIVERY_OPTIONS;
+  deliveryOptions = base.map((d,i)=>({id:'DEL'+padN(i+1,4), name:d.name, price:d.price||0, icon:d.icon||'ti-truck-delivery', archived:!!d.archived}));
+  try{ await saveDeliveryOptions(); localStorage.removeItem('pd_delivery_opts'); }
+  catch(e){ /* keep the local copy around if the migration write fails */ }
+}
+async function _seedPaymentOptionsIfEmpty(){
+  let local = null;
+  try{ local = JSON.parse(localStorage.getItem('pd_payment_opts')||'null'); }catch(e){}
+  const base = (local && local.length) ? local : DEFAULT_PAYMENT_OPTIONS;
+  paymentOptions = base.map((p,i)=>({id:'PAY'+padN(i+1,4), name:p.name, showRevenue:!!p.showRevenue, archived:!!p.archived}));
+  try{ await savePaymentOptions(); localStorage.removeItem('pd_payment_opts'); }
+  catch(e){ /* keep the local copy around if the migration write fails */ }
 }
 
 function normalise(o){
@@ -649,6 +639,23 @@ function normaliseOpt(o){
     sortable:    Boolean(o.sortable||false),
     archived:    Boolean(o.archived||false),
     default_colours: String(o.default_colours||'')
+  };
+}
+function normaliseDelivery(d){
+  return{
+    id:       String(d.id||''),
+    name:     String(d.name||''),
+    price:    Number(d.price||0),
+    icon:     String(d.icon||'ti-truck-delivery'),
+    archived: Boolean(d.archived||false)
+  };
+}
+function normalisePayment(p){
+  return{
+    id:          String(p.id||''),
+    name:        String(p.name||''),
+    showRevenue: Boolean(p.show_revenue||false),
+    archived:    Boolean(p.archived||false)
   };
 }
 function normaliseColour(c){
