@@ -990,8 +990,10 @@ input[type=number]{-moz-appearance:textfield;}
   .status-breadcrumb-step:last-child{padding-right:10px;}
   .paid-btn{align-self:flex-end;margin-left:0;}
 
-  .detail-toolbar-row{flex-wrap:wrap;}
-  .inbox-search-row-detail{width:100%;}
+  .detail-toolbar-row{gap:8px;}
+  .inbox-search-row-detail{width:auto;flex:1;min-width:0;}
+  .detail-toolbar-row > .flex-1{display:none;}
+  .detail-toolbar-row .filter-wrap,.detail-toolbar-row .sort-btn-wrap{flex:0 0 auto;}
 
   .inbox-detail-header-top .sort-btn-main{flex:0 0 auto;min-height:40px;}
 
