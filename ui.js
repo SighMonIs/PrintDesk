@@ -141,7 +141,8 @@ function toggleSearchClear(){
   if(el) el.style.display = document.getElementById('search').value ? 'flex' : 'none';
 }
 function renderTable(){
-  const q = document.getElementById('search').value.toLowerCase();
+  const searchEl = document.getElementById('search');
+  const q = searchEl ? searchEl.value.toLowerCase() : '';
   const fStatuses = getFilterValues('status');
   const fCats     = getFilterValues('cat');
   const fPays     = getFilterValues('pay');
@@ -1579,6 +1580,24 @@ function showInboxDetail(orderId) {
   _mobileShowDetail();
 }
 
+// Categories that map straight to a badge model type by name, for when there's
+// no per-item "Backing" choice to make (e.g. Keychain is always keychain backing —
+// unlike Name Badge, which offers Pin/Magnet/Round Magnet via a Backing option).
+// Keep in sync with MODEL_TYPES in badge/data.js.
+const BADGE_CATEGORY_BACKING = {keychain:'Keychain', 'dog tag':'Magnet', plaque:'Magnet'};
+
+// Whether a row's category can generate a 3D badge, and what backing value to send:
+// true either when the category has an explicit "Backing" option (user picks one,
+// e.g. Name Badge) or when the category name itself implies a single badge model.
+function _badgeEligibility(catName, catOpts, parsedOpts) {
+  const hasBackingOpt = catOpts.some(o => o.name.trim().toLowerCase().includes('backing'));
+  const impliedBacking = BADGE_CATEGORY_BACKING[(catName||'').trim().toLowerCase()];
+  return {
+    isBadge: hasBackingOpt || !!impliedBacking,
+    backing: (parsedOpts && parsedOpts['Backing']) || impliedBacking || ''
+  };
+}
+
 function _showInboxDetailFromData(orderId, rows) {
   const detailEl = document.getElementById('inboxDetail');
   if (!detailEl || !rows || !rows.length) return;
@@ -1632,10 +1651,6 @@ function _showInboxDetailFromData(orderId, rows) {
       const idx = p.indexOf(':'); if (idx >= 0) parsedOpts[p.slice(0,idx).trim()] = p.slice(idx+1).trim();
     });
     const catOpts = opts.filter(o => String(o.catId) === String(row.catId));
-    // Any category with a "Backing" option can generate a 3MF — the generator
-    // itself (badge/render.js) already supports Pin/Magnet/Keychain backings,
-    // this isn't specific to the "Name Badge" category.
-    const isBadge = catOpts.some(o => o.name.trim().toLowerCase().includes('backing'));
 
     const optLines = catOpts.map(opt => {
       const val = parsedOpts[opt.name];
@@ -1657,8 +1672,9 @@ function _showInboxDetailFromData(orderId, rows) {
         + '</div>';
     }).filter(Boolean).join('');
 
-    const badgeParams = new URLSearchParams({name:parsedOpts['Text']||'',backing:parsedOpts['Backing']||'',colours:parsedOpts['Colours']||''});
-    const badgeBtn = isBadge
+    const badgeElig = _badgeEligibility(cat?.name, catOpts, parsedOpts);
+    const badgeParams = new URLSearchParams({name:parsedOpts['Text']||'',backing:badgeElig.backing,colours:parsedOpts['Colours']||''});
+    const badgeBtn = badgeElig.isBadge
       ? '<button class="sort-btn-main" title="Generate Badge" onclick="generateBadge(\'/badge/?' + badgeParams + '\')"><i class="ti ti-badge"></i> Download</button>'
       : '';
 
@@ -1692,16 +1708,15 @@ function _showInboxDetailFromData(orderId, rows) {
       + '</div>';
   }).join('');
 
-  const badgeRows = rows.filter(r => {
+  const badgeEligibleRows = rows.map(r => {
+    const rowCat = cats.find(c => String(c.id) === String(r.catId));
     const rowCatOpts = opts.filter(o => String(o.catId) === String(r.catId));
-    return rowCatOpts.some(o => o.name.trim().toLowerCase().includes('backing'));
-  });
-  const batchItems = badgeRows.map(r => {
     const p = {};
     if (r.options) r.options.split('||').forEach(s => { const i = s.indexOf(':'); if (i >= 0) p[s.slice(0,i).trim()] = s.slice(i+1).trim(); });
-    return {name: p['Text']||'', backing: p['Backing']||'', colours: p['Colours']||''};
-  });
-  const bulkBadgeBtn = badgeRows.length
+    return {parsed: p, ..._badgeEligibility(rowCat?.name, rowCatOpts, p)};
+  }).filter(x => x.isBadge);
+  const batchItems = badgeEligibleRows.map(x => ({name: x.parsed['Text']||'', backing: x.backing, colours: x.parsed['Colours']||''}));
+  const bulkBadgeBtn = badgeEligibleRows.length
     ? '<button class="sort-btn-main ml-auto" onclick="openBadgeBatchModal(' + esc(JSON.stringify(batchItems)) + ',\'' + escJsAttr(first.customer) + '\')"><i class="ti ti-badges"></i> Download All</button>'
     : '';
 
