@@ -647,7 +647,8 @@ function normaliseOpt(o){
     force_caps:  Boolean(o.force_caps||false),
     multi_item:  Boolean(o.multi_item||false),
     sortable:    Boolean(o.sortable||false),
-    archived:    Boolean(o.archived||false)
+    archived:    Boolean(o.archived||false),
+    default_colours: String(o.default_colours||'')
   };
 }
 function normaliseColour(c){

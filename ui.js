@@ -277,6 +277,11 @@ function renderModelOpts(idx, catId, savedOpts){
         isCustom  = false;
         ddVal     = val;   // the key is the pipe-separated names
         customVal = '';
+      } else if(isColourOpt && !val && opt.default_colours){
+        // Fresh item with no value yet — auto-fill the configured default colours
+        isCustom  = false;
+        ddVal     = opt.default_colours;
+        customVal = '';
       } else {
         isCustom  = val==='Custom'||(!items.includes(val)&&val!==''&&!isColourOpt);
         ddVal     = isCustom?'Custom':(val||'');
@@ -291,8 +296,12 @@ function renderModelOpts(idx, catId, savedOpts){
           const key=combo.key;
           return `<option value="${esc(key)}" ${ddVal===key?'selected':''}>${esc(label)}</option>`;
         }).join('');
+        const defaultOptionHtml=opt.default_colours
+          ? `<option value="${esc(opt.default_colours)}" ${ddVal===opt.default_colours?'selected':''}>★ Default (${esc(opt.default_colours.replace(/\|/g,' / '))})</option>`
+          : '';
         const selectHtml=`<select class="flex-fill-input" id="ov-${idx}-${opt.id}" onchange="colourOptChanged(${idx},'${opt.id}',this.value)">
           <option value="">— select —</option>
+          ${defaultOptionHtml}
           <option value="Custom" ${ddVal==='Custom'?'selected':''}>✦ Custom (choose ${numColours} colours)</option>
           ${savedCombos.length?`<optgroup label="── Saved combinations ──">${comboOptions}</optgroup>`:''}
         </select>`;
@@ -429,6 +438,23 @@ function renderLayerSelectors(idx, optId, savedVal){
     const onChangeFn=`function(v){collectOpts(${idx});}`;
     return buildLayerSwatch(pickerId, savedName, n, onChangeFn);
   }).join('');
+}
+
+// Settings > Categories & Options: admin-configured default colours for a colour option
+function renderDefaultColourSelectors(globalIdx){
+  const opt = opts[globalIdx];
+  const numLayers = opt.num_colours || 4;
+  const saved = (opt.default_colours||'').split('|').map(s=>s.trim()).filter(Boolean);
+  return Array.from({length:numLayers},(_,i)=>i+1).map(n=>{
+    const pickerId=`def-${globalIdx}-${n}`;
+    const savedName=saved[n-1]||'';
+    return buildLayerSwatch(pickerId, savedName, n, `function(v){_updateDefaultColours(${globalIdx})}`);
+  }).join('');
+}
+function _updateDefaultColours(globalIdx){
+  const numLayers = opts[globalIdx].num_colours || 4;
+  const names = Array.from({length:numLayers},(_,i)=>i+1).map(n=>getColourPickerValue('def-'+globalIdx+'-'+n));
+  opts[globalIdx].default_colours = names.filter(Boolean).join('|');
 }
 
 function buildLayerSwatch(id, selectedName, layerNum, onChangeFn){

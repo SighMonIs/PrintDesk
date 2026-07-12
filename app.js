@@ -97,7 +97,7 @@ function renderCatBlocks(){
               ${o.display==='colour'?`<div class="opt-type-extra">
                 <label class="opt-extra-label">Layers:</label>
                 <input type="number" class="opt-num-input" min="1" max="8" value="${o.num_colours||4}"
-                  oninput="opts[${globalIdx}].num_colours=parseInt(this.value)||4">
+                  onchange="opts[${globalIdx}].num_colours=parseInt(this.value)||4;renderCatBlocks()">
               </div>`:''}
               ${o.display==='text'?`<div class="opt-type-extra">
                 <label class="opt-extra-label" title="Force all caps">
@@ -126,6 +126,10 @@ function renderCatBlocks(){
             ${o.display==='dropdown'?`<div class="opt-dropdown-vals">
               <input type="text" value="${esc(o.options)}" placeholder="Comma-separated values, add Custom for free text"
                 oninput="opts[${globalIdx}].options=this.value">
+            </div>`:''}
+            ${o.display==='colour'?`<div class="opt-dropdown-vals opt-default-colours">
+              <label class="opt-extra-label">Default colours:</label>
+              <div class="layer-swatch-row">${renderDefaultColourSelectors(globalIdx)}</div>
             </div>`:''}
           </div>`;
         }).join('')}
@@ -172,7 +176,7 @@ function addCat(){cats.push({id:nextCatId(),name:'',price:0});renderCatBlocks();
 function removeCat(i){cats.splice(i,1);renderCatBlocks();}
 function removeOpt(i){opts.splice(i,1);renderCatBlocks();}
 function addOptToCat(catId){
-  opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4,force_caps:false,multi_item:false,archived:false});
+  opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4,force_caps:false,multi_item:false,archived:false,default_colours:''});
   renderCatBlocks();
 }
 
@@ -180,7 +184,7 @@ async function saveCatsAndOpts(){
   setStatus('spin','Saving…');populateCatFilter();
   try{
     await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price,archived:c.archived||false})));
-    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false,multi_item:o.multi_item||false,sortable:o.sortable||false,archived:o.archived||false})));
+    await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false,multi_item:o.multi_item||false,sortable:o.sortable||false,archived:o.archived||false,default_colours:o.default_colours||''})));
     setStatus('ok','Saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
