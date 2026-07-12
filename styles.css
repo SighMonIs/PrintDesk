@@ -987,4 +987,6 @@ input[type=number]{-moz-appearance:textfield;}
 
   .detail-toolbar-row{flex-wrap:wrap;}
   .inbox-search-row-detail{width:100%;}
+
+  .inbox-detail-header-top .sort-btn-main{flex:0 0 auto;}
 }
