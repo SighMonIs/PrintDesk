@@ -1783,20 +1783,24 @@ document.addEventListener('click', function(e) {
 });
 
 // Mobile: slide the detail column over the list column.
-// Drives the transform via inline style (not just the CSS class) because the
+// Drives the slide via inline style (not just the CSS class) because the
 // class-driven cascade rule has been observed to not always take effect —
 // setting it directly here is a reliable belt-and-braces fix.
+// Uses `left`, not `transform` — a transform on this element would create a
+// new containing block for any position:fixed popover rendered inside it
+// (e.g. the layer-colour picker), trapping that popover's coordinates
+// relative to this sliding panel instead of the true viewport.
 function _mobileShowDetail() {
   var app = document.getElementById('mainApp');
   if (app) app.classList.add('mobile-detail-open');
   var detail = document.getElementById('inboxDetail');
-  if (detail) detail.style.transform = 'translateX(0)';
+  if (detail) detail.style.left = '0';
 }
 function _mobileShowList() {
   var app = document.getElementById('mainApp');
   if (app) app.classList.remove('mobile-detail-open');
   var detail = document.getElementById('inboxDetail');
-  if (detail) detail.style.transform = '';
+  if (detail) detail.style.left = '';
 }
 
 function setSidebarView(view) {
