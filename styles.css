@@ -977,4 +977,11 @@ input[type=number]{-moz-appearance:textfield;}
   #mainApp.mobile-detail-open .inbox-detail-col{transform:translateX(0);}
 
   .inbox-detail{padding:0.75rem;}
+
+  .status-row-wrap{flex-direction:column;align-items:stretch;}
+  .status-breadcrumb{width:100%;}
+  .status-breadcrumb-step{flex:1;padding-left:8px;padding-right:8px;font-size:10px;}
+  .status-breadcrumb-step:first-child{padding-left:10px;}
+  .status-breadcrumb-step:last-child{padding-right:10px;}
+  .paid-btn{align-self:flex-start;margin-left:0;}
 }
