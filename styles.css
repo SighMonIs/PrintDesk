@@ -984,4 +984,7 @@ input[type=number]{-moz-appearance:textfield;}
   .status-breadcrumb-step:first-child{padding-left:10px;}
   .status-breadcrumb-step:last-child{padding-right:10px;}
   .paid-btn{align-self:flex-start;margin-left:0;}
+
+  .detail-toolbar-row{flex-wrap:wrap;}
+  .inbox-search-row-detail{width:100%;}
 }
