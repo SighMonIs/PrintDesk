@@ -951,8 +951,12 @@ input[type=number]{-moz-appearance:textfield;}
   #mainApp{margin:0;height:100vh;max-width:100%;}
   .topbar{position:relative;border-radius:0;}
   .topbar-hamburger{display:flex;margin-left:auto;min-width:44px;min-height:44px;}
-  .topbar-back{display:none;flex:1;justify-content:center;min-height:44px;}
+  .topbar-back{display:none;flex:0 0 auto;gap:6px;margin-left:8px;padding:0 12px;min-height:40px;}
   #mainApp.mobile-detail-open .topbar-back{display:flex;}
+  #sidebar .topbar-back{
+    border-radius:var(--radius);background:rgba(255,255,255,0.1);
+    color:var(--text);font-size:13px;font-weight:600;
+  }
   .topbar-menu-panel{
     display:none;position:absolute;top:100%;right:8px;margin-top:6px;
     flex-direction:column;gap:2px;background:var(--surface);
@@ -990,7 +994,7 @@ input[type=number]{-moz-appearance:textfield;}
 
   /* Bigger touch targets for icon-only controls */
   .sort-btn-dir{width:40px;height:40px;}
-  .sort-btn-group .sort-btn-main{height:40px;}
+  .filter-wrap .sort-btn-main,.sort-btn-group .sort-btn-main{height:40px;}
   .icon-btn{width:36px;height:36px;}
   .colour-picker-list .cp-option,.colour-picker-list .cp-none{padding:10px 12px;}
 }
