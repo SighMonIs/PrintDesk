@@ -1755,14 +1755,21 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('#topbarMenuPanel') && !e.target.closest('#topbarHamburger')) closeMobileMenu();
 });
 
-// Mobile: slide the detail column over the list column
+// Mobile: slide the detail column over the list column.
+// Drives the transform via inline style (not just the CSS class) because the
+// class-driven cascade rule has been observed to not always take effect —
+// setting it directly here is a reliable belt-and-braces fix.
 function _mobileShowDetail() {
   var app = document.getElementById('mainApp');
   if (app) app.classList.add('mobile-detail-open');
+  var detail = document.getElementById('inboxDetail');
+  if (detail) detail.style.transform = 'translateX(0)';
 }
 function _mobileShowList() {
   var app = document.getElementById('mainApp');
   if (app) app.classList.remove('mobile-detail-open');
+  var detail = document.getElementById('inboxDetail');
+  if (detail) detail.style.transform = '';
 }
 
 function setSidebarView(view) {

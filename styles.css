@@ -1003,8 +1003,13 @@ input[type=number]{-moz-appearance:textfield;}
   .icon-btn{width:36px;height:36px;}
   .colour-picker-list .cp-option,.colour-picker-list .cp-none{padding:10px 12px;}
 
-  .opt-custom[data-iscolour="1"]{padding-left:0;gap:10px;}
+  .opt-custom[data-iscolour="1"]{padding-left:0;gap:10px;justify-content:flex-end;}
   .layer-swatch-btn{width:36px;height:36px;}
-  .layer-swatch-picker{grid-template-columns:repeat(6,34px);}
+  .layer-swatch-picker{
+    grid-template-columns:repeat(6,34px);
+    position:fixed!important;top:50%!important;left:50%!important;right:auto!important;
+    transform:translate(-50%,-50%);
+    padding:12px;gap:6px;
+  }
   .layer-swatch-opt{width:34px;height:34px;}
 }
