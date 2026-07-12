@@ -2257,8 +2257,7 @@ function _showSettingsDetail(catId) {
     var visibleDelivery = _showArchivedDelivery ? deliveryOptions : deliveryOptions.filter(function(d){return !d.archived;});
     var deliveryRows = visibleDelivery.map(function(d) {
       var i = deliveryOptions.indexOf(d);
-      return '<div' + (_deliveryReorderMode ? ' draggable="true" ondragstart="_reorderDragStart(event,\'delivery\',' + i + ')" ondragover="_reorderDragOver(event,\'delivery\',' + i + ')" ondrop="_reorderDrop(event,\'delivery\',' + i + ')" ondragleave="_reorderDragLeave(event)" ondragend="_reorderDragEnd(event)"' : '')
-        + ' class="settings-list-row">'
+      return '<div class="settings-list-row">'
         + (_deliveryReorderMode ? '<span class="opt-drag"><i class="ti ti-grip-vertical"></i></span>' : '')
         + '<div class="icon-picker-wrap">'
         + '<button class="icon-picker-btn" onclick="event.stopPropagation();toggleDeliveryIconPicker(' + i + ',this)" title="Change icon" ' + (d.archived?'disabled':'') + '><i class="ti ' + (d.icon||'ti-truck-delivery') + '"></i></button>'
@@ -2276,8 +2275,7 @@ function _showSettingsDetail(catId) {
     var visiblePayment = _showArchivedPayment ? paymentOptions : paymentOptions.filter(function(p){return !p.archived;});
     var rows = visiblePayment.map(function(p) {
       var i = paymentOptions.indexOf(p);
-      return '<div' + (_paymentReorderMode ? ' draggable="true" ondragstart="_reorderDragStart(event,\'payment\',' + i + ')" ondragover="_reorderDragOver(event,\'payment\',' + i + ')" ondrop="_reorderDrop(event,\'payment\',' + i + ')" ondragleave="_reorderDragLeave(event)" ondragend="_reorderDragEnd(event)"' : '')
-        + ' class="settings-list-row">'
+      return '<div class="settings-list-row">'
         + (_paymentReorderMode ? '<span class="opt-drag"><i class="ti ti-grip-vertical"></i></span>' : '')
         + '<span class="settings-list-name' + (_paymentReorderMode?' reorder-indent':'') + (p.archived?' text-muted strikethrough':'') + '">' + esc(p.name) + '</span>'
         + '<span class="revenue-badge">' + (p.showRevenue?'revenue':'no revenue') + '</span>'
@@ -2309,7 +2307,7 @@ function _showSettingsDetail(catId) {
       + '<button class="btn sm" onclick="_settingsCancelAddDelivery()">Cancel</button>'
       + '<button class="btn sm primary" onclick="_settingsSaveDelivery()"><i class="ti ti-check"></i> Add</button>'
       + '</div>'
-      + '<div class="settings-list-box mb-20">' + deliveryRows + '</div>'
+      + '<div class="settings-list-box mb-20" id="deliveryListBox">' + deliveryRows + '</div>'
       + '<div class="settings-section-title settings-section-title-tight">Payment</div>'
       + '<p class="settings-desc-text">Manage how customers pay. Enable <strong class="text-emphasis">revenue</strong> on a method to include it in sales totals.</p>'
       + '<div class="settings-section-header-row">'
@@ -2324,8 +2322,30 @@ function _showSettingsDetail(catId) {
       + '<button class="btn sm" onclick="_settingsCancelAddPayment()">Cancel</button>'
       + '<button class="btn sm primary" onclick="_settingsSavePayment()"><i class="ti ti-check"></i> Add</button>'
       + '</div>'
-      + '<div class="settings-list-box">' + rows + '</div>'
+      + '<div class="settings-list-box" id="paymentListBox">' + rows + '</div>'
       + '</div>';
+    if (_deliveryReorderMode) {
+      new Sortable(document.getElementById('deliveryListBox'), {
+        animation: 150, handle: '.opt-drag',
+        onEnd: function(evt) {
+          var visible = _showArchivedDelivery ? deliveryOptions.slice() : deliveryOptions.filter(function(d){return !d.archived;});
+          _reorderFilteredArray(deliveryOptions, visible, evt.oldIndex, evt.newIndex);
+          saveDeliveryOptions();
+          _showSettingsDetail('payment');
+        }
+      });
+    }
+    if (_paymentReorderMode) {
+      new Sortable(document.getElementById('paymentListBox'), {
+        animation: 150, handle: '.opt-drag',
+        onEnd: function(evt) {
+          var visible = _showArchivedPayment ? paymentOptions.slice() : paymentOptions.filter(function(p){return !p.archived;});
+          _reorderFilteredArray(paymentOptions, visible, evt.oldIndex, evt.newIndex);
+          savePaymentOptions();
+          _showSettingsDetail('payment');
+        }
+      });
+    }
   } else if (catId === 'app') {
     detail.innerHTML = '<div class="inbox-detail">'
       + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">App Settings</div></div></div>'
@@ -2474,26 +2494,14 @@ function _togglePaymentReorder() { _paymentReorderMode = !_paymentReorderMode; _
 function _toggleShowArchivedDelivery() { _showArchivedDelivery = !_showArchivedDelivery; _showSettingsDetail('payment'); }
 function _toggleShowArchivedPayment() { _showArchivedPayment = !_showArchivedPayment; _showSettingsDetail('payment'); }
 
-var _reorderDragArr = null, _reorderDragIdx = null;
-function _reorderDragStart(e, arrName, idx) {
-  _reorderDragArr = arrName; _reorderDragIdx = idx;
-  e.currentTarget.classList.add('dragging');
-}
-function _reorderDragOver(e, arrName, idx) {
-  e.preventDefault();
-  if (arrName === _reorderDragArr && idx !== _reorderDragIdx) e.currentTarget.classList.add('drag-over');
-}
-function _reorderDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
-function _reorderDragEnd(e) { e.currentTarget.classList.remove('dragging'); _reorderDragArr = null; _reorderDragIdx = null; }
-function _reorderDrop(e, arrName, idx) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  if (arrName !== _reorderDragArr || _reorderDragIdx === null || _reorderDragIdx === idx) return;
-  var arr = arrName === 'delivery' ? deliveryOptions : paymentOptions;
-  var moved = arr.splice(_reorderDragIdx, 1)[0];
-  arr.splice(idx, 0, moved);
-  if (arrName === 'delivery') saveDeliveryOptions(); else savePaymentOptions();
-  _showSettingsDetail('payment');
+// Reorders fullArr in place to match visibleArr after moving oldIndex->newIndex,
+// keeping items hidden by a filter (e.g. archived) untouched in their own slots.
+function _reorderFilteredArray(fullArr, visibleArr, oldIndex, newIndex) {
+  if (oldIndex === newIndex) return;
+  var globalSlots = visibleArr.map(function(item){ return fullArr.indexOf(item); });
+  var moved = visibleArr.splice(oldIndex, 1)[0];
+  visibleArr.splice(newIndex, 0, moved);
+  globalSlots.forEach(function(slot, k){ fullArr[slot] = visibleArr[k]; });
 }
 
 // Users view

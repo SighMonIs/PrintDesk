@@ -81,16 +81,11 @@ function renderCatBlocks(){
             : `<button class="icon-btn" onclick="event.stopPropagation();archiveCat(${realCi})" title="Archive — used in completed orders"><i class="ti ti-archive"></i></button>`
         }
       </div>
-      <div class="cat-opts-area${isExpanded?'':' collapsed'}" id="cat-opts-${ci}">
+      <div class="cat-opts-area${isExpanded?'':' collapsed'}" id="cat-opts-${ci}" data-cat-id="${esc(c.id)}">
         ${catOpts.length===0?'<div class="cat-opts-area-empty">No options — add one below</div>':''}
         ${catOpts.map((o,oi)=>{
           const globalIdx=opts.indexOf(o);
-          return `<div class="opt-item" draggable="true"
-            ondragstart="optDragStart(event,${globalIdx})"
-            ondragover="optDragOver(event,${globalIdx})"
-            ondrop="optDrop(event,${globalIdx})"
-            ondragleave="optDragLeave(event)"
-            ondragend="optDragEnd(event)">
+          return `<div class="opt-item">
             <span class="opt-drag"><i class="ti ti-grip-vertical"></i></span>
             <input type="text" value="${esc(o.name)}" placeholder="Field name" oninput="opts[${globalIdx}].name=this.value">
             <div class="opt-type-wrap">
@@ -140,6 +135,20 @@ function renderCatBlocks(){
       </div>
     </div>`;
   }).join('');
+
+  list.querySelectorAll('.cat-opts-area').forEach(area => {
+    new Sortable(area, {
+      animation: 150,
+      handle: '.opt-drag',
+      draggable: '.opt-item',
+      onEnd(evt) {
+        const catId = area.dataset.catId;
+        const catOpts = getCatOpts_byCatId(catId).filter(o => showArchivedCats || !o.archived);
+        _reorderFilteredArray(opts, catOpts, evt.oldIndex, evt.newIndex);
+        renderCatBlocks();
+      }
+    });
+  });
 }
 
 
@@ -157,21 +166,6 @@ function toggleCatBlock(ci){
   const isCollapsed = area.classList.contains('collapsed');
   area.classList.toggle('collapsed', !isCollapsed);
   if(chev) chev.classList.toggle('expanded', isCollapsed);
-}
-
-// Drag and drop reordering for options
-let dragIdx=null;
-function optDragStart(e,idx){dragIdx=idx;e.currentTarget.classList.add('dragging');}
-function optDragOver(e,idx){e.preventDefault();if(idx!==dragIdx)e.currentTarget.classList.add('drag-over');}
-function optDragLeave(e){e.currentTarget.classList.remove('drag-over');}
-function optDragEnd(e){e.currentTarget.classList.remove('dragging');dragIdx=null;}
-function optDrop(e,idx){
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  if(dragIdx===null||dragIdx===idx) return;
-  const moved=opts.splice(dragIdx,1)[0];
-  opts.splice(idx,0,moved);
-  renderCatBlocks();
 }
 
 function addCat(){cats.push({id:nextCatId(),name:'',price:0});renderCatBlocks();}
