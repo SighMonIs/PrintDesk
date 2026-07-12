@@ -967,7 +967,7 @@ input[type=number]{-moz-appearance:textfield;}
   }
   .topbar-menu-panel .topbar-item{justify-content:flex-start;width:100%;height:38px;}
 
-  .inbox-layout{position:relative;border-radius:0;border:none;}
+  .inbox-layout{position:relative;border-radius:0;border:none;overflow:hidden;}
   .inbox-list-col{width:100%;margin:0;box-shadow:none;}
   .inbox-detail-col{
     position:absolute;inset:0;z-index:2;

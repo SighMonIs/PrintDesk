@@ -742,6 +742,7 @@ function _orderFormHtml(){
 function openAddModal(){
   editOId=null;acInst=null;
   document.getElementById('inboxDetail').innerHTML=_orderFormHtml();
+  _mobileShowDetail();
   document.getElementById('modalTitle').textContent='New Order';
   document.getElementById('f-customer').value='';
   document.getElementById('f-customer-id').value='';
@@ -773,6 +774,7 @@ function openEdit(orderId){
   const rows=orders.filter(o=>o.orderId===orderId);if(!rows.length)return;
   editOId=orderId;acInst=null;const first=rows[0];
   document.getElementById('inboxDetail').innerHTML=_orderFormHtml();
+  _mobileShowDetail();
   document.getElementById('modalTitle').textContent='Edit Order';
   document.getElementById('f-customer').value=first.customer;
   document.getElementById('f-customer-id').value=first.customer_id||'';
