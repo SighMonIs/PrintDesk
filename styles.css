@@ -950,7 +950,10 @@ input[type=number]{-moz-appearance:textfield;}
 @media (max-width: 640px) {
   #mainApp{margin:0;height:100vh;max-width:100%;}
   .topbar{position:relative;border-radius:0;}
-  .topbar-item.topbar-hamburger{display:flex;margin-left:auto;min-width:44px;min-height:44px;}
+  .topbar-item.topbar-hamburger{
+    display:flex;margin-left:auto;width:40px;height:40px;
+    border-radius:var(--radius);background:rgba(255,255,255,0.1);color:var(--text);
+  }
   .topbar-back{display:none;flex:0 0 auto;gap:6px;margin-left:8px;padding:0 12px;min-height:40px;}
   #mainApp.mobile-detail-open .topbar-back{display:flex;}
   #sidebar .topbar-back{
