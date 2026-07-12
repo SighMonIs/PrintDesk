@@ -1014,4 +1014,11 @@ input[type=number]{-moz-appearance:textfield;}
     padding:12px;gap:6px;
   }
   .layer-swatch-opt{width:34px;height:34px;}
+
+  /* The 32px right-padding on .model-row-top exists to keep Category clear of
+     the trash icon (top:1px;right:1px). On mobile Category is forced onto its
+     own row above Qty/Price, so only that row overlaps the icon — Qty/Price
+     don't need the reserved space and were being squeezed by it too. */
+  .model-row-top{padding-right:0;}
+  .model-row-top .opt-row:first-child{padding-right:32px;}
 }
