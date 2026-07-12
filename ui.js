@@ -1664,7 +1664,7 @@ function _showInboxDetailFromData(orderId, rows) {
 
     const searchText = [cat ? cat.name : '', Object.values(parsedOpts).join(' '), row.notes || ''].join(' ').toLowerCase();
 
-    const printedBtn = '<button class="paid-btn sm ' + (row.printed ? 'paid-btn-yes' : 'paid-btn-no') + '"'
+    const printedBtn = '<button class="paid-btn ' + (row.printed ? 'paid-btn-yes' : 'paid-btn-no') + '"'
       + ' onclick="toggleItemPrinted(\'' + esc(String(row.id)) + '\',' + (!row.printed) + ')">'
       + (row.printed ? 'Printed' : 'Not Printed')
       + '</button>';

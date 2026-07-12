@@ -984,12 +984,12 @@ input[type=number]{-moz-appearance:textfield;}
 
   .inbox-detail{padding:0.75rem;}
 
-  .status-row-wrap{flex-direction:column;align-items:stretch;}
-  .status-breadcrumb{width:100%;}
-  .status-breadcrumb-step{flex:1;padding-left:8px;padding-right:8px;font-size:10px;}
-  .status-breadcrumb-step:first-child{padding-left:10px;}
-  .status-breadcrumb-step:last-child{padding-right:10px;}
-  .paid-btn{align-self:flex-end;margin-left:0;}
+  .status-row-wrap{flex-direction:row;align-items:center;gap:6px;}
+  .status-breadcrumb{flex:1;min-width:0;}
+  .status-breadcrumb-step{flex:1;padding-left:6px;padding-right:6px;font-size:9px;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+  .status-breadcrumb-step:first-child{padding-left:8px;}
+  .status-breadcrumb-step:last-child{padding-right:8px;}
+  .paid-btn{align-self:auto;margin-left:0;flex:0 0 auto;padding:0 10px;font-size:10px;}
 
   .detail-toolbar-row{gap:8px;}
   .inbox-search-row-detail{width:auto;flex:1;min-width:0;}
@@ -997,6 +997,7 @@ input[type=number]{-moz-appearance:textfield;}
   .detail-toolbar-row .filter-wrap,.detail-toolbar-row .sort-btn-wrap{flex:0 0 auto;}
 
   .inbox-detail-header-top .sort-btn-main{flex:0 0 auto;min-height:40px;}
+  .inbox-item-actions .sort-btn-main{flex:0 0 auto;}
 
   /* Bigger touch targets for icon-only controls */
   .sort-btn-dir{width:40px;height:40px;}
