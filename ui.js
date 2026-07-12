@@ -2231,16 +2231,17 @@ var _SETTINGS_CATS = [
 
 function _renderViewSettings() {
   _setListPane('<div class="inbox-view-header"><span class="inbox-detail-customer">Settings</span></div>');
+  _selectedSettingsCat = null;
   var list = document.getElementById('inboxList');
   list.innerHTML = _SETTINGS_CATS.map(function(cat) {
-    var sel = cat.id === _selectedSettingsCat;
-    return '<div class="inbox-card' + (sel?' selected':'') + '" onclick="_showSettingsDetail(\'' + cat.id + '\')">'
+    return '<div class="inbox-card" onclick="_showSettingsDetail(\'' + cat.id + '\')">'
       + '<div class="inbox-card-content">'
       + '<div class="inbox-card-row1"><span class="inbox-card-customer"><i class="ti ' + cat.icon + ' settings-cat-icon"></i>' + cat.title + '</span></div>'
       + '<div class="inbox-card-subject">' + cat.desc + '</div>'
       + '</div></div>';
   }).join('');
-  _showSettingsDetail(_selectedSettingsCat || _SETTINGS_CATS[0].id);
+  var detail = document.getElementById('inboxDetail');
+  if (detail) detail.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-settings"></i><p>Select a settings category</p></div>';
 }
 
 function _showSettingsDetail(catId) {
