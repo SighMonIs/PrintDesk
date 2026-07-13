@@ -69,17 +69,41 @@ async function selectCategory(catId) {
 
 // ── Name field (promoted above the category tabs — it's the most important
 // field, so it isn't just another row in the dynamic option list below). ──
+// The 3D rebuild is debounced well past render.js's own 300ms — on mobile the
+// rebuild itself briefly blocks the main thread, which was making the very
+// next keystroke feel dropped. Enter or leaving the field renders right away.
+let nameRenderTimer = null;
 function renderNameField() {
+  clearTimeout(nameRenderTimer);
   const textOpt = catOptions.find(o => o.display === 'text' && o.name.trim().toLowerCase() === 'text');
   const wrap = document.getElementById('nameFieldWrap');
   if (!textOpt) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
   const input = document.getElementById('nameInput');
   input.value = '';
+  fitNameFontSize(input);
+  const renderNow = () => { clearTimeout(nameRenderTimer); onOptionChanged(optId(textOpt)); };
   input.oninput = function () {
     if (textOpt.force_caps) this.value = this.value.toUpperCase();
-    onOptionChanged(optId(textOpt));
+    fitNameFontSize(this);
+    clearTimeout(nameRenderTimer);
+    nameRenderTimer = setTimeout(renderNow, 700);
   };
+  input.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); renderNow(); this.blur(); } };
+  input.onblur = renderNow;
+}
+
+// Shrinks the name input's font so a long name stays inside the box instead
+// of overflowing it, rather than wrapping or clipping.
+function fitNameFontSize(el) {
+  const base = window.innerWidth <= 640 ? 22 : 28;
+  const min = 13;
+  let size = base;
+  el.style.fontSize = size + 'px';
+  while (el.scrollWidth > el.clientWidth && size > min) {
+    size -= 1;
+    el.style.fontSize = size + 'px';
+  }
 }
 
 // ── Backing dropdown, inline with the category tabs (drives which 3D model
