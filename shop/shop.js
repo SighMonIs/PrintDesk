@@ -54,7 +54,26 @@ async function boot() {
     await selectCategory(initial.id);
   }
   renderCart();
+  positionNameField();
 }
+
+// The preview/form split isn't a clean 50/50 in practice (flex-basis:0 with
+// equal grow ratios still lands unevenly once real content's involved), so
+// the name field's vertical position is measured against the real rendered
+// boundary rather than assumed as a CSS percentage.
+function positionNameField() {
+  const main = document.querySelector('.shop-main');
+  const preview = document.querySelector('.shop-preview-half');
+  const nameRow = document.getElementById('nameFieldWrap');
+  if (!main || !preview || !nameRow) return;
+  const boundary = preview.getBoundingClientRect().bottom - main.getBoundingClientRect().top;
+  nameRow.style.top = boundary + 'px';
+}
+let positionNameFieldTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(positionNameFieldTimer);
+  positionNameFieldTimer = setTimeout(positionNameField, 100);
+});
 
 function renderStyleSelect() {
   document.getElementById('styleSelect').innerHTML = categories.map(c =>

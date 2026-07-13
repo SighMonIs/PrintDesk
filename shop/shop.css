@@ -69,12 +69,13 @@ body.shop-body { display: flex; flex-direction: column; }
   display: flex; justify-content: center; padding: 46px 16px 20px;
 }
 
-/* Name field straddles the preview/form boundary — .shop-preview-half and
-   .shop-form-half are an even 5:5 split, so the boundary sits at exactly
-   50% of .shop-main's height (40% on the mobile 4:6 split below). */
+/* Name field straddles the preview/form boundary. `top` is set in JS
+   (positionNameField() in shop.js) — the 5:5 flex split isn't actually an
+   even 50/50 in practice, so measuring the real boundary beats guessing a
+   CSS percentage. Width matches the rows below it (.shop-form-inner). */
 .name-row {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: 428px; max-width: calc(100% - 32px); z-index: 25;
+  position: absolute; left: 50%; transform: translate(-50%, -50%);
+  width: min(640px, calc(100% - 32px)); z-index: 25;
 }
 .shop-form-inner { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 12px; }
 
@@ -197,6 +198,5 @@ body.shop-body { display: flex; flex-direction: column; }
   .shop-preview-half { flex: 4 1 0; min-height: 140px; }
   .shop-form-half { flex: 6 1 0; }
   .shop-field-input-lg { height: 60px; font-size: 22px; }
-  .name-row { top: 40%; } /* matches the 4:6 preview/form split above */
   .cart-drawer { width: 100%; max-width: 100%; }
 }
