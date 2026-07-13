@@ -99,6 +99,23 @@ async function applyModelForCategory() {
   placeholder.style.display = 'none';
   document.getElementById('modelSelect').value = typeId;
   await loadModel();
+  applyCategoryDefaultColours();
+}
+
+// Mirrors ui.js's admin order form: a fresh colour-option pick starts from
+// opt.default_colours (pipe-separated colour names configured per category),
+// not the engine's generic fallback swatches.
+function applyCategoryDefaultColours() {
+  const colourOpt = catOptions.find(o => o.display === 'colour');
+  if (!colourOpt || !colourOpt.default_colours) return;
+  const names = colourOpt.default_colours.split('|').map(s => s.trim()).filter(Boolean);
+  names.forEach((name, i) => {
+    if (i >= layerConfig.length) return;
+    const c = colours.find(c => c.name.toLowerCase() === name.toLowerCase());
+    if (c) { layerConfig[i].hex = c.code; layerConfig[i].colourId = c.id; }
+  });
+  buildLayerUI();
+  scheduleRender();
 }
 
 // ── Pricing ──────────────────────────────────────────────────────

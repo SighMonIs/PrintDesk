@@ -16,6 +16,7 @@ const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(50, -50, 1
 const fl = new THREE.DirectionalLight(0xffffff, 0.3); fl.position.set(-50, 50, 50);  scene.add(fl);
 
 const grid = new THREE.GridHelper(300, 30, 0x333337, 0x222225);
+grid.visible = false; // shop has no grid-toggle control, so keep it off by default
 const badgeGroup = new THREE.Group();
 scene.add(badgeGroup);
 badgeGroup.add(grid);

@@ -17,7 +17,7 @@ function getDefaultLayerConfig() {
     { id: null, model_id: null, order: 0, hex: '#c0392b', colourId: null, border: 3,   depth: 1, hasSlot: true,  isText: false },
     { id: null, model_id: null, order: 1, hex: '#f1c40f', colourId: null, border: 1.5, depth: 1, hasSlot: false, isText: false },
     { id: null, model_id: null, order: 2, hex: '#1a1a1a', colourId: null, border: 0.5, depth: 1, hasSlot: false, isText: false },
-    { id: null, model_id: null, order: 3, hex: '#e8e8e6', colourId: null, border: 0,   depth: 1, hasSlot: true,  isText: true  },
+    { id: null, model_id: null, order: 3, hex: '#e8e8e6', colourId: null, border: 0,   depth: 1, hasSlot: false, isText: true  },
   ];
 }
 
