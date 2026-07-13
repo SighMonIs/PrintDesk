@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PrintDesk Shop</title>
 <link rel="stylesheet" href="../styles.css">
-<link rel="stylesheet" href="shop.css?v=14">
+<link rel="stylesheet" href="shop.css?v=15">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 </head>
 <body class="shop-body">
@@ -62,15 +62,14 @@
         <input type="text" id="nameInput" class="shop-field-input shop-field-input-lg" placeholder="Your Name">
       </div>
 
-      <div class="cat-tabs-row">
-        <div class="shop-field">
-          <label class="shop-field-label">Style</label>
-          <select id="styleSelect" class="shop-field-input" onchange="selectCategory(this.value)"></select>
-        </div>
-        <div class="shop-field" id="backingFieldWrap" style="display:none">
-          <label class="shop-field-label">Backing</label>
-          <select id="backingInline" class="shop-field-input"></select>
-        </div>
+      <div class="shop-field">
+        <label class="shop-field-label">Style</label>
+        <select id="styleSelect" class="shop-field-input" onchange="selectCategory(this.value)"></select>
+      </div>
+
+      <div class="shop-field" id="backingFieldWrap" style="display:none">
+        <label class="shop-field-label">Backing</label>
+        <select id="backingInline" class="shop-field-input"></select>
       </div>
 
       <div class="shop-field">
@@ -97,8 +96,9 @@
           <label class="shop-field-label">Total</label>
           <div class="price-value price-value-accent" id="lineTotal">$0.00</div>
         </div>
-        <button class="btn primary add-to-cart-btn" onclick="addToCart()"><i class="ti ti-shopping-cart-plus"></i> Add to cart</button>
       </div>
+
+      <button class="btn primary add-to-cart-btn" onclick="addToCart()"><i class="ti ti-shopping-cart-plus"></i> Add to cart</button>
     </div>
   </section>
 </main>
@@ -168,10 +168,10 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
-<script src="data.js?v=14"></script>
-<script src="3mf.js?v=14"></script>
-<script src="render.js?v=14"></script>
-<script src="auth.js?v=14"></script>
-<script src="shop.js?v=14"></script>
+<script src="data.js?v=15"></script>
+<script src="3mf.js?v=15"></script>
+<script src="render.js?v=15"></script>
+<script src="auth.js?v=15"></script>
+<script src="shop.js?v=15"></script>
 </body>
 </html>
