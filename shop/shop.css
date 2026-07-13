@@ -115,15 +115,17 @@ body.shop-body { display: flex; flex-direction: column; }
   width: 34px; height: 40px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius);
   color: var(--text); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
-.qty-price-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.qty-price-row { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.qty-field { flex: 0 0 auto; }
+.price-field { flex: 0 0 auto; }
 .qty-stepper { display: flex; align-items: center; gap: 6px; }
 .qty-stepper input {
   width: 50px; height: 40px; text-align: center; background: var(--surface2); border: 1px solid var(--border2);
   border-radius: var(--radius); color: var(--text); font-size: 14px;
 }
-.price-block { font-size: 13px; color: var(--muted); }
-.price-block strong { color: var(--accent); font-size: 16px; }
-.add-to-cart-btn { width: 100%; height: 46px; font-size: 14px; }
+.price-value { height: 40px; display: flex; align-items: center; font-size: 16px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.price-value-accent { color: var(--accent); }
+.add-to-cart-btn { flex: 1; min-width: 160px; height: 46px; font-size: 14px; }
 
 /* ── Cart drawer ── */
 .cart-drawer-backdrop {
