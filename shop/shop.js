@@ -62,9 +62,17 @@ function renderStyleSelect() {
   ).join('');
 }
 
+function selectStyleByName(name) {
+  const cat = categories.find(c => c.name === name);
+  if (cat) selectCategory(cat.id);
+}
+
 async function selectCategory(catId) {
   selectedCat = categories.find(c => c.id === catId);
   document.getElementById('styleSelect').value = catId;
+  document.querySelectorAll('.style-quick-btn').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.style === selectedCat?.name)
+  );
   catOptions = await sbGet('options', `?cat_id=eq.${catId}&archived=eq.false&order=sort_order.asc`);
   document.getElementById('qtyInput').value = 1;
   renderNameField();
