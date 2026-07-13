@@ -91,13 +91,16 @@ body.shop-body { display: flex; flex-direction: column; }
   letter-spacing: 1px; text-transform: uppercase;
 }
 
-/* Colour layer swatches — big tap targets, open the colour modal on click */
-.layer-colours { display: flex; flex-direction: row; flex-wrap: wrap; gap: 14px; }
-.layer-colour-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 130px; }
-.layer-colour-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+/* Colour layer swatches — square tap targets, open the colour modal on click.
+   Numbered instead of labeled ("Layer 1" etc.) — the number's all that's
+   needed once these sit right next to each other. */
+.layer-colours { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; }
 .colour-swatch-btn {
-  width: 100%; height: 46px; border-radius: var(--radius); border: 1px solid var(--border2);
+  width: 46px; height: 46px; border-radius: var(--radius); border: 1px solid var(--border2);
   cursor: pointer; transition: border-color 0.12s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.6);
 }
 .colour-swatch-btn:hover { border-color: var(--accent2); }
 
@@ -110,7 +113,7 @@ body.shop-body { display: flex; flex-direction: column; }
 .colour-modal-swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
 .colour-modal-swatch span { font-size: 11px; color: var(--muted); text-align: center; }
 .colour-modal-swatch-circle {
-  width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--border2); transition: border-color 0.12s, transform 0.12s;
+  width: 44px; height: 44px; border-radius: var(--radius); border: 2px solid var(--border2); transition: border-color 0.12s, transform 0.12s;
 }
 .colour-modal-swatch:hover .colour-modal-swatch-circle { transform: scale(1.06); }
 .colour-modal-swatch.selected .colour-modal-swatch-circle { border-color: var(--accent); }

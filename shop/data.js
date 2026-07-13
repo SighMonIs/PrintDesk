@@ -125,10 +125,7 @@ function renderReady(){
 function buildLayerUI(){
   const colList=document.getElementById('layerColoursList');
   colList.innerHTML=layerConfig.map((l,i)=>`
-    <div class="layer-colour-row">
-      <span class="layer-colour-label">${LAYER_NAMES[i] || 'Layer '+(i+1)}</span>
-      <button class="colour-swatch-btn" id="cps-${i}" style="background:${l.hex}" onclick="openColourModal(${i})" title="${colourName(l.hex)}" aria-label="Choose ${LAYER_NAMES[i] || 'layer '+(i+1)} colour"></button>
-    </div>`).join('');
+    <button class="colour-swatch-btn" id="cps-${i}" style="background:${l.hex}" onclick="openColourModal(${i})" title="${colourName(l.hex)}" aria-label="Choose ${LAYER_NAMES[i] || 'layer '+(i+1)} colour">${i+1}</button>`).join('');
 }
 
 function colourName(hex){ const c=colours.find(c=>c.code?.toLowerCase()===hex?.toLowerCase()); return c?c.name:hex; }
