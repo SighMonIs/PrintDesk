@@ -45,7 +45,10 @@ async function boot() {
   const allCats = await sbGet('categories', '?archived=eq.false&order=name.asc');
   categories = allCats.filter(c => !HIDDEN_CATEGORIES.includes(c.name));
   renderStyleSelect();
-  if (categories.length) await selectCategory(categories[0].id);
+  if (categories.length) {
+    const initial = categories.find(c => c.name === 'Name Badge') || categories[0];
+    await selectCategory(initial.id);
+  }
   renderCart();
 }
 
