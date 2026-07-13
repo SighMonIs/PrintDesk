@@ -8,6 +8,17 @@ const AUTH_SB_KEY = (window.CONFIG && window.CONFIG.SUPABASE_KEY) || '';
 
 window.sbToken = null;
 window.sbCustomer = null;
+window.isStaff = false;
+
+// RLS on `staff` only lets a row's own user read it (see the shop RLS plan),
+// so this naturally returns empty for anyone who isn't staff — no uid filter needed.
+async function checkStaffStatus() {
+  try {
+    const rows = await sbGet('staff', '?select=user_id&limit=1');
+    window.isStaff = Array.isArray(rows) && rows.length > 0;
+  } catch (e) { window.isStaff = false; }
+  if (typeof onStaffStatusChanged === 'function') onStaffStatusChanged();
+}
 
 function authHeaders(extra) { return { 'apikey': AUTH_SB_KEY, 'Content-Type': 'application/json', ...extra }; }
 
@@ -20,6 +31,7 @@ async function restoreCustomerSession() {
     const user = await res.json();
     window.sbToken = token;
     await loadOrCreateCustomer(user);
+    await checkStaffStatus();
   } catch (e) { /* offline / expired — fall back to guest */ }
   updateAccountUI();
 }
@@ -53,6 +65,7 @@ async function doCustomerSignup() {
     window.sbToken = data.access_token;
     localStorage.setItem('shop_token', data.access_token);
     await loadOrCreateCustomer(data.user);
+    await checkStaffStatus();
     closeAuthModal();
     updateAccountUI();
   } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
@@ -74,6 +87,7 @@ async function doCustomerLogin() {
     window.sbToken = data.access_token;
     localStorage.setItem('shop_token', data.access_token);
     await loadOrCreateCustomer(data.user);
+    await checkStaffStatus();
     closeAuthModal();
     updateAccountUI();
   } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
@@ -81,8 +95,9 @@ async function doCustomerLogin() {
 
 function doCustomerLogout() {
   localStorage.removeItem('shop_token');
-  window.sbToken = null; window.sbCustomer = null;
+  window.sbToken = null; window.sbCustomer = null; window.isStaff = false;
   updateAccountUI();
+  if (typeof onStaffStatusChanged === 'function') onStaffStatusChanged();
 }
 
 function updateAccountUI() {

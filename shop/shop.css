@@ -46,6 +46,21 @@ body.shop-body { display: flex; flex-direction: column; }
 }
 .no-preview i { font-size: 40px; opacity: 0.4; }
 
+/* Staff-only camera controls */
+.preview-controls { position: absolute; top: 12px; right: 12px; }
+.cam-panel {
+  position: absolute; top: 52px; right: 12px; background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-lg); padding: 14px; min-width: 220px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 20;
+}
+.cam-panel-title { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.cam-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.cam-row label { font-size: 11px; color: var(--muted); width: 40px; flex-shrink: 0; }
+.cam-row input[type=range] { flex: 1; accent-color: var(--accent); }
+.cam-row input[type=number] {
+  width: 54px; height: 24px; padding: 0 4px; font-size: 11px; background: var(--surface2);
+  border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text); outline: none; font-family: ui-monospace,monospace;
+}
+
 .shop-form-half { flex: 1; display: flex; justify-content: center; padding: 24px 16px 60px; }
 .shop-form-inner { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 18px; }
 

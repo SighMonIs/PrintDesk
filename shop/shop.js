@@ -197,4 +197,53 @@ function checkout() {
   document.getElementById('checkoutNote').textContent = 'Online payment is coming soon — check back shortly!';
 }
 
+// ── Staff-only: set the site-wide default camera view per product type ────
+function onStaffStatusChanged() {
+  const btn = document.getElementById('camControlsToggle');
+  if (btn) btn.style.display = window.isStaff ? '' : 'none';
+  if (!window.isStaff) {
+    const panel = document.getElementById('camAnglePanel');
+    if (panel) panel.style.display = 'none';
+  }
+}
+
+async function sbUpsertRow(table, row) {
+  const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...sbHeaders(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(row),
+  });
+  return r.json();
+}
+
+async function saveShopDefaultView() {
+  if (!window.isStaff) return;
+  const typeId = document.getElementById('modelSelect').value;
+  const type = MODEL_TYPES.find(t => t.id === typeId);
+  if (!type) return;
+  const btn = document.getElementById('saveViewBtn');
+  const orig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = 'Saving…';
+  try {
+    if (!currentModel) {
+      const created = await sbUpsertRow('badge_models', { name: type.label, archived: false });
+      currentModel = Array.isArray(created) ? created[0] : created;
+      if (!currentModel?.id) throw new Error('Could not create model row');
+      models.push(currentModel);
+    }
+    const existing = await sbGet('badge_model_settings', `?model_id=eq.${currentModel.id}`);
+    await sbUpsertRow('badge_model_settings', {
+      ...(existing[0] ? { id: existing[0].id } : {}),
+      model_id: currentModel.id,
+      def_rot_x: rotX, def_rot_y: rotY, def_zoom: zoom,
+    });
+    defRotX = rotX; defRotY = rotY; defZoom = zoom;
+    btn.innerHTML = '<i class="ti ti-check"></i> Saved!';
+  } catch (e) {
+    console.error(e);
+    btn.innerHTML = 'Failed';
+  }
+  setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 1500);
+}
+
 document.addEventListener('DOMContentLoaded', boot);

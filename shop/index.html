@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PrintDesk Shop</title>
 <link rel="stylesheet" href="../styles.css">
-<link rel="stylesheet" href="shop.css?v=1">
+<link rel="stylesheet" href="shop.css?v=2">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 </head>
 <body class="shop-body">
@@ -29,6 +29,25 @@
       <canvas id="canvas"></canvas>
       <button onclick="typeof resetView==='function'&&resetView()" class="btn sm preview-reset"><i class="ti ti-rotate-2"></i> Reset view</button>
       <div class="preview-label">Drag to rotate · Scroll to zoom</div>
+
+      <!-- Staff only: set the site-wide default view for this product type.
+           The toggle button must live inside .preview-controls — render.js's
+           outside-click handler exempts that class so the same click that
+           opens the panel doesn't immediately close it again. -->
+      <div class="preview-controls">
+        <button class="btn sm cam-toggle-btn" id="camControlsToggle" style="display:none" onclick="toggleCamPanel('camAnglePanel')"><i class="ti ti-camera-cog"></i> Adjust view</button>
+      </div>
+      <div class="cam-panel" id="camAnglePanel" style="display:none">
+        <div class="cam-panel-title">Default camera angle (staff only)</div>
+        <div class="cam-row"><label>rotX</label><input type="range" id="camRotX" min="-1.57" max="1.57" step="0.01" value="-0.4" oninput="syncNum('camRotX','camRotXN');applyCam()"><input type="number" id="camRotXN" value="-0.40" step="0.01" oninput="syncSlider('camRotX','camRotXN');applyCam()"></div>
+        <div class="cam-row"><label>rotY</label><input type="range" id="camRotY" min="-3.14" max="3.14" step="0.01" value="0.2" oninput="syncNum('camRotY','camRotYN');applyCam()"><input type="number" id="camRotYN" value="0.20" step="0.01" oninput="syncSlider('camRotY','camRotYN');applyCam()"></div>
+        <div class="cam-row"><label>Zoom</label><input type="range" id="camZoom" min="0.3" max="4" step="0.05" value="1" oninput="syncNum('camZoom','camZoomN');applyCam()"><input type="number" id="camZoomN" value="1.00" step="0.05" oninput="syncSlider('camZoom','camZoomN');applyCam()"></div>
+        <button class="btn sm primary" id="saveViewBtn" style="width:100%;margin-top:8px" onclick="saveShopDefaultView()"><i class="ti ti-device-floppy"></i> Save as default</button>
+      </div>
+      <!-- render.js's toggleCamPanel() addresses 3 panel ids unconditionally;
+           these two aren't used in the shop but must exist so it doesn't throw. -->
+      <div id="camZoomPanel" style="display:none"></div>
+      <div id="viewportPanel" style="display:none"></div>
     </div>
     <div class="no-preview" id="noPreview" style="display:none">
       <i class="ti ti-photo"></i>
@@ -118,10 +137,10 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
-<script src="data.js?v=1"></script>
-<script src="3mf.js?v=1"></script>
-<script src="render.js?v=1"></script>
-<script src="auth.js?v=1"></script>
-<script src="shop.js?v=1"></script>
+<script src="data.js?v=2"></script>
+<script src="3mf.js?v=2"></script>
+<script src="render.js?v=2"></script>
+<script src="auth.js?v=2"></script>
+<script src="shop.js?v=2"></script>
 </body>
 </html>

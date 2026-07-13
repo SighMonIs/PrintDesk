@@ -86,6 +86,12 @@ async function loadModel(){
   if(s.round_magnet_diameter!=null)  document.getElementById('rndMagDiam')?.setAttribute('value',s.round_magnet_diameter);
   if(s.round_magnet_depth!=null)     document.getElementById('rndMagDepth')?.setAttribute('value',s.round_magnet_depth);
   if(s.round_magnet_threshold!=null) document.getElementById('rndMagThreshold')?.setAttribute('value',s.round_magnet_threshold);
+  // Site-wide default view for this product type (set via the staff-only
+  // camera controls) — applies to every visitor, not just whoever saved it.
+  if(s.def_rot_x!=null && s.def_rot_y!=null && s.def_zoom!=null && typeof resetView==='function'){
+    defRotX=+s.def_rot_x; defRotY=+s.def_rot_y; defZoom=+s.def_zoom;
+    resetView();
+  }
 
   buildLayerUI();
 
