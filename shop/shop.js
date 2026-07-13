@@ -5,6 +5,17 @@
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function optId(o){ return String(o.id); }
 
+// The Text and Backing options get dedicated, fixed-position controls
+// (name field above the tabs, backing dropdown inline with them) instead of
+// a generic row in #optionFields — this is where every lookup for either
+// one resolves to the right element id.
+function fieldElementId(o) {
+  const n = o.name.trim().toLowerCase();
+  if (n === 'text') return 'nameInput';
+  if (n === 'backing') return 'backingInline';
+  return 'opt-' + optId(o);
+}
+
 let categories = [], selectedCat = null, catOptions = [];
 let cart = [];
 try { cart = JSON.parse(localStorage.getItem('shop_cart') || '[]'); } catch(e) { cart = []; }
@@ -50,6 +61,7 @@ async function selectCategory(catId) {
   catOptions = await sbGet('options', `?cat_id=eq.${catId}&archived=eq.false&order=sort_order.asc`);
   document.getElementById('qtyInput').value = 1;
   renderNameField();
+  renderBackingInline();
   renderOptionForm();
   await applyModelForCategory();
   updatePriceDisplay();
@@ -70,25 +82,40 @@ function renderNameField() {
   };
 }
 
-// ── Option form (everything except the name field and colours, which have
-// their own dedicated spots) ───────────────────────────────────────────
+// ── Backing dropdown, inline with the category tabs (drives which 3D model
+// type shows, so it belongs next to the thing it's choosing a variant of). ─
+function renderBackingInline() {
+  const backingOpt = catOptions.find(o => o.name.trim().toLowerCase() === 'backing');
+  const el = document.getElementById('backingInline');
+  if (!backingOpt) { el.style.display = 'none'; return; }
+  const choices = (backingOpt.options || '').split(',').map(s => s.trim()).filter(Boolean);
+  el.innerHTML = choices.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  el.style.display = '';
+  el.onchange = () => onOptionChanged(optId(backingOpt));
+}
+
+// ── Option form (everything except the name field, backing, and colours,
+// which have their own dedicated spots) ────────────────────────────────
 function renderOptionForm() {
-  const rows = catOptions.filter(o => o.display !== 'colour' && !(o.display === 'text' && o.name.trim().toLowerCase() === 'text')).map(o => {
+  const rows = catOptions.filter(o => {
+    if (o.display === 'colour') return false;
+    const n = o.name.trim().toLowerCase();
+    return n !== 'text' && n !== 'backing';
+  }).map(o => {
     if (o.display === 'text') {
       return `
         <div class="shop-field">
           <label class="shop-field-label">${esc(o.name)}</label>
-          <input type="text" id="opt-${optId(o)}" class="shop-field-input" placeholder="Enter ${esc(o.name).toLowerCase()}…"
+          <input type="text" id="${fieldElementId(o)}" class="shop-field-input" placeholder="Enter ${esc(o.name).toLowerCase()}…"
             oninput="${o.force_caps ? 'this.value=this.value.toUpperCase();' : ''}onOptionChanged('${optId(o)}')">
         </div>`;
     }
     if (o.display === 'dropdown') {
       const choices = (o.options || '').split(',').map(s => s.trim()).filter(Boolean);
-      const isBacking = o.name.trim().toLowerCase() === 'backing';
       return `
         <div class="shop-field">
           <label class="shop-field-label">${esc(o.name)}</label>
-          <select id="opt-${optId(o)}" class="shop-field-input" onchange="onOptionChanged('${optId(o)}')">
+          <select id="${fieldElementId(o)}" class="shop-field-input" onchange="onOptionChanged('${optId(o)}')">
             ${choices.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
           </select>
         </div>`;
@@ -106,7 +133,7 @@ function onOptionChanged(optionId) {
 
 async function applyModelForCategory() {
   const backingOpt = catOptions.find(o => o.name.trim().toLowerCase() === 'backing');
-  const backingVal = backingOpt ? document.getElementById('opt-' + optId(backingOpt))?.value : null;
+  const backingVal = backingOpt ? document.getElementById(fieldElementId(backingOpt))?.value : null;
   const typeId = modelTypeIdFor(selectedCat.name, backingVal);
   const previewPane = document.getElementById('previewPane');
   const placeholder = document.getElementById('noPreview');
@@ -162,8 +189,7 @@ function serializeOptions() {
       parts.push(`${o.name}:${layerConfig.map(l => colourName(l.hex)).join('|')}`);
       continue;
     }
-    const isNameField = o.name.trim().toLowerCase() === 'text';
-    const el = document.getElementById(isNameField ? 'nameInput' : 'opt-' + optId(o));
+    const el = document.getElementById(fieldElementId(o));
     if (!el) continue;
     parts.push(`${o.name}:${el.value || ''}`);
   }

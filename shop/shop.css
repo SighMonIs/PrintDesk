@@ -1,7 +1,7 @@
 /* Customer shop page. Reuses ../styles.css tokens (--surface, --accent, --radius, .btn)
    for a consistent look with the rest of PrintDesk. */
 
-html, body.shop-body { height: 100%; overflow-y: auto; overflow-x: hidden; }
+html, body.shop-body { height: 100%; overflow: hidden; }
 body.shop-body { display: flex; flex-direction: column; }
 
 /* ── Header ── */
@@ -30,10 +30,12 @@ body.shop-body { display: flex; flex-direction: column; }
   font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
 }
 
-/* ── Split hero ── */
+/* ── Split hero ──
+   Both halves share the viewport via flex-grow instead of fixed vh, and the
+   form half scrolls internally as a fallback — the outer page never scrolls. */
 .shop-main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .shop-preview-half {
-  height: 50vh; min-height: 320px; flex-shrink: 0;
+  flex: 5 1 0; min-height: 160px;
   position: relative; background: var(--surface2); overflow: hidden;
 }
 .preview { position: relative; width: 100%; height: 100%; }
@@ -61,11 +63,16 @@ body.shop-body { display: flex; flex-direction: column; }
   border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text); outline: none; font-family: ui-monospace,monospace;
 }
 
-.shop-form-half { flex: 1; display: flex; justify-content: center; padding: 24px 16px 60px; }
-.shop-form-inner { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 18px; }
+.shop-form-half {
+  flex: 5 1 0; min-height: 0; overflow-y: auto;
+  display: flex; justify-content: center; padding: 14px 16px 20px;
+}
+.shop-form-inner { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 12px; }
 
-/* ── Category tabs ── */
-.cat-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+/* ── Category tabs (+ inline backing dropdown, when the category has one) ── */
+.cat-tabs-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cat-tabs { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.backing-inline { width: auto; min-width: 150px; flex-shrink: 0; }
 .cat-tab {
   height: 34px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border2);
   background: var(--surface2); color: var(--muted); font-size: 13px; font-weight: 500;
@@ -177,6 +184,8 @@ body.shop-body { display: flex; flex-direction: column; }
 .icon-btn:hover { color: var(--text); }
 
 @media (max-width: 640px) {
-  .shop-preview-half { height: 42vh; min-height: 260px; }
+  .shop-preview-half { flex: 4 1 0; min-height: 140px; }
+  .shop-form-half { flex: 6 1 0; }
+  .shop-field-input-lg { height: 60px; font-size: 22px; }
   .cart-drawer { width: 100%; max-width: 100%; }
 }
