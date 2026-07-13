@@ -119,48 +119,38 @@ function renderReady(){
 }
 
 // ── Layer UI (customer-facing colour picker) ───────────────────
-let openPickerId=null;
-
+// Each layer is a big tap target showing its current colour; picking a new
+// one opens a modal grid rather than a dropdown (easier to tap on mobile,
+// and every colour is visible/comparable at once instead of a scroll list).
 function buildLayerUI(){
   const colList=document.getElementById('layerColoursList');
   colList.innerHTML=layerConfig.map((l,i)=>`
     <div class="layer-colour-row">
       <span class="layer-colour-label">${LAYER_NAMES[i] || 'Layer '+(i+1)}</span>
-      <div class="colour-picker-wrap" id="cpw-${i}">
-        <div class="colour-picker-btn" onclick="toggleCp(${i},this)">
-          <div class="cp-swatch" id="cps-${i}" style="background:${l.hex}"></div>
-          <span class="cp-label" id="cpl-${i}">${colourName(l.hex)}</span>
-          <i class="ti ti-chevron-down" style="font-size:11px;color:var(--muted);flex-shrink:0"></i>
-        </div>
-        <div class="colour-picker-list" id="cplist-${i}" style="display:none">
-          ${colours.map(c=>`<div class="cp-option" onclick="selectColour(${i},'${c.code}','${c.id}','${c.name}')"><div class="cp-swatch" style="background:${c.code}"></div><span>${c.name}</span></div>`).join('')}
-        </div>
-      </div>
+      <button class="colour-swatch-btn" id="cps-${i}" style="background:${l.hex}" onclick="openColourModal(${i})" title="${colourName(l.hex)}" aria-label="Choose ${LAYER_NAMES[i] || 'layer '+(i+1)} colour"></button>
     </div>`).join('');
 }
 
 function colourName(hex){ const c=colours.find(c=>c.code?.toLowerCase()===hex?.toLowerCase()); return c?c.name:hex; }
 
-function toggleCp(i,btn){
-  if(openPickerId!==null&&openPickerId!==i){ const prev=document.getElementById('cplist-'+openPickerId); if(prev) prev.style.display='none'; }
-  const list=document.getElementById('cplist-'+i);
-  if(list.style.display!=='none'){list.style.display='none';openPickerId=null;return;}
-  const rect=btn.getBoundingClientRect();
-  list.style.top=(rect.bottom+4)+'px'; list.style.left=rect.left+'px'; list.style.width=rect.width+'px';
-  list.style.display=''; openPickerId=i;
+let activeColourLayer=null;
+function openColourModal(i){
+  activeColourLayer=i;
+  document.getElementById('colourModalTitle').textContent='Choose '+(LAYER_NAMES[i]||'Layer '+(i+1))+' colour';
+  document.getElementById('colourModalGrid').innerHTML=colours.map(c=>`
+    <div class="colour-modal-swatch${layerConfig[i].hex.toLowerCase()===c.code.toLowerCase()?' selected':''}" onclick="selectColour(${i},'${c.code}','${c.id}','${c.name}')">
+      <div class="colour-modal-swatch-circle" style="background:${c.code}"></div>
+      <span>${c.name}</span>
+    </div>`).join('');
+  document.getElementById('colourModal').style.display='flex';
 }
+function closeColourModal(){ document.getElementById('colourModal').style.display='none'; activeColourLayer=null; }
 
 function selectColour(i,hex,colId,name){
   layerConfig[i].hex=hex; layerConfig[i].colourId=colId;
-  document.getElementById('cps-'+i).style.background=hex;
-  document.getElementById('cpl-'+i).textContent=name;
-  document.getElementById('cplist-'+i).style.display='none';
-  openPickerId=null; scheduleRender();
+  const swatch=document.getElementById('cps-'+i);
+  swatch.style.background=hex; swatch.title=name;
+  closeColourModal();
+  scheduleRender();
   if(window.onShopOptionsChanged) window.onShopOptionsChanged();
 }
-
-document.addEventListener('click', e => {
-  if (openPickerId !== null && !e.target.closest('.colour-picker-wrap')) {
-    const el = document.getElementById('cplist-' + openPickerId); if (el) el.style.display = 'none'; openPickerId = null;
-  }
-});

@@ -91,24 +91,30 @@ body.shop-body { display: flex; flex-direction: column; }
   letter-spacing: 1px; text-transform: uppercase;
 }
 
-/* Colour picker (from badge/styles.css, retokenised to match this page) */
+/* Colour layer swatches — big tap targets, open the colour modal on click */
 .layer-colours { display: flex; flex-direction: row; flex-wrap: wrap; gap: 14px; }
-.layer-colour-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.layer-colour-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 130px; }
 .layer-colour-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
-.colour-picker-wrap { position: relative; width: 130px; }
-.colour-picker-btn {
-  display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px;
-  background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius);
-  cursor: pointer; font-size: 12px; color: var(--text);
+.colour-swatch-btn {
+  width: 100%; height: 46px; border-radius: var(--radius); border: 1px solid var(--border2);
+  cursor: pointer; transition: border-color 0.12s;
 }
-.cp-swatch { width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15); }
-.cp-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.colour-picker-list {
-  position: fixed; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius);
-  z-index: 9999; max-height: 240px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.5); padding: 4px 0;
+.colour-swatch-btn:hover { border-color: var(--accent2); }
+
+/* Colour picker modal */
+.colour-modal { max-width: 380px; }
+.colour-modal-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 12px;
+  max-height: 340px; overflow-y: auto; padding: 2px;
 }
-.cp-option { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
-.cp-option:hover { background: var(--surface2); }
+.colour-modal-swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+.colour-modal-swatch span { font-size: 11px; color: var(--muted); text-align: center; }
+.colour-modal-swatch-circle {
+  width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--border2); transition: border-color 0.12s, transform 0.12s;
+}
+.colour-modal-swatch:hover .colour-modal-swatch-circle { transform: scale(1.06); }
+.colour-modal-swatch.selected .colour-modal-swatch-circle { border-color: var(--accent); }
+.colour-modal-swatch.selected span { color: var(--text); font-weight: 600; }
 
 /* Spinner buttons (qty) */
 .spin-btn {
