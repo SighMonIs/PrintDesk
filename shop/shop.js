@@ -44,20 +44,20 @@ async function boot() {
   await Promise.all([loadColours(), loadModelsList()]);
   const allCats = await sbGet('categories', '?archived=eq.false&order=name.asc');
   categories = allCats.filter(c => !HIDDEN_CATEGORIES.includes(c.name));
-  renderCategoryTabs();
+  renderStyleSelect();
   if (categories.length) await selectCategory(categories[0].id);
   renderCart();
 }
 
-function renderCategoryTabs() {
-  document.getElementById('catTabs').innerHTML = categories.map(c =>
-    `<button class="cat-tab${selectedCat && c.id === selectedCat.id ? ' active' : ''}" onclick="selectCategory('${c.id}')">${esc(c.name)}</button>`
+function renderStyleSelect() {
+  document.getElementById('styleSelect').innerHTML = categories.map(c =>
+    `<option value="${c.id}">${esc(c.name)}</option>`
   ).join('');
 }
 
 async function selectCategory(catId) {
   selectedCat = categories.find(c => c.id === catId);
-  renderCategoryTabs();
+  document.getElementById('styleSelect').value = catId;
   catOptions = await sbGet('options', `?cat_id=eq.${catId}&archived=eq.false&order=sort_order.asc`);
   document.getElementById('qtyInput').value = 1;
   renderNameField();
@@ -110,11 +110,12 @@ function fitNameFontSize(el) {
 // type shows, so it belongs next to the thing it's choosing a variant of). ─
 function renderBackingInline() {
   const backingOpt = catOptions.find(o => o.name.trim().toLowerCase() === 'backing');
+  const wrap = document.getElementById('backingFieldWrap');
   const el = document.getElementById('backingInline');
-  if (!backingOpt) { el.style.display = 'none'; return; }
+  if (!backingOpt) { wrap.style.display = 'none'; return; }
   const choices = (backingOpt.options || '').split(',').map(s => s.trim()).filter(Boolean);
   el.innerHTML = choices.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  el.style.display = '';
+  wrap.style.display = '';
   el.onchange = () => onOptionChanged(optId(backingOpt));
 }
 
