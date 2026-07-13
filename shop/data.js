@@ -1,7 +1,7 @@
 // Trimmed copy of badge/data.js for the customer shop — keeps the colour/model/
 // layer engine, drops badge-admin login, 3MF export, "save model defaults", and
 // the "previously used colour combos" convenience picker (admin-only, reads all orders).
-const LAYER_NAMES = ['Red', 'Yellow', 'Black', 'Jade White'];
+const LAYER_NAMES = ['Layer 1', 'Layer 2', 'Layer 3', 'Layer 4'];
 
 const MODEL_TYPES = [
   { id: 'badge-magnet',       label: 'Badge - Magnet',       backing: 'Magnet'       },

@@ -25,9 +25,14 @@ function modelTypeIdFor(catName, backingVal) {
   return null;
 }
 
+// ponytail: hardcoded rather than a new `visible_in_shop` DB column — these
+// are still being finalized and just need pulling from the storefront for now.
+const HIDDEN_CATEGORIES = ['Dog Tag', 'Plaque', 'Special Order'];
+
 async function boot() {
   await Promise.all([loadColours(), loadModelsList()]);
-  categories = await sbGet('categories', '?archived=eq.false&order=name.asc');
+  const allCats = await sbGet('categories', '?archived=eq.false&order=name.asc');
+  categories = allCats.filter(c => !HIDDEN_CATEGORIES.includes(c.name));
   renderCategoryTabs();
   if (categories.length) await selectCategory(categories[0].id);
   renderCart();
@@ -44,21 +49,36 @@ async function selectCategory(catId) {
   renderCategoryTabs();
   catOptions = await sbGet('options', `?cat_id=eq.${catId}&archived=eq.false&order=sort_order.asc`);
   document.getElementById('qtyInput').value = 1;
+  renderNameField();
   renderOptionForm();
   await applyModelForCategory();
   updatePriceDisplay();
 }
 
-// ── Option form ──────────────────────────────────────────────────
+// ── Name field (promoted above the category tabs — it's the most important
+// field, so it isn't just another row in the dynamic option list below). ──
+function renderNameField() {
+  const textOpt = catOptions.find(o => o.display === 'text' && o.name.trim().toLowerCase() === 'text');
+  const wrap = document.getElementById('nameFieldWrap');
+  if (!textOpt) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const input = document.getElementById('nameInput');
+  input.value = '';
+  input.oninput = function () {
+    if (textOpt.force_caps) this.value = this.value.toUpperCase();
+    onOptionChanged(optId(textOpt));
+  };
+}
+
+// ── Option form (everything except the name field and colours, which have
+// their own dedicated spots) ───────────────────────────────────────────
 function renderOptionForm() {
-  const rows = catOptions.filter(o => o.display !== 'colour').map(o => {
-    const isNameField = o.name.trim().toLowerCase() === 'text';
+  const rows = catOptions.filter(o => o.display !== 'colour' && !(o.display === 'text' && o.name.trim().toLowerCase() === 'text')).map(o => {
     if (o.display === 'text') {
-      const id = isNameField ? 'nameInput' : 'opt-' + optId(o);
       return `
-        <div class="opt-row">
-          <label class="opt-label">${esc(o.name)}</label>
-          <input type="text" id="${id}" class="opt-input" placeholder="Enter ${esc(o.name).toLowerCase()}…"
+        <div class="shop-field">
+          <label class="shop-field-label">${esc(o.name)}</label>
+          <input type="text" id="opt-${optId(o)}" class="shop-field-input" placeholder="Enter ${esc(o.name).toLowerCase()}…"
             oninput="${o.force_caps ? 'this.value=this.value.toUpperCase();' : ''}onOptionChanged('${optId(o)}')">
         </div>`;
     }
@@ -66,9 +86,9 @@ function renderOptionForm() {
       const choices = (o.options || '').split(',').map(s => s.trim()).filter(Boolean);
       const isBacking = o.name.trim().toLowerCase() === 'backing';
       return `
-        <div class="opt-row">
-          <label class="opt-label">${esc(o.name)}</label>
-          <select id="opt-${optId(o)}" class="opt-input" onchange="onOptionChanged('${optId(o)}')">
+        <div class="shop-field">
+          <label class="shop-field-label">${esc(o.name)}</label>
+          <select id="opt-${optId(o)}" class="shop-field-input" onchange="onOptionChanged('${optId(o)}')">
             ${choices.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
           </select>
         </div>`;
