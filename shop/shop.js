@@ -39,11 +39,15 @@ function modelTypeIdFor(catName, backingVal) {
 // ponytail: hardcoded rather than a new `visible_in_shop` DB column — these
 // are still being finalized and just need pulling from the storefront for now.
 const HIDDEN_CATEGORIES = ['Dog Tag', 'Plaque', 'Special Order'];
+// Display order for the Style dropdown — not alphabetical, so it's explicit.
+const CATEGORY_ORDER = ['Name Badge', 'Keychain'];
 
 async function boot() {
   await Promise.all([loadColours(), loadModelsList()]);
   const allCats = await sbGet('categories', '?archived=eq.false&order=name.asc');
-  categories = allCats.filter(c => !HIDDEN_CATEGORIES.includes(c.name));
+  categories = allCats
+    .filter(c => !HIDDEN_CATEGORIES.includes(c.name))
+    .sort((a, b) => CATEGORY_ORDER.indexOf(a.name) - CATEGORY_ORDER.indexOf(b.name));
   renderStyleSelect();
   if (categories.length) {
     const initial = categories.find(c => c.name === 'Name Badge') || categories[0];
@@ -84,10 +88,13 @@ function renderNameField() {
   wrap.style.display = '';
   const input = document.getElementById('nameInput');
   input.value = '';
+  input.placeholder = 'Your Name';
+  input.classList.remove('shop-field-error');
   fitNameFontSize(input);
   const renderNow = () => { clearTimeout(nameRenderTimer); onOptionChanged(optId(textOpt)); };
   input.oninput = function () {
     if (textOpt.force_caps) this.value = this.value.toUpperCase();
+    if (this.value.trim()) { this.classList.remove('shop-field-error'); this.placeholder = 'Your Name'; }
     fitNameFontSize(this);
     clearTimeout(nameRenderTimer);
     nameRenderTimer = setTimeout(renderNow, 700);
@@ -227,7 +234,13 @@ function serializeOptions() {
 function addToCart() {
   if (!selectedCat) return;
   const nameEl = document.getElementById('nameInput');
-  if (nameEl && !nameEl.value.trim()) { nameEl.focus(); return; }
+  const nameFieldVisible = document.getElementById('nameFieldWrap').style.display !== 'none';
+  if (nameEl && nameFieldVisible && !nameEl.value.trim()) {
+    nameEl.focus();
+    nameEl.classList.add('shop-field-error');
+    nameEl.placeholder = 'Please enter a name';
+    return;
+  }
   const qty = Math.max(1, +document.getElementById('qtyInput').value || 1);
   cart.push({
     id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),

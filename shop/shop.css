@@ -81,6 +81,8 @@ body.shop-body { display: flex; flex-direction: column; }
   border-radius: var(--radius); color: var(--text); font-size: 14px; outline: none; width: 100%;
 }
 .shop-field-input:focus { border-color: var(--accent2); }
+.shop-field-input.shop-field-error { border-color: var(--red); }
+.shop-field-input.shop-field-error::placeholder { color: var(--red); }
 #optionFields { display: flex; flex-direction: column; gap: 16px; }
 
 /* Name field — promoted above the category tabs, double-size */
