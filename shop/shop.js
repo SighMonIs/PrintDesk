@@ -48,7 +48,6 @@ async function boot() {
   categories = allCats
     .filter(c => !HIDDEN_CATEGORIES.includes(c.name))
     .sort((a, b) => CATEGORY_ORDER.indexOf(a.name) - CATEGORY_ORDER.indexOf(b.name));
-  renderStyleSelect();
   if (categories.length) {
     const initial = categories.find(c => c.name === 'Name Badge') || categories[0];
     await selectCategory(initial.id);
@@ -75,12 +74,6 @@ window.addEventListener('resize', () => {
   positionNameFieldTimer = setTimeout(positionNameField, 100);
 });
 
-function renderStyleSelect() {
-  document.getElementById('styleSelect').innerHTML = categories.map(c =>
-    `<option value="${c.id}">${esc(c.name)}</option>`
-  ).join('');
-}
-
 function selectStyleByName(name) {
   const cat = categories.find(c => c.name === name);
   if (cat) selectCategory(cat.id);
@@ -88,7 +81,6 @@ function selectStyleByName(name) {
 
 async function selectCategory(catId) {
   selectedCat = categories.find(c => c.id === catId);
-  document.getElementById('styleSelect').value = catId;
   document.querySelectorAll('.style-quick-btn').forEach(btn =>
     btn.classList.toggle('active', btn.dataset.style === selectedCat?.name)
   );
