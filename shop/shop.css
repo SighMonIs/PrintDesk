@@ -62,7 +62,8 @@ body.shop-body { display: flex; flex-direction: column; }
 
 /* Bottom bar — full-width panel anchored to the bottom of the page. */
 .shop-bottom-bar {
-  position: absolute; left: 16px; right: 16px; bottom: 16px;
+  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  width: calc(100% - 32px); max-width: 700px;
   max-height: calc(100% - 32px); overflow-y: auto;
   background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-lg);
   padding: 20px 24px; display: flex; flex-direction: column; gap: 18px;
@@ -177,7 +178,7 @@ body.shop-body { display: flex; flex-direction: column; }
 .icon-btn:hover { color: var(--text); }
 
 @media (max-width: 640px) {
-  .shop-bottom-bar { left: 12px; right: 12px; bottom: 12px; padding: 16px; }
+  .shop-bottom-bar { width: calc(100% - 24px); bottom: 12px; padding: 16px; }
   .bottom-bar-row { gap: 14px; }
   .cart-drawer { width: 100%; max-width: 100%; }
 }
