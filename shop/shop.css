@@ -71,7 +71,11 @@ body.shop-body { display: flex; flex-direction: column; }
 }
 .bottom-bar-row { display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
 .bottom-bar-row .name-field { flex: 2; min-width: 180px; }
-.bottom-bar-footer { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+/* Backing sits left, Total sits right — margin-left:auto on Total keeps it
+   pinned right even when Backing is hidden (categories without a backing option). */
+.bottom-bar-row-2 { align-items: flex-end; }
+.bottom-bar-total { margin-left: auto; align-items: flex-end; }
+.bottom-bar-footer { display: flex; justify-content: flex-end; }
 
 /* ── Option rows ── */
 .shop-field { display: flex; flex-direction: column; gap: 8px; }
