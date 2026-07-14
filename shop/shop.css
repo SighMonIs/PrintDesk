@@ -32,7 +32,9 @@ body.shop-body { display: flex; flex-direction: column; }
 
 /* ── Full-bleed 3D preview with a bottom order-form bar ── */
 .shop-main { flex: 1; position: relative; min-height: 0; }
-.shop-preview-half { position: absolute; inset: 0; background: var(--surface2); overflow: hidden; }
+/* Matches the THREE.js scene's own default background (shop/render.js:12) so
+   there's no visible seam before the canvas paints or outside its bounds. */
+.shop-preview-half { position: absolute; inset: 0; background: #18181b; overflow: hidden; }
 /* bottom is set in JS (setupPreviewBarSpacing() in shop.js) — measured
    against the bottom bar's actual height rather than a fixed number. */
 .preview { position: absolute; top: 0; left: 0; right: 0; }
