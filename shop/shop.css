@@ -42,7 +42,7 @@ body.shop-body { display: flex; flex-direction: column; }
 .style-quick-picks { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10; }
 .style-quick-btn { height: 38px; padding: 0 20px; font-size: 14px; border-radius: 999px; background: var(--surface3); }
 .style-quick-btn.active { background: #fff; color: #111; border-color: #fff; font-weight: 600; }
-.preview-label { position: absolute; bottom: 12px; left: 12px; font-size: 10px; color: var(--muted); background: rgba(0,0,0,0.5); padding: 3px 8px; border-radius: 4px; }
+.preview-label { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--muted); background: rgba(0,0,0,0.5); padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
 .no-preview {
   position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; color: var(--muted); text-align: center; padding: 2rem;
