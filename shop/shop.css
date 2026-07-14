@@ -33,7 +33,10 @@ body.shop-body { display: flex; flex-direction: column; }
 /* ── Full-bleed 3D preview with a floating order-form sidebar ── */
 .shop-main { flex: 1; position: relative; min-height: 0; }
 .shop-preview-half { position: absolute; inset: 0; background: var(--surface2); overflow: hidden; }
-.preview { position: relative; width: 100%; height: 100%; }
+/* Shifted right of the sidebar so the model renders in the empty space
+   rather than being centered underneath it. Coupled to .shop-sidebar's
+   width/position (340px + 16px margin + 16px gap = 372px). */
+.preview { position: absolute; left: 372px; right: 0; top: 0; bottom: 0; }
 .preview canvas { display: block; width: 100%; height: 100%; }
 .style-quick-picks { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10; }
 .style-quick-btn { height: 42px; padding: 0 22px; font-size: 16px; }
@@ -88,12 +91,11 @@ body.shop-body { display: flex; flex-direction: column; }
   letter-spacing: 1px; text-transform: uppercase;
 }
 
-/* Colour layer swatches — square tap targets, open the colour modal on click.
-   Numbered instead of labeled ("Layer 1" etc.) — the number's all that's
-   needed once these sit right next to each other. */
-.layer-colours { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; }
+/* Colour layer swatches — expand to fill the sidebar's width, numbered
+   instead of labeled ("Layer 1" etc.) since they sit right next to each other. */
+.layer-colours { display: flex; flex-direction: row; gap: 10px; }
 .colour-swatch-btn {
-  width: 46px; height: 46px; border-radius: var(--radius); border: 1px solid var(--border2);
+  flex: 1; height: 46px; border-radius: var(--radius); border: 1px solid var(--border2);
   cursor: pointer; transition: border-color 0.12s;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 700; color: #fff;
@@ -121,9 +123,9 @@ body.shop-body { display: flex; flex-direction: column; }
   width: 34px; height: 40px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius);
   color: var(--text); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
-.colours-qty-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.qty-price-row { display: flex; align-items: flex-end; gap: 14px; }
 .qty-field { flex: 0 0 auto; }
-.price-field { flex: 0 0 auto; }
+.price-field { flex: 1; }
 .qty-stepper { display: flex; align-items: center; gap: 6px; }
 .qty-stepper input {
   width: 44px; height: 40px; text-align: center; background: var(--surface2); border: 1px solid var(--border2);
@@ -131,7 +133,7 @@ body.shop-body { display: flex; flex-direction: column; }
 }
 .price-value { height: 40px; display: flex; align-items: center; font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
 .price-value-total { color: var(--accent); font-size: 22px; font-weight: 800; }
-.add-to-cart-btn { width: 100%; height: 46px; font-size: 14px; }
+.add-to-cart-btn { align-self: center; width: auto; min-width: 200px; height: 46px; font-size: 14px; padding: 0 28px; }
 
 /* ── Cart drawer ── */
 .cart-drawer-backdrop {
@@ -188,6 +190,7 @@ body.shop-body { display: flex; flex-direction: column; }
 
 @media (max-width: 640px) {
   .shop-sidebar { width: calc(100% - 24px); left: 12px; top: 12px; max-height: calc(100% - 24px); }
+  .preview { left: 0; } /* sidebar takes most of the screen here, nothing to shift into */
   .shop-field-input-lg { height: 60px; font-size: 22px; }
   .cart-drawer { width: 100%; max-width: 100%; }
 }
