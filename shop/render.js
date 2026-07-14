@@ -9,7 +9,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true 
 renderer.setPixelRatio(window.devicePixelRatio);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(parseInt(localStorage.getItem('badge2_bgColour') || '0x18181b'));
+scene.background = new THREE.Color(parseInt(localStorage.getItem('shop_bgColour') || '0x18181b'));
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(50, -50, 100); scene.add(dl);
@@ -31,9 +31,9 @@ new ResizeObserver(resize).observe(pane);
 resize();
 
 // ── Camera controls ────────────────────────────────────────────
-let defRotX = parseFloat(localStorage.getItem('badge2_defRotX') ?? '-0.4');
-let defRotY = parseFloat(localStorage.getItem('badge2_defRotY') ?? '0.2');
-let defZoom = parseFloat(localStorage.getItem('badge2_defZoom') ?? '1');
+let defRotX = parseFloat(localStorage.getItem('shop_defRotX') ?? '-0.4');
+let defRotY = parseFloat(localStorage.getItem('shop_defRotY') ?? '0.2');
+let defZoom = parseFloat(localStorage.getItem('shop_defZoom') ?? '1');
 let rotX = defRotX, rotY = defRotY, zoom = defZoom;
 let scrollZoomSpeed = 0.01;
 
@@ -77,7 +77,7 @@ animate();
 // ── Camera helpers ─────────────────────────────────────────────
 function resetView() { rotX = defRotX; rotY = defRotY; zoom = defZoom; syncSlidersFromView(); }
 function toggleGrid() { grid.visible = !grid.visible; document.getElementById('toggleGridBtn').style.opacity = grid.visible ? '1' : '0.4'; }
-function setBg(colour, el) { scene.background = new THREE.Color(colour); document.querySelectorAll('#viewportPanel [onclick^="setBg"]').forEach(e => e.style.border = '1px solid var(--border2)'); el.style.border = '2px solid var(--accent)'; localStorage.setItem('badge2_bgColour', colour); }
+function setBg(colour, el) { scene.background = new THREE.Color(colour); document.querySelectorAll('#viewportPanel [onclick^="setBg"]').forEach(e => e.style.border = '1px solid var(--border2)'); el.style.border = '2px solid var(--accent)'; localStorage.setItem('shop_bgColour', colour); }
 function toggleCamPanel(id) { const panels = ['camAnglePanel','camZoomPanel','viewportPanel']; panels.forEach(p => { if (p !== id) document.getElementById(p).style.display = 'none'; }); const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; }
 function applyCam() { rotX = parseFloat(document.getElementById('camRotX').value); rotY = parseFloat(document.getElementById('camRotY').value); zoom = parseFloat(document.getElementById('camZoom').value); }
 function syncNum(sId, nId) { const v = parseFloat(document.getElementById(sId).value); const step = parseFloat(document.getElementById(sId).step || '0.01'); const dec = step.toString().includes('.') ? step.toString().split('.')[1].length : 2; document.getElementById(nId).value = v.toFixed(dec); }
@@ -88,7 +88,7 @@ function syncSlidersFromView() {
 }
 async function saveDefaultAngle() {
   defRotX = rotX; defRotY = rotY; defZoom = zoom;
-  localStorage.setItem('badge2_defRotX', rotX); localStorage.setItem('badge2_defRotY', rotY); localStorage.setItem('badge2_defZoom', zoom);
+  localStorage.setItem('shop_defRotX', rotX); localStorage.setItem('shop_defRotY', rotY); localStorage.setItem('shop_defZoom', zoom);
   if (currentUser && currentModel) await sbUpsert('badge_user_preferences', { user_id: currentUser.id, model_id: currentModel.id, def_rot_x: rotX, def_rot_y: rotY, def_zoom: zoom, zoom_speed: scrollZoomSpeed, updated_at: new Date().toISOString() });
   const btn = event.currentTarget; const orig = btn.innerHTML; btn.innerHTML = '✓ Saved!'; setTimeout(() => btn.innerHTML = orig, 1500);
 }
@@ -325,9 +325,9 @@ function buildBadge() {
     const ringSide = document.getElementById('ringSide')?.value || 'left';
     const isRight  = ringSide === 'right';
 
-    const keychainDist = parseFloat(document.getElementById('keychainDist')?.value || localStorage.getItem('badge2_keychainDist') || '1.5');
-    const holeDiameter = parseFloat(document.getElementById('holeDiameter')?.value || localStorage.getItem('badge2_holeDiameter') || '10');
-    const holeWidth    = parseFloat(document.getElementById('holeWidth')?.value    || localStorage.getItem('badge2_holeWidth')    || '3');
+    const keychainDist = parseFloat(document.getElementById('keychainDist')?.value || localStorage.getItem('shop_keychainDist') || '1.5');
+    const holeDiameter = parseFloat(document.getElementById('holeDiameter')?.value || localStorage.getItem('shop_holeDiameter') || '10');
+    const holeWidth    = parseFloat(document.getElementById('holeWidth')?.value    || localStorage.getItem('shop_holeWidth')    || '3');
     const innerR = holeDiameter / 2;
     const outerR = innerR + 2.5; // fixed 2.5mm wall thickness
 
@@ -384,7 +384,7 @@ function buildBadge() {
     // Inner D-shape hole
     const innerDPath = [];
     const innerEdgeX = isRight ? badgeEdge + keychainDist : badgeEdge - keychainDist;
-    const alignHole  = document.getElementById('alignKeychainHole')?.checked || localStorage.getItem('badge2_alignKeychainHole') === '1';
+    const alignHole  = document.getElementById('alignKeychainHole')?.checked || localStorage.getItem('shop_alignKeychainHole') === '1';
     const holeR = 1, Nf = 8;
 
     // Arc (same for both modes)
@@ -467,9 +467,9 @@ function getBackingConfig() {
   else if (['badge-magnet','dog-tag','plaque'].includes(val)) cfg = { w: 46, h: 14, d: 2, name: 'magnet' };
   else if (val === 'keychain')                               cfg = { type: 'keychain' };
   else if (val === 'badge-round-magnet') {
-    const diam      = parseFloat(document.getElementById('rndMagDiam')?.value      || localStorage.getItem('badge2_rndDiam')      || '17.15');
-    const depth     = parseFloat(document.getElementById('rndMagDepth')?.value     || localStorage.getItem('badge2_rndDepth')     || '2');
-    const threshold = parseFloat(document.getElementById('rndMagThreshold')?.value || localStorage.getItem('badge2_rndThreshold') || '60');
+    const diam      = parseFloat(document.getElementById('rndMagDiam')?.value      || localStorage.getItem('shop_rndDiam')      || '17.15');
+    const depth     = parseFloat(document.getElementById('rndMagDepth')?.value     || localStorage.getItem('shop_rndDepth')     || '2');
+    const threshold = parseFloat(document.getElementById('rndMagThreshold')?.value || localStorage.getItem('shop_rndThreshold') || '60');
     cfg = { type: 'round', diameter: diam, depth, threshold, name: 'round_magnet' };
   }
   if (cfg && cfg.type !== 'round' && cfg.type !== 'keychain') {

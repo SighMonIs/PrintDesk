@@ -33,7 +33,9 @@ body.shop-body { display: flex; flex-direction: column; }
 /* ── Full-bleed 3D preview with a bottom order-form bar ── */
 .shop-main { flex: 1; position: relative; min-height: 0; }
 .shop-preview-half { position: absolute; inset: 0; background: var(--surface2); overflow: hidden; }
-.preview { position: absolute; inset: 0; }
+/* bottom is set in JS (setupPreviewBarSpacing() in shop.js) — measured
+   against the bottom bar's actual height rather than a fixed number. */
+.preview { position: absolute; top: 0; left: 0; right: 0; }
 .preview canvas { display: block; width: 100%; height: 100%; }
 .style-quick-picks { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10; }
 .style-quick-btn { height: 38px; padding: 0 20px; font-size: 14px; border-radius: 999px; background: var(--surface3); }

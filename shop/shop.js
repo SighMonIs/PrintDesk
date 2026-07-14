@@ -53,6 +53,26 @@ async function boot() {
     await selectCategory(initial.id);
   }
   renderCart();
+  setupPreviewBarSpacing();
+}
+
+// Keeps the 3D preview's visible area above the floating bottom bar instead
+// of rendering underneath it. The bar's height is content-driven (wraps,
+// Backing shows/hides per category), so it's measured via ResizeObserver
+// rather than a fixed number.
+function setupPreviewBarSpacing() {
+  const bar = document.getElementById('shopBottomBar');
+  const preview = document.getElementById('previewPane');
+  const main = document.querySelector('.shop-main');
+  if (!bar || !preview || !main) return;
+  const reposition = () => {
+    const barRect = bar.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
+    preview.style.bottom = (mainRect.bottom - barRect.top + 16) + 'px';
+  };
+  new ResizeObserver(reposition).observe(bar);
+  window.addEventListener('resize', reposition);
+  reposition();
 }
 
 function selectStyleByName(name) {
