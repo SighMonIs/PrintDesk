@@ -119,13 +119,13 @@ function renderReady(){
 }
 
 // ── Layer UI (customer-facing colour picker) ───────────────────
-// Each layer is a big tap target showing its current colour; picking a new
-// one opens a modal grid rather than a dropdown (easier to tap on mobile,
+// Each layer is a small circular swatch showing its current colour; tapping
+// it opens a modal grid rather than a dropdown (easier to tap on mobile,
 // and every colour is visible/comparable at once instead of a scroll list).
 function buildLayerUI(){
   const colList=document.getElementById('layerColoursList');
   colList.innerHTML=layerConfig.map((l,i)=>`
-    <button class="colour-swatch-btn" id="cps-${i}" style="background:${l.hex}" onclick="openColourModal(${i})" title="${colourName(l.hex)}" aria-label="Choose ${LAYER_NAMES[i] || 'layer '+(i+1)} colour">${i+1}</button>`).join('');
+    <button class="colour-swatch-btn" id="cps-${i}" style="background:${l.hex}" onclick="openColourModal(${i})" title="${colourName(l.hex)}" aria-label="Choose ${LAYER_NAMES[i] || 'layer '+(i+1)} colour"></button>`).join('');
 }
 
 function colourName(hex){ const c=colours.find(c=>c.code?.toLowerCase()===hex?.toLowerCase()); return c?c.name:hex; }

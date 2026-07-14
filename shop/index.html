@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PrintDesk Shop</title>
 <link rel="stylesheet" href="../styles.css">
-<link rel="stylesheet" href="shop.css?v=22">
+<link rel="stylesheet" href="shop.css?v=23">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 </head>
 <body class="shop-body">
@@ -58,25 +58,26 @@
     </div>
   </section>
 
-  <!-- Floating sidebar — sized to its own contents, not stretched full height. -->
-  <aside class="shop-sidebar" id="shopSidebar">
-    <div class="shop-field" id="nameFieldWrap">
-      <input type="text" id="nameInput" class="shop-field-input shop-field-input-lg" placeholder="Your Name">
-    </div>
+  <!-- Bottom bar — full-width panel anchored to the bottom of the page. -->
+  <div class="shop-bottom-bar" id="shopBottomBar">
+    <div class="bottom-bar-row">
+      <div class="shop-field name-field" id="nameFieldWrap">
+        <label class="shop-field-label">Your name</label>
+        <input type="text" id="nameInput" class="shop-field-input" placeholder="Type here">
+      </div>
 
-    <div class="shop-field" id="backingFieldWrap" style="display:none">
-      <label class="shop-field-label">Backing</label>
-      <select id="backingInline" class="shop-field-input"></select>
-    </div>
+      <div class="shop-field">
+        <label class="shop-field-label">Colours</label>
+        <div class="layer-colours" id="layerColoursList"></div>
+      </div>
 
-    <div id="optionFields"></div>
+      <div class="shop-field" id="backingFieldWrap" style="display:none">
+        <label class="shop-field-label">Backing</label>
+        <select id="backingInline" class="shop-field-input"></select>
+      </div>
 
-    <div class="shop-field">
-      <label class="shop-field-label">Colours</label>
-      <div class="layer-colours" id="layerColoursList"></div>
-    </div>
+      <div id="optionFields"></div>
 
-    <div class="qty-price-row">
       <div class="shop-field qty-field">
         <label class="shop-field-label">Qty</label>
         <div class="qty-stepper">
@@ -85,19 +86,17 @@
           <button class="spin-btn" onclick="stepQty(1)" type="button">+</button>
         </div>
       </div>
-      <div class="shop-field price-field">
-        <label class="shop-field-label">Price Each</label>
-        <div class="price-value" id="unitPrice">$0.00</div>
+    </div>
+
+    <div class="bottom-bar-footer">
+      <div class="shop-field">
+        <label class="shop-field-label">Total</label>
+        <div class="price-value price-value-total" id="lineTotal">$0.00</div>
       </div>
+      <span id="unitPrice" style="display:none">$0.00</span>
+      <button class="btn primary add-to-cart-btn" onclick="addToCart()"><i class="ti ti-shopping-cart-plus"></i> Add to cart</button>
     </div>
-
-    <div class="shop-field">
-      <label class="shop-field-label">Total</label>
-      <div class="price-value price-value-total" id="lineTotal">$0.00</div>
-    </div>
-
-    <button class="btn primary add-to-cart-btn" onclick="addToCart()"><i class="ti ti-shopping-cart-plus"></i> Add to cart</button>
-  </aside>
+  </div>
 </main>
 
 <!-- Cart drawer -->
@@ -165,10 +164,10 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
-<script src="data.js?v=22"></script>
-<script src="3mf.js?v=22"></script>
-<script src="render.js?v=22"></script>
-<script src="auth.js?v=22"></script>
-<script src="shop.js?v=22"></script>
+<script src="data.js?v=23"></script>
+<script src="3mf.js?v=23"></script>
+<script src="render.js?v=23"></script>
+<script src="auth.js?v=23"></script>
+<script src="shop.js?v=23"></script>
 </body>
 </html>

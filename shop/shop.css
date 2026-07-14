@@ -30,17 +30,14 @@ body.shop-body { display: flex; flex-direction: column; }
   font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
 }
 
-/* ── Full-bleed 3D preview with a floating order-form sidebar ── */
+/* ── Full-bleed 3D preview with a bottom order-form bar ── */
 .shop-main { flex: 1; position: relative; min-height: 0; }
 .shop-preview-half { position: absolute; inset: 0; background: var(--surface2); overflow: hidden; }
-/* Shifted right of the sidebar so the model renders in the empty space
-   rather than being centered underneath it. Coupled to .shop-sidebar's
-   width/position (340px + 16px margin + 16px gap = 372px). */
-.preview { position: absolute; left: 372px; right: 0; top: 0; bottom: 0; }
+.preview { position: absolute; inset: 0; }
 .preview canvas { display: block; width: 100%; height: 100%; }
-.style-quick-picks { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10; }
-.style-quick-btn { height: 42px; padding: 0 22px; font-size: 16px; }
-.style-quick-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.style-quick-picks { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10; }
+.style-quick-btn { height: 38px; padding: 0 20px; font-size: 14px; border-radius: 999px; background: var(--surface3); }
+.style-quick-btn.active { background: #fff; color: #111; border-color: #fff; font-weight: 600; }
 .preview-label { position: absolute; bottom: 12px; left: 12px; font-size: 10px; color: var(--muted); background: rgba(0,0,0,0.5); padding: 3px 8px; border-radius: 4px; }
 .no-preview {
   position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -63,16 +60,17 @@ body.shop-body { display: flex; flex-direction: column; }
   border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text); outline: none; font-family: ui-monospace,monospace;
 }
 
-/* Floating sidebar — sized to its own contents (no fixed/stretched height),
-   sits over the preview rather than splitting the page into two halves. */
-.shop-sidebar {
-  position: absolute; top: 16px; left: 16px;
-  width: 340px; max-width: calc(100% - 32px); max-height: calc(100% - 32px);
-  overflow-y: auto;
+/* Bottom bar — full-width panel anchored to the bottom of the page. */
+.shop-bottom-bar {
+  position: absolute; left: 16px; right: 16px; bottom: 16px;
+  max-height: calc(100% - 32px); overflow-y: auto;
   background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-lg);
-  padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  padding: 20px 24px; display: flex; flex-direction: column; gap: 18px;
   box-shadow: 0 12px 32px rgba(0,0,0,0.55); z-index: 15;
 }
+.bottom-bar-row { display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+.bottom-bar-row .name-field { flex: 2; min-width: 180px; }
+.bottom-bar-footer { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 
 /* ── Option rows ── */
 .shop-field { display: flex; flex-direction: column; gap: 8px; }
@@ -86,22 +84,14 @@ body.shop-body { display: flex; flex-direction: column; }
 .shop-field-input.shop-field-error::placeholder { color: var(--red); }
 #optionFields { display: flex; flex-direction: column; gap: 16px; }
 
-.shop-field-input-lg {
-  height: 80px; font-size: 28px; font-weight: 700; text-align: center;
-  letter-spacing: 1px; text-transform: uppercase;
-}
-
-/* Colour layer swatches — expand to fill the sidebar's width, numbered
-   instead of labeled ("Layer 1" etc.) since they sit right next to each other. */
-.layer-colours { display: flex; flex-direction: row; gap: 10px; }
+/* Colour layer swatches — small circles, no label/number needed since they
+   sit right next to a "Colours" heading. */
+.layer-colours { display: flex; flex-direction: row; gap: 8px; align-items: center; height: 40px; }
 .colour-swatch-btn {
-  flex: 1; height: 46px; border-radius: var(--radius); border: 1px solid var(--border2);
-  cursor: pointer; transition: border-color 0.12s;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 700; color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.6);
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border2);
+  cursor: pointer; transition: border-color 0.12s, transform 0.12s; padding: 0; flex-shrink: 0;
 }
-.colour-swatch-btn:hover { border-color: var(--accent2); }
+.colour-swatch-btn:hover { border-color: var(--accent2); transform: scale(1.08); }
 
 /* Colour picker modal */
 .colour-modal { max-width: 380px; }
@@ -123,17 +113,15 @@ body.shop-body { display: flex; flex-direction: column; }
   width: 34px; height: 40px; background: var(--surface3); border: 1px solid var(--border2); border-radius: var(--radius);
   color: var(--text); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
-.qty-price-row { display: flex; align-items: flex-end; gap: 14px; }
 .qty-field { flex: 0 0 auto; }
-.price-field { flex: 1; }
 .qty-stepper { display: flex; align-items: center; gap: 6px; }
 .qty-stepper input {
-  width: 44px; height: 40px; text-align: center; background: var(--surface3); border: 1px solid var(--border2);
+  width: 34px; height: 40px; text-align: center; background: var(--surface3); border: 1px solid var(--border2);
   border-radius: var(--radius); color: var(--text); font-size: 14px;
 }
 .price-value { height: 40px; display: flex; align-items: center; font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
-.price-value-total { color: var(--accent); font-size: 22px; font-weight: 800; }
-.add-to-cart-btn { align-self: center; width: auto; min-width: 200px; height: 46px; font-size: 14px; padding: 0 28px; }
+.price-value-total { color: #fff; font-size: 26px; font-weight: 700; }
+.add-to-cart-btn { height: 44px; font-size: 14px; padding: 0 20px; }
 
 /* ── Cart drawer ── */
 .cart-drawer-backdrop {
@@ -189,8 +177,7 @@ body.shop-body { display: flex; flex-direction: column; }
 .icon-btn:hover { color: var(--text); }
 
 @media (max-width: 640px) {
-  .shop-sidebar { width: calc(100% - 24px); left: 12px; top: 12px; max-height: calc(100% - 24px); }
-  .preview { left: 0; } /* sidebar takes most of the screen here, nothing to shift into */
-  .shop-field-input-lg { height: 60px; font-size: 22px; }
+  .shop-bottom-bar { left: 12px; right: 12px; bottom: 12px; padding: 16px; }
+  .bottom-bar-row { gap: 14px; }
   .cart-drawer { width: 100%; max-width: 100%; }
 }
