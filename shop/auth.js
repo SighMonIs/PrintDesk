@@ -126,9 +126,13 @@ function doCustomerLogout() {
 function updateAccountUI() {
   const chip = document.getElementById('accountChip');
   if (window.sbCustomer) {
+    chip.innerHTML = `<i class="ti ti-user"></i>`;
+    chip.classList.remove('cart-btn-wide');
     chip.onclick = openAccountModal;
     chip.title = window.sbCustomer.name || window.sbCustomer.email;
   } else {
+    chip.innerHTML = `<i class="ti ti-user"></i> Login / Sign Up`;
+    chip.classList.add('cart-btn-wide');
     chip.onclick = () => openAuthModal();
     chip.title = 'Sign in / create account';
   }
