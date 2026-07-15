@@ -36,24 +36,26 @@ function modelTypeIdFor(catName, backingVal) {
   return null;
 }
 
-// ponytail: hardcoded rather than a new `visible_in_shop` DB column — these
-// are still being finalized and just need pulling from the storefront for now.
-const HIDDEN_CATEGORIES = ['Dog Tag', 'Plaque', 'Special Order'];
-// Display order for the Style dropdown — not alphabetical, so it's explicit.
-const CATEGORY_ORDER = ['Name Badge', 'Keychain'];
-
 async function boot() {
   await Promise.all([loadColours(), loadModelsList()]);
-  const allCats = await sbGet('categories', '?archived=eq.false&order=name.asc');
-  categories = allCats
-    .filter(c => !HIDDEN_CATEGORIES.includes(c.name))
-    .sort((a, b) => CATEGORY_ORDER.indexOf(a.name) - CATEGORY_ORDER.indexOf(b.name));
+  categories = await sbGet('categories', '?archived=eq.false&shop_visible=eq.true&order=id.asc');
+  renderStyleQuickPicks();
   if (categories.length) {
     const initial = categories.find(c => c.name === 'Name Badge') || categories[0];
     await selectCategory(initial.id);
   }
   renderCart();
   setupPreviewBarSpacing();
+}
+
+// Which categories show as tabs (and their order) is controlled from the
+// admin Categories & Options screen (per-category "Shown in shop" toggle),
+// not hardcoded here — see toggleCatShopVisible() in app.js.
+function renderStyleQuickPicks() {
+  const wrap = document.getElementById('styleQuickPicks');
+  wrap.innerHTML = categories.map(c =>
+    `<button class="btn style-quick-btn" data-style="${esc(c.name)}" onclick="selectStyleByName('${esc(c.name)}')">${esc(c.name)}</button>`
+  ).join('');
 }
 
 // Keeps the 3D preview's visible area above the floating bottom bar instead

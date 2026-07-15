@@ -616,6 +616,8 @@ input[type=number]{-moz-appearance:textfield;}
 .cat-price-wrap span{font-size:12px;color:var(--muted);font-weight:500;}
 .cat-price-wrap input{width:70px;height:30px;padding:0 8px;font-size:12px;font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
 .cat-price-wrap input:focus{border-color:var(--accent2);}
+.cat-shop-visible-toggle{display:flex;align-items:center;gap:5px;padding:0 12px 8px 12px;font-size:11px;color:var(--muted);cursor:pointer;background:var(--surface2);}
+.cat-shop-visible-toggle input{cursor:pointer;}
 .cat-opts-area{padding:8px 12px 10px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;}
 .cat-opts-area-empty{font-size:12px;color:var(--muted);font-style:italic;padding:4px 0;}
 .opt-item{display:grid;grid-template-columns:18px 1fr 192px 46px 26px;gap:6px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:5px 6px;cursor:default;}

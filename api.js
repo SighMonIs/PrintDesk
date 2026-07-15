@@ -623,7 +623,7 @@ function normaliseCustomer(c){
   };
 }
 function normaliseCat(c){
-  return{id:String(c.id||''),name:String(c.name||''),price:Number(c.price||0),archived:Boolean(c.archived||false)};
+  return{id:String(c.id||''),name:String(c.name||''),price:Number(c.price||0),archived:Boolean(c.archived||false),shopVisible:c.shop_visible!==false};
 }
 function normaliseOpt(o){
   return{

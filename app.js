@@ -94,6 +94,10 @@ function renderCatBlocks(){
             : `<button class="icon-btn" onclick="event.stopPropagation();archiveCat(${realCi})" title="Archive — used in completed orders"><i class="ti ti-archive"></i></button>`
         }
       </div>
+      <label class="cat-shop-visible-toggle" title="Show this category on the shop page" onclick="event.stopPropagation()">
+        <input type="checkbox" ${c.shopVisible!==false?'checked':''} onchange="toggleCatShopVisible(${realCi})" ${c.archived?'disabled':''}>
+        <i class="ti ${c.shopVisible!==false?'ti-eye':'ti-eye-off'}"></i> ${c.shopVisible!==false?'Shown in shop':'Hidden from shop'}
+      </label>
       <div class="cat-opts-area${isExpanded?'':' collapsed'}" id="cat-opts-${ci}" data-cat-id="${esc(c.id)}">
         ${catOpts.length===0?'<div class="cat-opts-area-empty">No options — add one below</div>':''}
         ${catOpts.map((o,oi)=>{
@@ -171,6 +175,7 @@ function renderCatBlocks(){
 
 function archiveCat(ci){ cats[ci].archived=true; renderCatBlocks(); }
 function unarchiveCat(ci){ cats[ci].archived=false; renderCatBlocks(); }
+function toggleCatShopVisible(ci){ cats[ci].shopVisible=!(cats[ci].shopVisible!==false); renderCatBlocks(); }
 function archiveOpt(i){ opts[i].archived=true; renderCatBlocks(); }
 function unarchiveOpt(i){ opts[i].archived=false; renderCatBlocks(); }
 function toggleShowArchived(cb){ showArchivedCats=cb.checked; renderCatBlocks(); }
@@ -185,7 +190,7 @@ function toggleCatBlock(ci){
   if(chev) chev.classList.toggle('expanded', isCollapsed);
 }
 
-function addCat(){cats.push({id:nextCatId(),name:'',price:0});renderCatBlocks();}
+function addCat(){cats.push({id:nextCatId(),name:'',price:0,shopVisible:true});renderCatBlocks();}
 function removeCat(i){cats.splice(i,1);renderCatBlocks();}
 function removeOpt(i){opts.splice(i,1);renderCatBlocks();}
 function addOptToCat(catId){
@@ -196,7 +201,7 @@ function addOptToCat(catId){
 async function saveCatsAndOpts(){
   setStatus('spin','Saving…');populateCatFilter();
   try{
-    await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price,archived:c.archived||false})));
+    await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price,archived:c.archived||false,shop_visible:c.shopVisible!==false})));
     await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false,multi_item:o.multi_item||false,sortable:o.sortable||false,archived:o.archived||false,default_colours:o.default_colours||''})));
     setStatus('ok','Saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
