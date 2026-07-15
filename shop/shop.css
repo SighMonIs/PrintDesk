@@ -21,7 +21,7 @@ body.shop-body { display: flex; flex-direction: column; }
 }
 /* Signed-out account button widens to fit "Login / Sign Up" instead of
    staying icon-only — signed-in state stays a plain 36x36 square. */
-.cart-btn-wide { width: auto; gap: 6px; padding: 0 14px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.cart-btn-wide { width: auto; max-width: 180px; gap: 6px; padding: 0 14px; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cart-count {
   position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 3px;
   border-radius: 999px; background: var(--accent); color: var(--bg);
