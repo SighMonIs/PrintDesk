@@ -174,6 +174,7 @@ body.shop-body { display: flex; flex-direction: column; }
   padding: 24px; width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 14px;
 }
 .auth-modal-header { display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 700; }
+#authForm { display: flex; flex-direction: column; gap: 14px; }
 .auth-field { display: flex; flex-direction: column; gap: 6px; }
 .auth-field label { font-size: 12px; color: var(--muted); }
 .auth-field input {
