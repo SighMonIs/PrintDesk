@@ -205,7 +205,7 @@ function checkBadgeWidth() {
 
   if (warnEl) {
     warnEl.style.display = anyDisabled ? '' : 'none';
-    if (anyDisabled) warnEl.textContent = `Name width (${width.toFixed(1)}mm) — some backing options aren't available`;
+    if (anyDisabled) warnEl.textContent = 'Some backing options not available due to size';
   }
 }
 

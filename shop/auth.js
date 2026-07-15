@@ -35,17 +35,53 @@ function userFromToken(accessToken) {
   } catch (e) { return null; }
 }
 
+function storeSession(data) {
+  localStorage.setItem('shop_token', data.access_token);
+  if (data.refresh_token) localStorage.setItem('shop_refresh_token', data.refresh_token);
+  window.sbToken = data.access_token;
+}
+
+function clearSession() {
+  localStorage.removeItem('shop_token');
+  localStorage.removeItem('shop_refresh_token');
+}
+
+// The access token is short-lived (Supabase's default is ~1hr) — a page
+// reload after it expires needs to trade the refresh token for a new one
+// rather than just dropping the session.
+async function refreshSession() {
+  const refreshToken = localStorage.getItem('shop_refresh_token');
+  if (!refreshToken) return null;
+  try {
+    const res = await fetch(`${AUTH_SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error || !data.access_token) return null;
+    storeSession(data);
+    return data;
+  } catch (e) { return null; }
+}
+
 async function restoreCustomerSession() {
-  const token = localStorage.getItem('shop_token');
+  let token = localStorage.getItem('shop_token');
   if (!token) return updateAccountUI();
   try {
-    const res = await fetch(`${AUTH_SB_URL}/auth/v1/user`, { headers: authHeaders({ 'Authorization': 'Bearer ' + token }) });
-    if (!res.ok) { localStorage.removeItem('shop_token'); return updateAccountUI(); }
+    let res = await fetch(`${AUTH_SB_URL}/auth/v1/user`, { headers: authHeaders({ 'Authorization': 'Bearer ' + token }) });
+    if (!res.ok) {
+      const refreshed = await refreshSession();
+      if (!refreshed) { clearSession(); return updateAccountUI(); }
+      token = refreshed.access_token;
+      res = await fetch(`${AUTH_SB_URL}/auth/v1/user`, { headers: authHeaders({ 'Authorization': 'Bearer ' + token }) });
+      if (!res.ok) { clearSession(); return updateAccountUI(); }
+    }
     const user = await res.json();
     window.sbToken = token;
     await loadOrCreateCustomer(user);
     await checkStaffStatus();
-  } catch (e) { /* offline / expired — fall back to guest */ }
+  } catch (e) { /* offline — fall back to guest, keep the stored session for next time */ }
   updateAccountUI();
 }
 
@@ -96,8 +132,7 @@ async function doCustomerSignup() {
     if (data.error || !data.access_token) throw new Error(data.error_description || data.msg || 'Could not create account');
     const user = data.user || userFromToken(data.access_token);
     if (!user?.id) throw new Error('Could not create account — please try again.');
-    window.sbToken = data.access_token;
-    localStorage.setItem('shop_token', data.access_token);
+    storeSession(data);
     await loadOrCreateCustomer(user);
     await checkStaffStatus();
     closeAuthModal();
@@ -120,8 +155,7 @@ async function doCustomerLogin() {
     if (data.error) throw new Error(data.error_description || data.error);
     const user = data.user || userFromToken(data.access_token);
     if (!user?.id) throw new Error('Could not sign in — please try again.');
-    window.sbToken = data.access_token;
-    localStorage.setItem('shop_token', data.access_token);
+    storeSession(data);
     await loadOrCreateCustomer(user);
     await checkStaffStatus();
     closeAuthModal();
@@ -130,7 +164,7 @@ async function doCustomerLogin() {
 }
 
 function doCustomerLogout() {
-  localStorage.removeItem('shop_token');
+  clearSession();
   window.sbToken = null; window.sbCustomer = null; window.isStaff = false;
   updateAccountUI();
   if (typeof onStaffStatusChanged === 'function') onStaffStatusChanged();
