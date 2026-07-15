@@ -116,12 +116,14 @@ function renderNameField() {
   input.placeholder = 'Your Name';
   input.classList.remove('shop-field-error');
   fitNameFontSize(input);
-  const renderNow = () => { clearTimeout(nameRenderTimer); onOptionChanged(optId(textOpt)); };
+  // checkBadgeWidth() can switch the selected backing (e.g. away from Magnet
+  // to Round Magnet) — debounced along with the render so it only fires once
+  // the name has settled, not on every keystroke of a still-short name.
+  const renderNow = () => { clearTimeout(nameRenderTimer); checkBadgeWidth(); onOptionChanged(optId(textOpt)); };
   input.oninput = function () {
     if (textOpt.force_caps) this.value = this.value.toUpperCase();
     if (this.value.trim()) { this.classList.remove('shop-field-error'); this.placeholder = 'Your Name'; }
     fitNameFontSize(this);
-    checkBadgeWidth();
     clearTimeout(nameRenderTimer);
     nameRenderTimer = setTimeout(renderNow, 700);
   };

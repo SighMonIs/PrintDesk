@@ -66,13 +66,26 @@ async function loadOrCreateCustomer(user) {
   window.sbCustomer = Array.isArray(created) ? created[0] : created;
 }
 
+// Supabase Auth's own minimum is 6 chars with no complexity rule — this adds
+// the length/uppercase/number bar recommended for customer-facing signup.
+function passwordIssue(pass) {
+  if (pass.length < 8) return 'Password must be at least 8 characters.';
+  if (!/[A-Z]/.test(pass)) return 'Password must include an uppercase letter.';
+  if (!/[0-9]/.test(pass)) return 'Password must include a number.';
+  return null;
+}
+
 async function doCustomerSignup() {
   const name = document.getElementById('authName').value.trim();
   const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPassword').value;
+  const passConfirm = document.getElementById('authPasswordConfirm').value;
   const errEl = document.getElementById('authError');
   errEl.style.display = 'none';
   if (!name || !email || !pass) { errEl.textContent = 'Please fill in all fields.'; errEl.style.display = 'block'; return; }
+  if (pass !== passConfirm) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
+  const issue = passwordIssue(pass);
+  if (issue) { errEl.textContent = issue; errEl.style.display = 'block'; return; }
   try {
     const res = await fetch(`${AUTH_SB_URL}/auth/v1/signup`, {
       method: 'POST',
@@ -180,6 +193,8 @@ function openAuthModal(mode) {
   authMode = mode || 'login';
   document.getElementById('authError').style.display = 'none';
   document.getElementById('authNameRow').style.display = authMode === 'signup' ? '' : 'none';
+  document.getElementById('authPasswordConfirmRow').style.display = authMode === 'signup' ? '' : 'none';
+  document.getElementById('authPasswordConfirm').value = '';
   document.getElementById('authTitle').textContent = authMode === 'signup' ? 'Create account' : 'Sign in';
   document.getElementById('authSubmitBtn').textContent = authMode === 'signup' ? 'Create account' : 'Sign in';
   document.getElementById('authSubmitBtn').onclick = authMode === 'signup' ? doCustomerSignup : doCustomerLogin;
