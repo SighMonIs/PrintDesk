@@ -52,11 +52,17 @@ async function restoreCustomerSession() {
 async function loadOrCreateCustomer(user) {
   const rows = await sbGet('customers', `?auth_user_id=eq.${user.id}&limit=1`);
   if (Array.isArray(rows) && rows[0]) { window.sbCustomer = rows[0]; return; }
-  const created = await fetch(`${AUTH_SB_URL}/rest/v1/customers`, {
+  // customers.id has no DB default — admin generates sequential CUSTnnnn ids,
+  // but that requires reading every existing customer to find the next
+  // number, which a brand-new customer's RLS-limited access can't do. Using
+  // the auth user's own uuid instead: globally unique, no read needed.
+  const res = await fetch(`${AUTH_SB_URL}/rest/v1/customers`, {
     method: 'POST',
     headers: authHeaders({ 'Authorization': 'Bearer ' + window.sbToken, 'Prefer': 'return=representation' }),
-    body: JSON.stringify({ auth_user_id: user.id, name: user.user_metadata?.display_name || user.email, email: user.email }),
-  }).then(r => r.json());
+    body: JSON.stringify({ id: user.id, auth_user_id: user.id, name: user.user_metadata?.display_name || user.email, email: user.email }),
+  });
+  const created = await res.json();
+  if (!res.ok) throw new Error(created?.message || 'Could not set up your account — please try again.');
   window.sbCustomer = Array.isArray(created) ? created[0] : created;
 }
 
