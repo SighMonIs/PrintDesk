@@ -14,11 +14,6 @@ body.shop-body { display: flex; flex-direction: column; }
 }
 .shop-logo { font-family: ui-monospace,'Cascadia Code',monospace; font-size: 18px; font-weight: 700; color: var(--accent); text-decoration: none; }
 .shop-header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.account-chip {
-  display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text);
-  padding: 6px 10px; border-radius: 999px; background: var(--surface2); border: 1px solid var(--border2);
-  cursor: pointer; white-space: nowrap;
-}
 .cart-btn {
   position: relative; display: flex; align-items: center; justify-content: center;
   width: 36px; height: 36px; border-radius: var(--radius); border: 1px solid var(--border2);
@@ -179,9 +174,11 @@ body.shop-body { display: flex; flex-direction: column; }
   height: 38px; padding: 0 12px; background: var(--surface2); border: 1px solid var(--border2);
   border-radius: var(--radius); color: var(--text); font-size: 13px; outline: none;
 }
+.auth-field input:disabled { opacity: 0.6; cursor: not-allowed; }
 .auth-error { font-size: 12px; color: var(--red); }
 .auth-switch { font-size: 12px; color: var(--muted); text-align: center; }
 .auth-switch a { color: var(--accent); }
+.account-logout-btn { width: 100%; color: var(--red); }
 .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
 .icon-btn:hover { color: var(--text); }
 

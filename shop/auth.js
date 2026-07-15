@@ -103,14 +103,48 @@ function doCustomerLogout() {
 function updateAccountUI() {
   const chip = document.getElementById('accountChip');
   if (window.sbCustomer) {
-    chip.innerHTML = `<i class="ti ti-user"></i> ${esc(window.sbCustomer.name || window.sbCustomer.email)}`;
-    chip.onclick = doCustomerLogout;
-    chip.title = 'Sign out';
+    chip.onclick = openAccountModal;
+    chip.title = window.sbCustomer.name || window.sbCustomer.email;
   } else {
-    chip.innerHTML = `<i class="ti ti-user"></i> Sign in`;
-    chip.onclick = openAuthModal;
+    chip.onclick = () => openAuthModal();
     chip.title = 'Sign in / create account';
   }
+}
+
+function openAccountModal() {
+  if (!window.sbCustomer) return openAuthModal();
+  document.getElementById('accountError').style.display = 'none';
+  document.getElementById('accountName').value = window.sbCustomer.name || '';
+  document.getElementById('accountEmail').value = window.sbCustomer.email || '';
+  document.getElementById('accountPhone').value = window.sbCustomer.phone || '';
+  document.getElementById('accountModal').style.display = 'flex';
+}
+function closeAccountModal() { document.getElementById('accountModal').style.display = 'none'; }
+
+async function saveAccountDetails() {
+  const name = document.getElementById('accountName').value.trim();
+  const phone = document.getElementById('accountPhone').value.trim();
+  const errEl = document.getElementById('accountError');
+  const btn = document.getElementById('accountSaveBtn');
+  errEl.style.display = 'none';
+  if (!name) { errEl.textContent = 'Please enter a name.'; errEl.style.display = 'block'; return; }
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await fetch(`${AUTH_SB_URL}/rest/v1/customers?id=eq.${window.sbCustomer.id}`, {
+      method: 'PATCH',
+      headers: authHeaders({ 'Authorization': 'Bearer ' + window.sbToken, 'Prefer': 'return=representation' }),
+      body: JSON.stringify({ name, phone }),
+    });
+    const updated = await res.json();
+    if (!res.ok) throw new Error(updated?.message || 'Could not save changes');
+    window.sbCustomer = Array.isArray(updated) ? updated[0] : updated;
+    updateAccountUI();
+    closeAccountModal();
+  } catch (e) {
+    errEl.textContent = e.message; errEl.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = orig;
 }
 
 let authMode = 'login';
