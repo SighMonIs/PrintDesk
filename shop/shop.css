@@ -12,7 +12,8 @@ body.shop-body { display: flex; flex-direction: column; }
   background: var(--bg);
   position: sticky; top: 0; z-index: 30;
 }
-.shop-logo { font-family: ui-monospace,'Cascadia Code',monospace; font-size: 18px; font-weight: 700; color: var(--accent); text-decoration: none; }
+.shop-logo { display: flex; align-items: center; text-decoration: none; }
+.shop-logo img { height: 38px; width: auto; display: block; }
 .shop-header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .cart-btn {
   position: relative; display: flex; align-items: center; justify-content: center;
