@@ -22,6 +22,19 @@ async function checkStaffStatus() {
 
 function authHeaders(extra) { return { 'apikey': AUTH_SB_KEY, 'Content-Type': 'application/json', ...extra }; }
 
+// Some GoTrue versions/configs don't include a `user` object in the
+// signup/token response body — the access_token JWT always carries the
+// user's id/email in its payload regardless, so decode that instead of
+// trusting the response shape.
+function userFromToken(accessToken) {
+  try {
+    const base64 = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = decodeURIComponent(atob(base64).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''));
+    const payload = JSON.parse(json);
+    return { id: payload.sub, email: payload.email, user_metadata: payload.user_metadata || {} };
+  } catch (e) { return null; }
+}
+
 async function restoreCustomerSession() {
   const token = localStorage.getItem('shop_token');
   if (!token) return updateAccountUI();
@@ -62,9 +75,11 @@ async function doCustomerSignup() {
     });
     const data = await res.json();
     if (data.error || !data.access_token) throw new Error(data.error_description || data.msg || 'Could not create account');
+    const user = data.user || userFromToken(data.access_token);
+    if (!user?.id) throw new Error('Could not create account — please try again.');
     window.sbToken = data.access_token;
     localStorage.setItem('shop_token', data.access_token);
-    await loadOrCreateCustomer(data.user);
+    await loadOrCreateCustomer(user);
     await checkStaffStatus();
     closeAuthModal();
     updateAccountUI();
@@ -84,9 +99,11 @@ async function doCustomerLogin() {
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error_description || data.error);
+    const user = data.user || userFromToken(data.access_token);
+    if (!user?.id) throw new Error('Could not sign in — please try again.');
     window.sbToken = data.access_token;
     localStorage.setItem('shop_token', data.access_token);
-    await loadOrCreateCustomer(data.user);
+    await loadOrCreateCustomer(user);
     await checkStaffStatus();
     closeAuthModal();
     updateAccountUI();
