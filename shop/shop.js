@@ -121,6 +121,7 @@ function renderNameField() {
     if (textOpt.force_caps) this.value = this.value.toUpperCase();
     if (this.value.trim()) { this.classList.remove('shop-field-error'); this.placeholder = 'Your Name'; }
     fitNameFontSize(this);
+    checkBadgeWidth();
     clearTimeout(nameRenderTimer);
     nameRenderTimer = setTimeout(renderNow, 700);
   };
@@ -152,6 +153,58 @@ function renderBackingInline() {
   el.innerHTML = choices.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   wrap.style.display = '';
   el.onchange = () => onOptionChanged(optId(backingOpt));
+  checkBadgeWidth();
+}
+
+// Mirrors app.js's badgeWidthCheck() from the admin order form — same
+// per-backing minimum widths, same opentype.js text-measurement approach —
+// so a customer can't pick a name/backing combination that wouldn't
+// physically fit (e.g. a long name on a Pin backing).
+function backingMinWidthMM(backingName) {
+  const n = (backingName || '').toLowerCase();
+  if (n.includes('round')) return 17.15;
+  if (n.includes('magnet')) return 46;
+  if (n.includes('pin')) return 32;
+  return 0;
+}
+
+function checkBadgeWidth() {
+  const backingWrap = document.getElementById('backingFieldWrap');
+  const backingEl = document.getElementById('backingInline');
+  const nameEl = document.getElementById('nameInput');
+  const warnEl = document.getElementById('nameWidthWarn');
+  if (!backingEl || !nameEl || !backingWrap || backingWrap.style.display === 'none' || typeof font === 'undefined' || !font) {
+    if (warnEl) warnEl.style.display = 'none';
+    return;
+  }
+  const rawVal = nameEl.value.trim();
+  if (!rawVal) {
+    Array.from(backingEl.options).forEach(o => { o.disabled = false; o.style.color = ''; });
+    if (warnEl) warnEl.style.display = 'none';
+    return;
+  }
+  const fsize = parseFloat(document.getElementById('fontSize')?.value) || 49;
+  const bb = font.getPath(rawVal.toUpperCase(), 0, 0, fsize).getBoundingBox();
+  const width = bb.x2 - bb.x1;
+
+  let anyDisabled = false, currentInvalid = false;
+  Array.from(backingEl.options).forEach(opt => {
+    const fits = width >= backingMinWidthMM(opt.value);
+    opt.disabled = !fits;
+    opt.style.color = fits ? '' : 'var(--muted)';
+    if (!fits) anyDisabled = true;
+    if (opt.selected && !fits) currentInvalid = true;
+  });
+
+  if (currentInvalid) {
+    const firstValid = Array.from(backingEl.options).find(o => !o.disabled);
+    if (firstValid) { backingEl.value = firstValid.value; applyModelForCategory(); }
+  }
+
+  if (warnEl) {
+    warnEl.style.display = anyDisabled ? '' : 'none';
+    if (anyDisabled) warnEl.textContent = `Name width (${width.toFixed(1)}mm) — some backing options aren't available`;
+  }
 }
 
 // ── Option form (everything except the name field, backing, and colours,
@@ -260,10 +313,10 @@ function addToCart() {
   if (!selectedCat) return;
   const nameEl = document.getElementById('nameInput');
   const nameFieldVisible = document.getElementById('nameFieldWrap').style.display !== 'none';
-  if (nameEl && nameFieldVisible && !nameEl.value.trim()) {
+  if (nameEl && nameFieldVisible && nameEl.value.trim().length < 2) {
     nameEl.focus();
     nameEl.classList.add('shop-field-error');
-    nameEl.placeholder = 'Please enter a name';
+    nameEl.placeholder = nameEl.value.trim() ? 'Name must be at least 2 characters' : 'Please enter a name';
     return;
   }
   const qty = Math.max(1, +document.getElementById('qtyInput').value || 1);
