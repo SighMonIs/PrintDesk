@@ -132,7 +132,7 @@ function updateAccountUI() {
     chip.onclick = openAccountModal;
     chip.title = label;
   } else {
-    chip.innerHTML = `<i class="ti ti-user"></i> Login / Sign Up`;
+    chip.innerHTML = `<i class="ti ti-user"></i> Sign In / Up`;
     chip.classList.add('cart-btn-wide');
     chip.onclick = () => openAuthModal();
     chip.title = 'Sign in / create account';
