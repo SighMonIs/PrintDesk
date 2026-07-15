@@ -30,9 +30,11 @@ body.shop-body { display: flex; flex-direction: column; }
 /* Matches the THREE.js scene's own default background (shop/render.js:12) so
    there's no visible seam before the canvas paints or outside its bounds. */
 .shop-preview-half { position: absolute; inset: 0; background: #18181b; overflow: hidden; }
-/* bottom is set in JS (setupPreviewBarSpacing() in shop.js) — measured
-   against the bottom bar's actual height rather than a fixed number. */
-.preview { position: absolute; top: 0; left: 0; right: 0; }
+/* `bottom: 0` is a fallback so the container always has a real, non-zero
+   height on the very first layout/paint (render.js sizes the canvas off
+   this synchronously, before any JS here has run) — setupPreviewBarSpacing()
+   in shop.js overrides it once the bottom bar's actual height is known. */
+.preview { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
 .preview canvas { display: block; width: 100%; height: 100%; }
 .style-quick-picks { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10; }
 .style-quick-btn { height: 38px; padding: 0 20px; font-size: 14px; border-radius: 999px; background: var(--surface3); }

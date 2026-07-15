@@ -69,6 +69,11 @@ function setupPreviewBarSpacing() {
     const barRect = bar.getBoundingClientRect();
     const mainRect = main.getBoundingClientRect();
     preview.style.bottom = (mainRect.bottom - barRect.top + 16) + 'px';
+    // render.js's own ResizeObserver on previewPane doesn't reliably catch
+    // this particular style change (confirmed: canvas's internal WebGL
+    // buffer stayed stale until resize() was called directly), so trigger
+    // it explicitly rather than trust it to fire on its own.
+    if (typeof resize === 'function') resize();
   };
   new ResizeObserver(reposition).observe(bar);
   window.addEventListener('resize', reposition);

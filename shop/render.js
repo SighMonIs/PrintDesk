@@ -23,6 +23,7 @@ badgeGroup.add(grid);
 
 function resize() {
   const w = pane.clientWidth, h = pane.clientHeight;
+  if (!w || !h) return; // container not laid out yet — wait for the next ResizeObserver tick rather than set a NaN/Infinity aspect
   renderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
