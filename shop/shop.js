@@ -349,18 +349,29 @@ function renderCart() {
     document.getElementById('cartTotal').textContent = '$0.00';
     return;
   }
-  list.innerHTML = cart.map(item => `
+  list.innerHTML = cart.map(item => {
+    // "Field:value||Field:value" per collectOpts()'s format — colours are
+    // the one field pipe-joined within its own value, so that's how a
+    // colour list is told apart from a plain option value here.
+    const plainVals = [];
+    let colourVals = '';
+    (item.options || '').split('||').filter(Boolean).forEach(p => {
+      const val = p.slice(p.indexOf(':') + 1).trim();
+      if (!val) return;
+      if (val.includes('|')) colourVals = val.split('|').map(s => s.trim()).filter(Boolean).join(', ');
+      else plainVals.push(val);
+    });
+    return `
     <div class="cart-item">
       <div class="cart-item-main">
-        <div class="cart-item-name">${esc(item.catName)}</div>
-        <div class="cart-item-opts">${esc((item.options || '').split('||').filter(Boolean).join(' · '))}</div>
-        <div class="cart-item-qty">Qty ${item.qty} × $${item.unitPrice.toFixed(2)}</div>
+        <div class="cart-item-top-row"><span class="cart-item-name">${esc(item.catName)}</span><span class="cart-item-price">$${item.total.toFixed(2)}</span></div>
+        ${plainVals.length ? `<div class="cart-item-opts">${esc(plainVals.join(', '))}</div>` : ''}
+        ${colourVals ? `<div class="cart-item-colours">${esc(colourVals)}</div>` : ''}
+        <div class="cart-item-qty">QTY ${item.qty} × $${item.unitPrice.toFixed(2)}</div>
       </div>
-      <div class="cart-item-right">
-        <div class="cart-item-price">$${item.total.toFixed(2)}</div>
-        <button class="cart-item-remove" onclick="removeFromCart('${item.id}')" title="Remove"><i class="ti ti-trash"></i></button>
-      </div>
-    </div>`).join('');
+      <button class="cart-item-remove" onclick="removeFromCart('${item.id}')" title="Remove"><i class="ti ti-trash"></i></button>
+    </div>`;
+  }).join('');
   document.getElementById('cartTotal').textContent = '$' + cart.reduce((s, i) => s + i.total, 0).toFixed(2);
 }
 
