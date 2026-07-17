@@ -8,7 +8,7 @@
 // The cart is too large to reliably fit in Stripe's per-key metadata limit,
 // so it's stashed in `shop_checkout_sessions` keyed by the session id and
 // picked back up by stripe-webhook once payment completes.
-import Stripe from "npm:stripe@14?target=deno";
+import Stripe from "npm:stripe@14";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { apiVersion: "2024-06-20" });

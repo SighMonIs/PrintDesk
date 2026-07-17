@@ -2,7 +2,7 @@
 // Session into real rows in `orders`, the same shape the admin order form
 // writes (see saveOrder() in ui.js) so paid shop orders show up in the
 // existing admin inbox unmodified.
-import Stripe from "npm:stripe@14?target=deno";
+import Stripe from "npm:stripe@14";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { apiVersion: "2024-06-20" });
