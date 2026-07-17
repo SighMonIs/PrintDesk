@@ -44,8 +44,11 @@ async function boot() {
     const initial = categories.find(c => c.name === 'Name Badge') || categories[0];
     await selectCategory(initial.id);
   }
+  const cameFromCheckout = !!new URLSearchParams(location.search).get('checkout');
+  handleCheckoutReturn();
   renderCart();
   setupPreviewBarSpacing();
+  if (cameFromCheckout) openCartDrawer();
 }
 
 // Which categories show as tabs (and their order) is controlled from the
@@ -388,10 +391,45 @@ function closeCartDrawer() {
   document.getElementById('cartDrawerBackdrop').classList.remove('open');
 }
 
-function checkout() {
-  // ponytail: Stripe checkout lands in a later pass (needs a Supabase Edge
-  // Function to re-price server-side and create the session — see plan).
-  document.getElementById('checkoutNote').textContent = 'Online payment is coming soon — check back shortly!';
+async function checkout() {
+  if (!cart.length) return;
+  const btn = document.querySelector('.cart-drawer-footer .btn.primary');
+  const note = document.getElementById('checkoutNote');
+  note.textContent = '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2"></i> Redirecting…'; }
+  try {
+    const res = await fetch(`${SB_URL}/functions/v1/create-checkout-session`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + (window.sbToken || SB_KEY),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ cart: cart.map(item => ({ cat_id: item.cat_id, qty: item.qty, options: item.options })) }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || 'Could not start checkout');
+    window.location.href = data.url;
+  } catch (e) {
+    note.textContent = e.message;
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-lock"></i> Checkout'; }
+  }
+}
+
+// Stripe redirects back here after payment — clear the now-placed cart on
+// success (cancellation leaves it untouched so the customer can retry).
+function handleCheckoutReturn() {
+  const params = new URLSearchParams(location.search);
+  const result = params.get('checkout');
+  if (!result) return;
+  if (result === 'success') {
+    cart = [];
+    saveCart();
+    document.getElementById('checkoutNote').textContent = "Thanks — your order is in! We'll be in touch.";
+  } else if (result === 'cancelled') {
+    document.getElementById('checkoutNote').textContent = 'Checkout cancelled — your cart is still here.';
+  }
+  history.replaceState(null, '', location.pathname);
 }
 
 // ── Staff-only: set the site-wide default camera view per product type ────
