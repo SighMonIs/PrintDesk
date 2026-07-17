@@ -45,7 +45,14 @@ Deno.serve(async (req) => {
 
   const email = session.customer_details?.email ?? "";
   const name = session.customer_details?.name || email || "Shop customer";
-  const addr = session.shipping_details?.address;
+  // Newer Checkout Session API versions moved shipping_details under
+  // collected_information — check both shapes rather than pin an older
+  // API version just for this one field.
+  const sessionAny = session as unknown as {
+    shipping_details?: Stripe.Checkout.Session.ShippingDetails | null;
+    collected_information?: { shipping_details?: Stripe.Checkout.Session.ShippingDetails | null };
+  };
+  const addr = (sessionAny.collected_information?.shipping_details ?? sessionAny.shipping_details)?.address;
   const address = addr
     ? [addr.line1, addr.line2, addr.city, addr.state, addr.postal_code].filter(Boolean).join(", ")
     : "";
