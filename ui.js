@@ -701,13 +701,17 @@ function getModelData(){
 }
 
 // ── Order edit form (inline in the detail pane) ─────────────
-function _orderFormHtml(){
+function _orderFormHtml(orderId){
   return '<div class="inbox-detail">'
     + '<div class="modal-title-row">'
     + '<div class="modal-title" id="modalTitle">New Order</div>'
     + '<div class="modal-title-actions">'
-    + '<button class="btn" onclick="closeModal()">Cancel</button>'
-    + '<button class="btn success" id="saveBtn" onclick="saveOrder()"><i class="ti ti-check"></i> Save Order</button>'
+    + '<span id="f-holdstatus-row" style="display:none">'
+    + '<select id="f-holdstatus" class="title-status-select"><option value="">Active</option><option value="On Hold">On Hold</option><option value="Cancelled">Cancelled</option></select>'
+    + '</span>'
+    + (orderId ? '<button class="btn danger-muted icon-only" onclick="deleteOrder(\'' + esc(String(orderId)) + '\')" title="Delete order"><i class="ti ti-trash"></i></button>' : '')
+    + '<button class="sort-btn-main" onclick="closeModal()" title="Cancel"><i class="ti ti-x"></i></button>'
+    + '<button class="btn success icon-only" id="saveBtn" onclick="saveOrder()" title="Save Order"><i class="ti ti-check"></i></button>'
     + '</div>'
     + '<input type="hidden" id="f-date">'
     + '</div>'
@@ -743,11 +747,6 @@ function _orderFormHtml(){
     + '<div class="field-hint">Select a suggestion for a validated address, or type any location note freely.</div>'
     + '</div>'
     + '<div class="field"><label>Payment</label><select id="f-payment"></select></div>'
-    + '</div>'
-    + '<div class="field-row" id="f-holdstatus-row" style="display:none">'
-    + '<div class="field"><label>Order status override</label>'
-    + '<select id="f-holdstatus"><option value="">Normal workflow (Pending → Complete)</option><option value="On Hold">On Hold</option><option value="Cancelled">Cancelled</option></select>'
-    + '</div>'
     + '</div>'
     + '<div class="modal-actions">'
     + '<div class="order-total-inline"><span class="order-total-lbl">Total</span><span class="order-total-val" id="orderTotal">$0.00</span></div>'
@@ -802,7 +801,7 @@ function openAddModal(){
 function openEdit(orderId){
   const rows=orders.filter(o=>o.orderId===orderId);if(!rows.length)return;
   editOId=orderId;acInst=null;const first=rows[0];
-  document.getElementById('inboxDetail').innerHTML=_orderFormHtml();
+  document.getElementById('inboxDetail').innerHTML=_orderFormHtml(orderId);
   _mobileShowDetail();
   document.getElementById('modalTitle').textContent='Edit Order';
   document.getElementById('f-customer').value=first.customer;
@@ -1729,11 +1728,15 @@ function _showInboxDetailFromData(orderId, rows) {
   const invoiceBtn = '<button class="sort-btn-main" onclick="generateInvoice(\'' + esc(String(orderId)) + '\')" title="Download invoice"><i class="ti ti-file-invoice"></i> Invoice</button>';
 
   detailEl.innerHTML = '<div class="inbox-detail">'
+    + '<div class="status-row-wrap">' + statusDd
+    + '<div class="flex-1"></div>'
+    + '<button class="sort-btn-main" onclick="openEdit(\'' + esc(String(orderId)) + '\')" title="Edit order"><i class="ti ti-edit"></i></button>'
+    + '</div>'
+
     + '<div class="inbox-detail-header">'
     + '<div class="inbox-detail-header-top">'
     + '<div class="inbox-detail-customer">' + (esc(first.customer) || '?') + '</div>'
-    + '<button class="sort-btn-main" onclick="openEdit(\'' + esc(String(orderId)) + '\')"><i class="ti ti-edit"></i> Edit</button>'
-    + '<button class="sort-btn-main text-red" onclick="deleteOrder(\'' + esc(String(orderId)) + '\')" title="Delete order"><i class="ti ti-trash"></i></button>'
+    + paidToggle
     + '</div>'
     + '</div>'
 
@@ -1743,8 +1746,6 @@ function _showInboxDetailFromData(orderId, rows) {
     + (first.payment ? '<div class="inbox-detail-meta-item"><i class="ti ti-credit-card"></i><strong>' + esc(first.payment) + '</strong></div>' : '')
     + (first.address ? '<div class="inbox-detail-meta-item"><i class="ti ti-map-pin"></i><strong>' + esc(first.address) + '</strong></div>' : '')
     + '</div>'
-
-    + '<div class="status-row-wrap">' + statusDd + paidToggle + '</div>'
 
     + '<div class="inbox-items-panel">'
     + '<div class="inbox-detail-items-hdr">'
