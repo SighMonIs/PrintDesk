@@ -1421,7 +1421,11 @@ async function generateInvoice(orderId){
     const first = rows[0];
     const deliveryCost = deliveryOptions.find(d => d.name === first.delivery)?.price || 0;
     const total = rows.reduce((s, r) => s + r.total, 0) + deliveryCost;
-    const orderNum = orderNumFromId(orderId);
+    // Invoice-facing order number: deterministic hash of the real id, so
+    // invoices don't reveal how many orders we've processed to customers.
+    let _h = 0;
+    for (const ch of String(orderId)) _h = (_h * 31 + ch.charCodeAt(0)) >>> 0;
+    const invoiceNum = '#' + (100000 + (_h % 900000));
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -1434,7 +1438,7 @@ async function generateInvoice(orderId){
     doc.text('INVOICE', pageW - 15, y, { align: 'right' });
     y += 6;
     doc.setFontSize(10); doc.setTextColor(100);
-    doc.text('Order ' + orderNum, pageW - 15, y, { align: 'right' }); y += 5;
+    doc.text('Order ' + invoiceNum, pageW - 15, y, { align: 'right' }); y += 5;
     doc.text(toDisplay(first.date) || '', pageW - 15, y, { align: 'right' });
     doc.setTextColor(0);
     y += 12;
@@ -1448,9 +1452,6 @@ async function generateInvoice(orderId){
         doc.text(line, 15, y); y += 5;
       });
     }
-    y += 4;
-    doc.text('Delivery: ' + (first.delivery || 'Post'), 15, y);
-    doc.text('Payment: ' + (first.payment || 'No'), pageW - 15, y, { align: 'right' });
     y += 10;
 
     doc.setFont('helvetica', 'bold');
@@ -1465,11 +1466,21 @@ async function generateInvoice(orderId){
 
     rows.forEach(row => {
       const cat = cats.find(c => String(c.id) === String(row.catId));
-      doc.text(cat ? cat.name : '?', 17, y);
+      const catOpts = opts.filter(o => String(o.catId) === String(row.catId));
+      const parsedOpts = {};
+      if (row.options) row.options.split('||').forEach(p => {
+        const idx = p.indexOf(':'); if (idx >= 0) parsedOpts[p.slice(0,idx).trim()] = p.slice(idx+1).trim();
+      });
+      const optVals = catOpts
+        .filter(o => o.display !== 'colour' && o.name.toLowerCase().indexOf('colour') === -1)
+        .map(o => parsedOpts[o.name]).filter(Boolean);
+      const itemLabel = [cat ? cat.name : '?', ...optVals].join(' - ');
+      const itemLines = doc.splitTextToSize(itemLabel, pageW - 95);
+      doc.text(itemLines, 17, y);
       doc.text(String(row.qty), pageW - 70, y, { align: 'right' });
       doc.text('$' + row.price.toFixed(2), pageW - 45, y, { align: 'right' });
       doc.text('$' + row.total.toFixed(2), pageW - 17, y, { align: 'right' });
-      y += 7;
+      y += 7 * itemLines.length;
       if (row.notes) {
         doc.setFontSize(8); doc.setTextColor(120);
         doc.text(row.notes, 17, y); y += 5;
@@ -1491,7 +1502,7 @@ async function generateInvoice(orderId){
     doc.text('Total', pageW - 45, y, { align: 'right' });
     doc.text('$' + total.toFixed(2), pageW - 17, y, { align: 'right' });
 
-    const filename = 'Invoice_' + orderNum.replace('#', '') + '_' + (first.customer || '').replace(/[^a-z0-9]/gi, '') + '.pdf';
+    const filename = 'Invoice_' + invoiceNum.replace('#', '') + '_' + (first.customer || '').replace(/[^a-z0-9]/gi, '') + '.pdf';
     doc.save(filename);
     setStatus('ok', 'Invoice downloaded');
   }catch(e){
