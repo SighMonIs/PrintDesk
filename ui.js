@@ -1833,12 +1833,13 @@ function setSidebarView(view) {
   _selectedInventoryItemId = null;
   var detail = document.getElementById('inboxDetail');
   if (detail) detail.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-inbox"></i><p>Select an item</p></div>';
+  document.getElementById('mainContent').classList.toggle('full-width-view', view === 'calculator');
   if (view === 'orders') _renderViewOrders();
   else if (view === 'customers') _renderViewCustomers('');
   else if (view === 'inventory') _renderViewInventory('');
   else if (view === 'categories') _renderViewCategories();
-  else if (view === 'stats') _renderViewStats();
   else if (view === 'settings') _renderViewSettings();
+  else if (view === 'calculator') _renderViewCalculator();
 }
 
 function _setListPane(headerHtml) {
@@ -2160,9 +2161,8 @@ function _renderViewCategories() {
   }).join('');
 }
 
-// Stats view
-function _renderViewStats() {
-  _setListPane('<div class="inbox-view-header"><span class="inbox-view-title">Stats</span></div>');
+// Stats (rendered inside Settings > Stats)
+function _statsDetailHtml() {
   var pending = orders.filter(function(r){return (r.status||'Pending')==='Pending';});
   var confirmed = orders.filter(function(r){return r.status==='Confirmed';});
   var printed = orders.filter(function(r){return r.status==='Printed';});
@@ -2177,10 +2177,12 @@ function _renderViewStats() {
     return s+r.total+deliveryCost;
   },0);
   var uniqueOrders = new Set(orders.map(function(r){return r.orderId;})).size;
-  var detail = document.getElementById('inboxDetail');
-  if (detail) detail.innerHTML = '<div class="inbox-detail inbox-detail-narrow-600">'
-    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Stats</div></div></div>'
-    + '<div class="stats-grid-2col">'
+  var catBreakdown = cats.filter(function(c){return !c.archived;}).map(function(c){
+    var n = new Set(orders.filter(function(r){return String(r.catId)===String(c.id);}).map(function(r){return r.orderId;})).size;
+    return {name:c.name, n:n};
+  }).filter(function(x){return x.n>0;}).sort(function(a,b){return b.n-a.n;});
+  var max = catBreakdown.length ? catBreakdown[0].n : 1;
+  return '<div class="stats-grid-2col mb-20">'
     + _statCard('Orders', uniqueOrders, 'ti-shopping-cart', '')
     + _statCard('Pending', new Set(pending.map(function(r){return r.orderId;})).size, 'ti-clock', 'var(--amber)')
     + _statCard('Confirmed', new Set(confirmed.map(function(r){return r.orderId;})).size, 'ti-circle-check', 'var(--blue)')
@@ -2188,22 +2190,17 @@ function _renderViewStats() {
     + _statCard('Complete', new Set(complete.map(function(r){return r.orderId;})).size, 'ti-check', 'var(--green)')
     + _statCard('Revenue', '$'+revenue.toFixed(2), 'ti-currency-dollar', 'var(--green)')
     + _statCard('Customers', customers.length, 'ti-users', '')
-    + '</div></div>';
-  var catBreakdown = cats.filter(function(c){return !c.archived;}).map(function(c){
-    var n = new Set(orders.filter(function(r){return String(r.catId)===String(c.id);}).map(function(r){return r.orderId;})).size;
-    return {name:c.name, n:n};
-  }).filter(function(x){return x.n>0;}).sort(function(a,b){return b.n-a.n;});
-  var list = document.getElementById('inboxList');
-  var max = catBreakdown.length ? catBreakdown[0].n : 1;
-  list.innerHTML = catBreakdown.map(function(x){
-    return '<div class="inbox-card">'
-      + '<div class="inbox-card-content">'
-      + '<div class="inbox-card-row1"><span class="inbox-card-customer">'+esc(x.name)+'</span><span class="inbox-card-num">'+x.n+'</span></div>'
-      + '<div class="stat-bar-track">'
-      + '<div class="stat-bar-fill" style="width:'+Math.round(x.n/max*100)+'%"></div>'
-      + '</div></div></div>';
-  }).join('') || '<div class="inbox-empty-state"><i class="ti ti-chart-bar"></i> No data</div>';
-  _mobileShowDetail();
+    + '</div>'
+    + '<div class="settings-section-title settings-section-title-tight">By Category</div>'
+    + '<div class="settings-list-box">'
+    + (catBreakdown.map(function(x){
+        return '<div class="inbox-card">'
+          + '<div class="inbox-card-content">'
+          + '<div class="inbox-card-row1"><span class="inbox-card-customer">'+esc(x.name)+'</span><span class="inbox-card-num">'+x.n+'</span></div>'
+          + '<div class="stat-bar-track">'
+          + '<div class="stat-bar-fill" style="width:'+Math.round(x.n/max*100)+'%"></div>'
+          + '</div></div></div>';
+      }).join('') || '<div class="inbox-empty-state"><i class="ti ti-chart-bar"></i> No data</div>');
 }
 
 function _statCard(label, val, icon, color) {
@@ -2223,6 +2220,7 @@ var _paymentReorderMode = false;
 var _showArchivedDelivery = false;
 var _showArchivedPayment = false;
 var _SETTINGS_CATS = [
+  {id:'stats',    icon:'ti-chart-bar',   title:'Stats',                 desc:'Order counts and revenue overview'},
   {id:'payment',  icon:'ti-credit-card', title:'Post & Pay',           desc:'Manage delivery methods and payment methods'},
   {id:'cats',     icon:'ti-category',    title:'Categories & Options',  desc:'Product categories and their options'},
   {id:'colours',  icon:'ti-brush',       title:'Colour Library',        desc:'Available colour swatches'},
@@ -2253,7 +2251,12 @@ function _showSettingsDetail(catId) {
   var detail = document.getElementById('inboxDetail');
   if (!detail) return;
 
-  if (catId === 'cats') {
+  if (catId === 'stats') {
+    detail.innerHTML = '<div class="inbox-detail">'
+      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Stats</div></div></div>'
+      + _statsDetailHtml()
+      + '</div>';
+  } else if (catId === 'cats') {
     detail.innerHTML = '<div class="inbox-detail">'
       + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Categories &amp; Options</div></div></div>'
       + '<p class="settings-desc-text">Each category can have options — extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical icon-sm"></i> to reorder options.</p>'
@@ -2662,6 +2665,118 @@ function initSteppers(root) {
     inc.addEventListener('click', function(){ input.stepUp(); fire(); });
     wrap.appendChild(dec); wrap.appendChild(input); wrap.appendChild(inc);
   });
+}
+
+// Calculator view
+function _renderViewCalculator() {
+  var detail = document.getElementById('inboxDetail');
+  if (!detail) return;
+  detail.innerHTML = '<div class="inbox-detail">'
+    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Print Cost Calculator</div></div></div>'
+    + '<div class="calc-grid">'
+    + '<div>'
+    + '<div class="settings-section"><div class="settings-section-title">Print</div>'
+    + '<div class="field-row">'
+    + '<div class="field"><label>Filament used (g)</label><input type="number" id="calcWeight" value="50" min="0" oninput="_calcRun()"></div>'
+    + '<div class="field"><label>Print time (hours)</label><input type="number" id="calcHours" value="3" min="0" step="0.1" oninput="_calcRun()"></div>'
+    + '</div></div>'
+    + '<div class="settings-section"><div class="settings-section-title">Costs</div>'
+    + '<div class="field-row">'
+    + '<div class="field"><label>Filament price ($/kg)</label><input type="number" id="calcFilamentPrice" value="20" min="0" step="0.01" oninput="_calcRun()"></div>'
+    + '<div class="field"><label>Electricity ($/kWh)</label><input type="number" id="calcElecRate" value="0.30" min="0" step="0.01" oninput="_calcRun()"></div>'
+    + '</div>'
+    + '<div class="field"><label>Printer</label><select id="calcPrinterModel" onchange="_calcApplyPreset()"></select></div>'
+    + '<div class="field-row">'
+    + '<div class="field"><label>Printer power (W)</label><input type="number" id="calcPower" value="150" min="0" oninput="_calcRun()"></div>'
+    + '<div class="field"><label>Waste / failure rate (%)</label><input type="number" id="calcWaste" value="10" min="0" step="1" oninput="_calcRun()"></div>'
+    + '</div>'
+    + '<div class="field-hint">Printer presets are estimated average draw while printing, not the PSU\'s max rating. Measure with a power meter for accuracy, or edit the field directly.</div>'
+    + '</div>'
+    + '<div class="settings-section"><div class="settings-section-title">Labor &amp; markup</div>'
+    + '<div class="field-row">'
+    + '<div class="field"><label>Post-processing time (min)</label><input type="number" id="calcLaborMin" value="10" min="0" oninput="_calcRun()"></div>'
+    + '<div class="field"><label>Labor rate ($/hour)</label><input type="number" id="calcLaborRate" value="25" min="0" step="0.01" oninput="_calcRun()"></div>'
+    + '</div>'
+    + '<div class="field"><label>Markup (%)</label><input type="number" id="calcMarkup" value="40" min="0" step="1" oninput="_calcRun()"></div>'
+    + '<div class="field-hint">Markup is applied on top of material + electricity + labor + waste allowance.</div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="calc-result-card">'
+    + '<div class="calc-result-row"><span>Material</span><span class="val" id="calcRMaterial">$0.00</span></div>'
+    + '<div class="calc-result-row"><span>Electricity</span><span class="val" id="calcRElectricity">$0.00</span></div>'
+    + '<div class="calc-result-row"><span>Labor</span><span class="val" id="calcRLabor">$0.00</span></div>'
+    + '<div class="calc-result-row muted"><span>Subtotal</span><span class="val" id="calcRSubtotal">$0.00</span></div>'
+    + '<div class="calc-result-row muted"><span>+ Waste allowance</span><span class="val" id="calcRWaste">$0.00</span></div>'
+    + '<div class="calc-result-row muted"><span>+ Markup</span><span class="val" id="calcRMarkup">$0.00</span></div>'
+    + '<div class="calc-result-total"><span class="label">Suggested price</span><span class="val" id="calcRTotal">$0.00</span></div>'
+    + '</div>'
+    + '</div>'
+    + '</div>';
+  _calcInitPrinterDropdown();
+  _calcLoad();
+  _calcRun();
+  _mobileShowDetail();
+}
+
+var _CALC_FIELDS = ['calcWeight','calcHours','calcFilamentPrice','calcElecRate','calcPrinterModel','calcPower','calcWaste','calcLaborMin','calcLaborRate','calcMarkup'];
+
+function _calcSave() {
+  var data = {};
+  _CALC_FIELDS.forEach(function(id){ var el = document.getElementById(id); if (el) data[id] = el.value; });
+  localStorage.setItem('printdeskCalc', JSON.stringify(data));
+}
+
+function _calcLoad() {
+  var data;
+  try { data = JSON.parse(localStorage.getItem('printdeskCalc') || '{}'); } catch (e) { data = {}; }
+  _CALC_FIELDS.forEach(function(id){ var el = document.getElementById(id); if (el && data[id] != null) el.value = data[id]; });
+}
+
+// ponytail: estimated average watts during printing (not PSU max rating) — tweak as you measure your own printers
+var _CALC_BAMBU_POWER = {
+  'A1 mini': 90, 'A1': 110, 'P1P': 120, 'P1S': 140, 'X1': 160, 'X1 Carbon': 170, 'X1E': 220, 'H2C': 230, 'H2D': 250
+};
+
+function _calcInitPrinterDropdown() {
+  var sel = document.getElementById('calcPrinterModel');
+  if (!sel) return;
+  sel.innerHTML = '';
+  sel.appendChild(new Option('Custom / other', ''));
+  for (var name in _CALC_BAMBU_POWER) sel.appendChild(new Option(name, name));
+}
+
+function _calcApplyPreset() {
+  var name = document.getElementById('calcPrinterModel').value;
+  if (name && _CALC_BAMBU_POWER[name] != null) {
+    document.getElementById('calcPower').value = _CALC_BAMBU_POWER[name];
+    _calcRun();
+  }
+}
+
+function _calcRun() {
+  function n(id){ var el = document.getElementById(id); return el ? (parseFloat(el.value) || 0) : 0; }
+  function money(v){ return '$' + v.toFixed(2); }
+  var weight = n('calcWeight'), hours = n('calcHours');
+  var filamentPrice = n('calcFilamentPrice'), elecRate = n('calcElecRate'), power = n('calcPower');
+  var wastePct = n('calcWaste'), laborMin = n('calcLaborMin'), laborRate = n('calcLaborRate'), markupPct = n('calcMarkup');
+
+  var material = (weight / 1000) * filamentPrice;
+  var electricity = (power / 1000) * hours * elecRate;
+  var labor = (laborMin / 60) * laborRate;
+  var subtotal = material + electricity + labor;
+  var waste = subtotal * (wastePct / 100);
+  var withWaste = subtotal + waste;
+  var markup = withWaste * (markupPct / 100);
+  var total = withWaste + markup;
+
+  document.getElementById('calcRMaterial').textContent = money(material);
+  document.getElementById('calcRElectricity').textContent = money(electricity);
+  document.getElementById('calcRLabor').textContent = money(labor);
+  document.getElementById('calcRSubtotal').textContent = money(subtotal);
+  document.getElementById('calcRWaste').textContent = money(waste);
+  document.getElementById('calcRMarkup').textContent = money(markup);
+  document.getElementById('calcRTotal').textContent = money(total);
+  _calcSave();
 }
 
 (function() {
