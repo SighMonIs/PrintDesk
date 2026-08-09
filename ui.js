@@ -1,50 +1,4 @@
-﻿// ── Custom status dropdown ─────────────────────────────────
-function toggleStatusDd(rowId, btn){
-  // Close all other open dropdowns
-  document.querySelectorAll('.status-dd-list.open').forEach(el=>{
-    if(el.id !== 'sdd-'+rowId) el.classList.remove('open');
-  });
-  const list = document.getElementById('sdd-'+rowId);
-  if(!list) return;
-  if(list.classList.contains('open')){
-    list.classList.remove('open');
-    return;
-  }
-  // Position using fixed coords relative to the button
-  const rect = btn.getBoundingClientRect();
-  list.style.top  = (rect.bottom + 4) + 'px';
-  list.style.left = (rect.left + rect.width/2) + 'px';
-  list.style.transform = 'translateX(-50%)';
-  list.classList.add('open');
-}
-
-function selectStatus(orderId, rowId, newStatus, optEl){
-  // Close the dropdown
-  const list = document.getElementById('sdd-'+rowId);
-  if(list) list.classList.remove('open');
-  // Update button appearance
-  const wrap = list?.closest('.status-dd-wrap');
-  const btn  = wrap?.querySelector('.status-dd-btn');
-  if(btn){
-    btn.className = 'status-dd-btn b-'+statusSlug(newStatus);
-    btn.innerHTML = newStatus + ' <i class="ti ti-chevron-down"></i>';
-  }
-  // Update active dot
-  list?.querySelectorAll('.status-dd-opt').forEach(o=>{
-    o.classList.toggle('active', o.textContent.trim()===newStatus);
-  });
-  // Update data and save
-  updateStatus(orderId, rowId, newStatus, btn);
-}
-
-// Close dropdowns when clicking outside
-document.addEventListener('click', e=>{
-  if(!e.target.closest('.status-dd-wrap')){
-    document.querySelectorAll('.status-dd-list.open').forEach(el=>el.classList.remove('open'));
-  }
-});
-
-// Keep [data-tt] tooltips from overflowing the viewport edge
+﻿// Keep [data-tt] tooltips from overflowing the viewport edge
 const ttMeasure = document.createElement('div');
 ttMeasure.style.cssText = 'position:fixed;top:-9999px;left:-9999px;white-space:nowrap;font-size:11px;font-weight:500;padding:3px 7px;visibility:hidden;';
 document.body.appendChild(ttMeasure);
@@ -63,12 +17,7 @@ document.addEventListener('mouseover', e=>{
   el.style.setProperty('--tt-shift', shift + 'px');
 });
 
-async function selectOrderStatus(orderId, newStatus, optEl){
-  const list = document.getElementById('sdd-order-'+orderId);
-  if(list) list.classList.remove('open');
-  const btn = list?.closest('.status-dd-wrap')?.querySelector('.status-dd-btn');
-  if(btn){ btn.className='status-dd-btn order-status-dd b-'+statusSlug(newStatus); btn.innerHTML='<span>'+newStatus+'</span><i class="ti ti-chevron-down"></i>'; }
-  list?.querySelectorAll('.status-dd-opt').forEach(o=>o.classList.toggle('active',o.textContent.trim()===newStatus));
+async function selectOrderStatus(orderId, newStatus){
   const rows = orders.filter(r=>String(r.orderId)===String(orderId));
   // Reaching Printed/Complete via the breadcrumb means every item is printed —
   // keep the per-item Printed/Not Printed toggles in sync with the order status.
@@ -476,16 +425,24 @@ function buildLayerSwatch(id, selectedName, layerNum, onChangeFn){
   </div>`;
 }
 
-function toggleLayerSwatchPicker(id, btn){
-  document.querySelectorAll('.layer-swatch-picker').forEach(el=>{ if(el.id!=='lsp-'+id) el.style.display='none'; });
-  const list=document.getElementById('lsp-'+id);
+// Opens a fixed-position picker popup (grid of options) below-left of its
+// trigger button, closing any other open popup matching siblingSelector
+// first. Clamps the left edge so the popup never overflows the viewport's
+// right edge. Shared by the layer-colour and delivery-icon pickers.
+function _togglePickerPopup(list, btn, siblingSelector){
   if(!list) return;
-  if(list.style.display!=='none'){ list.style.display='none'; return; }
-  const rect=btn.getBoundingClientRect();
-  list.style.display='grid';
-  const listWidth=list.offsetWidth;
-  list.style.left=Math.min(rect.left, window.innerWidth-listWidth-8)+'px';
-  list.style.top=(rect.bottom+4)+'px';
+  const wasOpen = list.style.display !== 'none';
+  document.querySelectorAll(siblingSelector).forEach(el=>{ el.style.display='none'; });
+  if(wasOpen) return;
+  const rect = btn.getBoundingClientRect();
+  list.style.display = 'grid';
+  const listWidth = list.offsetWidth;
+  list.style.left = Math.min(rect.left, window.innerWidth-listWidth-8)+'px';
+  list.style.top  = (rect.bottom+4)+'px';
+}
+
+function toggleLayerSwatchPicker(id, btn){
+  _togglePickerPopup(document.getElementById('lsp-'+id), btn, '.layer-swatch-picker');
 }
 
 function selectLayerSwatch(id, name, onChangeFn){
@@ -1070,39 +1027,6 @@ async function saveOrder(){
     setStatus('ok','Saved · '+uniqueOrderCount()+' orders');
   }catch(e){setStatus('err','Save failed: '+e.message);}
   finally{busy=false;btn.disabled=false;btn.innerHTML='<i class="ti ti-check"></i> Save Order';}
-}
-
-async function updateStatus(orderId,rowId,newStatus,sel){
-  // sel may be the custom btn or legacy select — disable during save
-  if(sel) sel.disabled=true;
-  // Find row by id
-  const row=orders.find(o=>String(o.id)===String(rowId));
-  if(!row){sel.disabled=false;return;}
-  const prevStatus=row.status;
-  // Update local state
-  row.status=newStatus;
-  try{
-    // Update status via Supabase upsert
-    await sbUpsert('orders', {
-      id: row.id, order_id: row.orderId, customer: row.customer,
-      customer_id: row.customer_id||null,
-      address: row.address, delivery: row.delivery, payment: row.payment,
-      cat_id: row.catId, qty: row.qty,
-      price: row.price, total: row.total, status: newStatus,
-      date: row.date, notes: row.notes, options: row.options
-    });
-    setStatus('ok','Status updated');
-    renderTable();
-  }catch(e){
-    // Revert on failure
-    row.status=prevStatus;
-    if(sel){ sel.className=(sel.classList.contains('status-dd-btn')?'status-dd-btn':'status-select')+' b-'+statusSlug(prevStatus); }
-    setStatus('err','Update failed: '+e.message);
-    alert('Status save failed: '+e.message);
-  }finally{
-    sel.disabled=false;
-    sel.dataset.prev=newStatus;
-  }
 }
 
 // ── Printed / Paid tracking ─────────────────────────────────
@@ -2571,16 +2495,7 @@ function _settingsSetDeliveryPrice(i, val) {
 }
 var _daNewIcon = 'ti-truck-delivery';
 function toggleDeliveryIconPicker(key, btn) {
-  var list = document.getElementById('dip-' + key);
-  if (!list) return;
-  var isOpen = list.style.display !== 'none';
-  document.querySelectorAll('.icon-picker-list').forEach(function(el){ el.style.display = 'none'; });
-  if (isOpen) return;
-  var rect = btn.getBoundingClientRect();
-  var listWidth = 6 * 32 + 12;
-  list.style.left = Math.min(rect.left, window.innerWidth - listWidth - 8) + 'px';
-  list.style.top = (rect.bottom + 4) + 'px';
-  list.style.display = 'grid';
+  _togglePickerPopup(document.getElementById('dip-' + key), btn, '.icon-picker-list');
 }
 function _settingsSetDeliveryIcon(key, icon) {
   document.querySelectorAll('.icon-picker-list').forEach(function(el){ el.style.display = 'none'; });
