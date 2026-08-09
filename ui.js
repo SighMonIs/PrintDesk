@@ -1175,7 +1175,7 @@ async function _maybeAdvanceStatus(orderId){
 
 function printShippingLabel(customer, address, orderId){
   const lines = address.split(/,\s*|\n/).map(s=>s.trim()).filter(Boolean);
-  const addrHtml = lines.map(l=>`<div>${l}</div>`).join('');
+  const addrHtml = lines.map(l=>`<div>${esc(l)}</div>`).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Shipping Label</title>
 <style>
   @page{size:100mm 150mm;margin:0}
@@ -1198,7 +1198,7 @@ function printShippingLabel(customer, address, orderId){
   </div>
   <div class="to-block">
     <div class="to-label">To</div>
-    <div class="to-name">${customer}</div>
+    <div class="to-name">${esc(customer)}</div>
     <div class="to-addr">${addrHtml}</div>
     <div class="order-ref">Order ${orderId}</div>
   </div>

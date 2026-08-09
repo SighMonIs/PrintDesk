@@ -1,3 +1,9 @@
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// For interpolating into a single-quoted JS string literal inside an inline
+// onclick="..." attribute — escapes the quote/backslash first so the decoded
+// attribute value can't break out of the string, then HTML-escapes the rest.
+function escJsAttr(s){ return esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
+
 const LAYER_NAMES = ['Red', 'Yellow', 'Black', 'Jade White'];
 
 const MODEL_TYPES = [
@@ -341,11 +347,11 @@ function buildLayerUI(){
       <div class="colour-picker-wrap" id="cpw-${i}">
         <div class="colour-picker-btn" onclick="toggleCp(${i},this)">
           <div class="cp-swatch" id="cps-${i}" style="background:${l.hex}"></div>
-          <span class="cp-label" id="cpl-${i}">${colourName(l.hex)}</span>
+          <span class="cp-label" id="cpl-${i}">${esc(colourName(l.hex))}</span>
           <i class="ti ti-chevron-down" style="font-size:11px;color:var(--muted);flex-shrink:0"></i>
         </div>
         <div class="colour-picker-list" id="cplist-${i}" style="display:none">
-          ${colours.map(c=>`<div class="cp-option" onclick="selectColour(${i},'${c.code}','${c.id}','${c.name}')"><div class="cp-swatch" style="background:${c.code}"></div><span>${c.name}</span></div>`).join('')}
+          ${colours.map(c=>`<div class="cp-option" onclick="selectColour(${i},'${escJsAttr(c.code)}','${escJsAttr(c.id)}','${escJsAttr(c.name)}')"><div class="cp-swatch" style="background:${c.code}"></div><span>${esc(c.name)}</span></div>`).join('')}
         </div>
       </div>
     </div>`).join('');
@@ -410,7 +416,7 @@ function buildComboList(){
   list.innerHTML=[
     `<div class="cp-option" onclick="selectCombo('custom')"><i class="ti ti-adjustments" style="font-size:13px;color:var(--muted)"></i><span>Custom</span></div>`,
     previousCombos.length?'<div style="height:1px;background:var(--border);margin:4px 0"></div>':'',
-    ...previousCombos.map((combo,i)=>`<div class="cp-option" onclick="selectCombo(${i})"><div style="display:flex;gap:3px">${combo.colours.map(c=>`<div class="combo-swatch" style="background:${c.hex}" title="${c.name}"></div>`).join('')}</div><span style="font-size:11px">${combo.colours.map(c=>c.name).join(' · ')}</span></div>`)
+    ...previousCombos.map((combo,i)=>`<div class="cp-option" onclick="selectCombo(${i})"><div style="display:flex;gap:3px">${combo.colours.map(c=>`<div class="combo-swatch" style="background:${c.hex}" title="${esc(c.name)}"></div>`).join('')}</div><span style="font-size:11px">${combo.colours.map(c=>esc(c.name)).join(' · ')}</span></div>`)
   ].join('');
   if(previousCombos.length>0) updateComboDisplay(previousCombos[0]);
   else selectCombo('custom');
@@ -441,7 +447,7 @@ function selectCombo(idx){
 }
 
 function updateComboDisplay(combo){
-  document.getElementById('comboSwatches').innerHTML=combo.colours.map(c=>`<div class="combo-swatch" style="background:${c.hex}" title="${c.name}"></div>`).join('');
+  document.getElementById('comboSwatches').innerHTML=combo.colours.map(c=>`<div class="combo-swatch" style="background:${c.hex}" title="${esc(c.name)}"></div>`).join('');
   document.getElementById('comboLabel').textContent=combo.colours.map(c=>c.name).join(' · ');
 }
 

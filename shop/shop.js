@@ -3,6 +3,10 @@
 // (data.js/render.js, copied from ../badge/).
 
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// For interpolating into a single-quoted JS string literal inside an inline
+// onclick="..." attribute — escapes the quote/backslash first so the decoded
+// attribute value can't break out of the string, then HTML-escapes the rest.
+function escJsAttr(s){ return esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 function optId(o){ return String(o.id); }
 
 // The Text and Backing options get dedicated, fixed-position controls
@@ -57,7 +61,7 @@ async function boot() {
 function renderStyleQuickPicks() {
   const wrap = document.getElementById('styleQuickPicks');
   wrap.innerHTML = categories.map(c =>
-    `<button class="btn style-quick-btn" data-style="${esc(c.name)}" onclick="selectStyleByName('${esc(c.name)}')">${esc(c.name)}</button>`
+    `<button class="btn style-quick-btn" data-style="${esc(c.name)}" onclick="selectStyleByName('${escJsAttr(c.name)}')">${esc(c.name)}</button>`
   ).join('');
 }
 

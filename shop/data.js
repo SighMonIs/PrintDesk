@@ -125,7 +125,7 @@ function renderReady(){
 function buildLayerUI(){
   const colList=document.getElementById('layerColoursList');
   colList.innerHTML=layerConfig.map((l,i)=>`
-    <button class="colour-swatch-btn" id="cps-${i}" style="background:${l.hex}" onclick="openColourModal(${i})" title="${colourName(l.hex)}" aria-label="Choose ${LAYER_NAMES[i] || 'layer '+(i+1)} colour"></button>`).join('');
+    <button class="colour-swatch-btn" id="cps-${i}" style="background:${l.hex}" onclick="openColourModal(${i})" title="${esc(colourName(l.hex))}" aria-label="Choose ${esc(LAYER_NAMES[i] || 'layer '+(i+1))} colour"></button>`).join('');
 }
 
 function colourName(hex){ const c=colours.find(c=>c.code?.toLowerCase()===hex?.toLowerCase()); return c?c.name:hex; }
@@ -135,9 +135,9 @@ function openColourModal(i){
   activeColourLayer=i;
   document.getElementById('colourModalTitle').textContent='Choose '+(LAYER_NAMES[i]||'Layer '+(i+1))+' colour';
   document.getElementById('colourModalGrid').innerHTML=colours.map(c=>`
-    <div class="colour-modal-swatch${layerConfig[i].hex.toLowerCase()===c.code.toLowerCase()?' selected':''}" onclick="selectColour(${i},'${c.code}','${c.id}','${c.name}')">
+    <div class="colour-modal-swatch${layerConfig[i].hex.toLowerCase()===c.code.toLowerCase()?' selected':''}" onclick="selectColour(${i},'${escJsAttr(c.code)}','${escJsAttr(c.id)}','${escJsAttr(c.name)}')">
       <div class="colour-modal-swatch-circle" style="background:${c.code}"></div>
-      <span>${c.name}</span>
+      <span>${esc(c.name)}</span>
     </div>`).join('');
   document.getElementById('colourModal').style.display='flex';
 }

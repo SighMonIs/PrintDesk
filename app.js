@@ -997,6 +997,21 @@ function revertToCustomerAddress(){
 
 // ── Badge helpers ───────────────────────────────────────────────
 let _badge3mfReady  = false;
+// SRI hashes for the CDN scripts loaded dynamically below — pins them to a
+// known-good file so a compromised/MITM'd CDN response gets blocked instead
+// of executed. Recompute (curl the file | openssl dgst -sha384 -binary | openssl base64 -A)
+// if a URL's version is ever bumped.
+const CDN_SRI = {
+  'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js': 'sha384-3TaxGqyHrMuRIWY5Z5WHNIzgNRqGIUJE+mk6tm+g1wkm9Ux2kUyOLfy9AsNWXA6u',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js': 'sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O',
+  'https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js': 'sha384-oV9/r5hoq7qHFHfbghYwt50E2fe8J20vXRW0eIGQl20k40zMEAhSXMCh9ANASVB9',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js': 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk',
+};
+function _loadScriptSrc(s, src) {
+  s.src = src;
+  if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.crossOrigin = 'anonymous'; }
+}
+
 let _badgeAssetCache = null;
 let _badgeFont       = null;
 let _opentypeLoading = null;
@@ -1009,7 +1024,7 @@ async function _ensureBadgeFont() {
       if (typeof opentype === 'undefined') {
         await new Promise((res, rej) => {
           const s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js';
+          _loadScriptSrc(s, 'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
           s.onload = res; s.onerror = rej; document.head.appendChild(s);
         });
       }
@@ -1130,7 +1145,7 @@ async function badgeWidthCheck(idx) {
 async function _loadBadge3mfDeps() {
   if (_badge3mfReady) return;
   const load = src => new Promise((res, rej) => {
-    const s = document.createElement('script'); s.src = src;
+    const s = document.createElement('script'); _loadScriptSrc(s, src);
     s.onload = res; s.onerror = () => rej(new Error('Failed to load script: ' + src)); document.head.appendChild(s);
   });
   await load('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
@@ -1404,7 +1419,7 @@ async function _loadJsPDF(){
   if (_jsPDFReady) return;
   await new Promise((res, rej) => {
     const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    _loadScriptSrc(s, 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
     s.onload = res; s.onerror = () => rej(new Error('Failed to load jsPDF'));
     document.head.appendChild(s);
   });
