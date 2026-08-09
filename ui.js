@@ -1861,7 +1861,7 @@ function _renderViewOrders() {
     + '<input type="text" id="search" placeholder="Search…" oninput="renderTable();toggleSearchClear()">'
     + '<button id="searchClear" class="search-clear-btn" onclick="document.getElementById(\'search\').value=\'\';renderTable();toggleSearchClear()" style="display:none"><i class="ti ti-x"></i></button>'
     + '</div>'
-    + '<button class="btn success flex-shrink-0" onclick="openAddModal()"><i class="ti ti-plus"></i> New Order</button>'
+    + '<button class="btn success flex-shrink-0" onclick="openAddModal()"><i class="ti ti-plus"></i> New</button>'
     + '</div>'
     + '<div class="inbox-sort-row">'
     + '<div class="filter-wrap" id="filterWrap">'
