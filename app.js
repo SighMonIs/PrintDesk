@@ -1106,7 +1106,7 @@ async function badgeWidthCheck(idx) {
   }
 }
 
-// ── Badge generation (inline — uses badge/3mf.js) ──────────────
+// ── Badge generation (inline — uses shared/3mf.js) ──────────────
 
 async function _loadBadge3mfDeps() {
   if (_badge3mfReady) return;
@@ -1117,7 +1117,7 @@ async function _loadBadge3mfDeps() {
   await load('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
   await load('https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js');
   await load('https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
-  await load('badge/3mf.js');
+  await load('shared/3mf.js');
   _badge3mfReady = true;
 }
 

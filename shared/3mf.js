@@ -1,5 +1,5 @@
 // ── Badge 3MF generation — pure computation, no DOM ───────────
-// Shared between badge/render.js (badge page) and app.js (main app).
+// Shared between shared/render.js (badge + shop pages) and app.js (main app).
 // Requires THREE and ClipperLib globals to be loaded first.
 
 const _BADGE_SCALE       = 1000;
