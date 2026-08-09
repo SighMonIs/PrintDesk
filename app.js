@@ -166,6 +166,7 @@ function renderCatBlocks(){
         const catId = area.dataset.catId;
         const catOpts = getCatOpts_byCatId(catId).filter(o => showArchivedCats || !o.archived);
         _reorderFilteredArray(opts, catOpts, evt.oldIndex, evt.newIndex);
+        _markSettingsDirty();
         renderCatBlocks();
       }
     });
@@ -173,11 +174,11 @@ function renderCatBlocks(){
 }
 
 
-function archiveCat(ci){ cats[ci].archived=true; renderCatBlocks(); }
-function unarchiveCat(ci){ cats[ci].archived=false; renderCatBlocks(); }
-function toggleCatShopVisible(ci){ cats[ci].shopVisible=!(cats[ci].shopVisible!==false); renderCatBlocks(); }
-function archiveOpt(i){ opts[i].archived=true; renderCatBlocks(); }
-function unarchiveOpt(i){ opts[i].archived=false; renderCatBlocks(); }
+function archiveCat(ci){ cats[ci].archived=true; _markSettingsDirty(); renderCatBlocks(); }
+function unarchiveCat(ci){ cats[ci].archived=false; _markSettingsDirty(); renderCatBlocks(); }
+function toggleCatShopVisible(ci){ cats[ci].shopVisible=!(cats[ci].shopVisible!==false); _markSettingsDirty(); renderCatBlocks(); }
+function archiveOpt(i){ opts[i].archived=true; _markSettingsDirty(); renderCatBlocks(); }
+function unarchiveOpt(i){ opts[i].archived=false; _markSettingsDirty(); renderCatBlocks(); }
 function toggleShowArchived(cb){ showArchivedCats=cb.checked; renderCatBlocks(); }
 
 function toggleCatBlock(ci){
@@ -190,11 +191,12 @@ function toggleCatBlock(ci){
   if(chev) chev.classList.toggle('expanded', isCollapsed);
 }
 
-function addCat(){cats.push({id:nextCatId(),name:'',price:0,shopVisible:true});renderCatBlocks();}
-function removeCat(i){cats.splice(i,1);renderCatBlocks();}
-function removeOpt(i){opts.splice(i,1);renderCatBlocks();}
+function addCat(){cats.push({id:nextCatId(),name:'',price:0,shopVisible:true});_markSettingsDirty();renderCatBlocks();}
+function removeCat(i){cats.splice(i,1);_markSettingsDirty();renderCatBlocks();}
+function removeOpt(i){opts.splice(i,1);_markSettingsDirty();renderCatBlocks();}
 function addOptToCat(catId){
   opts.push({id:nextOptId(),catId,name:'',display:'text',options:'',sort_order:opts.length,num_colours:4,force_caps:false,multi_item:false,archived:false,default_colours:''});
+  _markSettingsDirty();
   renderCatBlocks();
 }
 
@@ -203,6 +205,7 @@ async function saveCatsAndOpts(){
   try{
     await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price,archived:c.archived||false,shop_visible:c.shopVisible!==false})));
     await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false,multi_item:o.multi_item||false,sortable:o.sortable||false,archived:o.archived||false,default_colours:o.default_colours||''})));
+    _settingsDirty = false;
     setStatus('ok','Saved');setTimeout(loadAll,500);
   }catch(e){setStatus('err','Failed: '+e.message);}
 }
@@ -1050,7 +1053,7 @@ async function badgeWidthCheck(idx) {
     textEl.style.outline = '';
     delete textEl.dataset.badgeWidth;
     if (warnEl) warnEl.style.display = 'none';
-    if (backingEl) Array.from(backingEl.options).forEach(o => { o.disabled = false; o.style.color = ''; });
+    if (backingEl?.options) Array.from(backingEl.options).forEach(o => { o.disabled = false; o.style.color = ''; });
     return;
   }
 
@@ -1074,7 +1077,7 @@ async function badgeWidthCheck(idx) {
   let currentInvalid = false;
   const selectedMinW = backingEl ? _badgeBackingMinWidth(backingEl.value) : 0;
 
-  if (backingEl) {
+  if (backingEl?.options) {
     Array.from(backingEl.options).forEach(opt => {
       if (!opt.value) return;
       const minW = _badgeBackingMinWidth(opt.value);
@@ -1535,8 +1538,8 @@ function renderColourList(){
   }).join('');
 }
 
-function archiveColour(i){colours[i].archived=true;renderColourList();}
-function unarchiveColour(i){colours[i].archived=false;renderColourList();}
+function archiveColour(i){colours[i].archived=true;_markSettingsDirty();renderColourList();}
+function unarchiveColour(i){colours[i].archived=false;_markSettingsDirty();renderColourList();}
 
 function updateSwatch(i, code){
   // Update the swatch colour live as hex is typed, without full re-render
@@ -1568,14 +1571,16 @@ function copyHex(code, btn){
 
 function addColour(){
   colours.push({id:nextColourId(),name:'',code:'#cccccc',available:true,archived:false});
+  _markSettingsDirty();
   renderColourList();
 }
-function removeColour(i){colours.splice(i,1);renderColourList();}
+function removeColour(i){colours.splice(i,1);_markSettingsDirty();renderColourList();}
 
 async function saveColours(){
   setStatus('spin','Saving colours…');
   try{
     await sbReplace('colours', colours.map(c=>({id:c.id,name:c.name,code:c.code,available:c.available,archived:c.archived||false})));
+    _settingsDirty = false;
     setStatus('ok','Colours saved · '+colours.length+' colours');
   }catch(e){
     setStatus('err','Save failed: '+e.message);

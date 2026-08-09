@@ -580,7 +580,21 @@ async function loadAll(){
     await loadPreferences();  // load sort prefs before rendering
     renderTable();
     setStatus('ok','Connected');
-  }catch(e){setStatus('err','Load failed: '+e.message);}
+  }catch(e){
+    setStatus('err','Load failed: '+e.message);
+    // Only replace the list if nothing has loaded yet — a background
+    // reload failing shouldn't wipe out already-displayed valid data,
+    // but the very first load failing must not leave the static
+    // "Loading…" placeholder stuck forever with no visible error.
+    if(!orders.length){
+      const el = document.getElementById('inboxList');
+      if(el) el.innerHTML = '<div class="inbox-empty-state">'
+        + '<i class="ti ti-alert-triangle" style="color:var(--red)"></i>'
+        + 'Could not load orders: ' + esc(e.message)
+        + '<div style="margin-top:12px"><button class="btn" onclick="loadAll()"><i class="ti ti-refresh"></i> Retry</button></div>'
+        + '</div>';
+    }
+  }
 }
 
 // One-time migration: delivery/payment options used to live only in this

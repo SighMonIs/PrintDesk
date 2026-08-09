@@ -226,17 +226,106 @@ let authMode = 'login';
 function openAuthModal(mode) {
   authMode = mode || 'login';
   document.getElementById('authError').style.display = 'none';
+  document.getElementById('authSuccess').style.display = 'none';
   document.getElementById('authNameRow').style.display = authMode === 'signup' ? '' : 'none';
-  document.getElementById('authPasswordConfirmRow').style.display = authMode === 'signup' ? '' : 'none';
+  document.getElementById('authEmailRow').style.display = authMode === 'reset' ? 'none' : '';
+  document.getElementById('authPasswordRow').style.display = authMode === 'forgot' ? 'none' : '';
+  document.getElementById('authPasswordLabel').textContent = authMode === 'reset' ? 'New password' : 'Password';
+  document.getElementById('authPasswordConfirmRow').style.display = (authMode === 'signup' || authMode === 'reset') ? '' : 'none';
+  document.getElementById('authPasswordConfirmLabel').textContent = authMode === 'reset' ? 'Confirm new password' : 'Confirm password';
   document.getElementById('authPasswordConfirm').value = '';
-  document.getElementById('authTitle').textContent = authMode === 'signup' ? 'Create account' : 'Sign in';
-  document.getElementById('authSubmitBtn').textContent = authMode === 'signup' ? 'Create account' : 'Sign in';
-  document.getElementById('authSubmitBtn').onclick = authMode === 'signup' ? doCustomerSignup : doCustomerLogin;
-  document.getElementById('authSwitchText').innerHTML = authMode === 'signup'
-    ? `Already have an account? <a href="#" onclick="openAuthModal('login');return false">Sign in</a>`
-    : `New here? <a href="#" onclick="openAuthModal('signup');return false">Create an account</a>`;
+  document.getElementById('authForgotLink').style.display = authMode === 'login' ? '' : 'none';
+
+  const titles      = { login: 'Sign in', signup: 'Create account', forgot: 'Reset password', reset: 'Set new password' };
+  const submitLabels = { login: 'Sign in', signup: 'Create account', forgot: 'Send reset link', reset: 'Set new password' };
+  const handlers    = { login: doCustomerLogin, signup: doCustomerSignup, forgot: doRequestPasswordReset, reset: doResetPassword };
+  document.getElementById('authTitle').textContent = titles[authMode];
+  document.getElementById('authSubmitBtn').textContent = submitLabels[authMode];
+  document.getElementById('authSubmitBtn').onclick = handlers[authMode];
+
+  const switchEl = document.getElementById('authSwitchText');
+  if (authMode === 'forgot') { switchEl.style.display = ''; switchEl.innerHTML = `<a href="#" onclick="openAuthModal('login');return false">Back to sign in</a>`; }
+  else if (authMode === 'reset') { switchEl.style.display = 'none'; }
+  else {
+    switchEl.style.display = '';
+    switchEl.innerHTML = authMode === 'signup'
+      ? `Already have an account? <a href="#" onclick="openAuthModal('login');return false">Sign in</a>`
+      : `New here? <a href="#" onclick="openAuthModal('signup');return false">Create an account</a>`;
+  }
   document.getElementById('authModal').style.display = 'flex';
 }
 function closeAuthModal() { document.getElementById('authModal').style.display = 'none'; }
 
-document.addEventListener('DOMContentLoaded', restoreCustomerSession);
+async function doRequestPasswordReset() {
+  const email = document.getElementById('authEmail').value.trim();
+  const errEl = document.getElementById('authError');
+  errEl.style.display = 'none';
+  if (!email) { errEl.textContent = 'Please enter your email.'; errEl.style.display = 'block'; return; }
+  const btn = document.getElementById('authSubmitBtn');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const res = await fetch(`${AUTH_SB_URL}/auth/v1/recover`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ email, redirect_to: window.location.origin + window.location.pathname }),
+    });
+    // GoTrue returns 200 regardless of whether the email exists, so it never
+    // reveals which addresses have accounts.
+    if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data.error_description || data.msg || 'Could not send reset email.'); }
+    document.getElementById('authSuccess').textContent = 'Check your email for a reset link.';
+    document.getElementById('authSuccess').style.display = 'block';
+  } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
+  btn.disabled = false; btn.textContent = orig;
+}
+
+async function doResetPassword() {
+  const pass = document.getElementById('authPassword').value;
+  const passConfirm = document.getElementById('authPasswordConfirm').value;
+  const errEl = document.getElementById('authError');
+  errEl.style.display = 'none';
+  if (pass !== passConfirm) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
+  const issue = passwordIssue(pass);
+  if (issue) { errEl.textContent = issue; errEl.style.display = 'block'; return; }
+  const recoveryToken = sessionStorage.getItem('shop_recovery_token');
+  if (!recoveryToken) { errEl.textContent = 'This reset link has expired — please request a new one.'; errEl.style.display = 'block'; return; }
+  const btn = document.getElementById('authSubmitBtn');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await fetch(`${AUTH_SB_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: authHeaders({ 'Authorization': 'Bearer ' + recoveryToken }),
+      body: JSON.stringify({ password: pass }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || data.error_description || 'Could not set new password.');
+    sessionStorage.removeItem('shop_recovery_token');
+    const user = data.id ? data : userFromToken(recoveryToken);
+    storeSession({ access_token: recoveryToken });
+    await loadOrCreateCustomer(user);
+    await checkStaffStatus();
+    closeAuthModal();
+    updateAccountUI();
+  } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
+  btn.disabled = false; btn.textContent = orig;
+}
+
+// A password-reset email link redirects back here with
+// #access_token=...&type=recovery in the URL hash (same mechanism as invite
+// links on the admin side — see checkInviteToken() in api.js).
+function checkRecoveryToken() {
+  const hash = window.location.hash;
+  if (!hash) return false;
+  const params = new URLSearchParams(hash.slice(1));
+  if (params.get('type') !== 'recovery' || !params.get('access_token')) return false;
+  sessionStorage.setItem('shop_recovery_token', params.get('access_token'));
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  openAuthModal('reset');
+  return true;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkRecoveryToken();
+  restoreCustomerSession();
+});

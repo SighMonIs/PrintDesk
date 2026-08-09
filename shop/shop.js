@@ -9,6 +9,16 @@ function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 function escJsAttr(s){ return esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 function optId(o){ return String(o.id); }
 
+// Escape closes whichever modal/drawer is currently open (checked in
+// front-to-back stacking order, though these aren't normally open together).
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('colourModal')?.style.display === 'flex') closeColourModal();
+  else if (document.getElementById('authModal')?.style.display === 'flex') closeAuthModal();
+  else if (document.getElementById('accountModal')?.style.display === 'flex') closeAccountModal();
+  else if (document.getElementById('cartDrawer')?.classList.contains('open')) closeCartDrawer();
+});
+
 // The Text and Backing options get dedicated, fixed-position controls
 // (name field above the tabs, backing dropdown inline with them) instead of
 // a generic row in #optionFields — this is where every lookup for either

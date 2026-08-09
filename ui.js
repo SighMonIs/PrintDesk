@@ -45,7 +45,9 @@ function _buildStatusBreadcrumb(orderId, status){
   return '<div class="status-breadcrumb">' + STATUS_FLOW.map((s, i) => {
     const role = i < currentIdx ? 'sbc-previous' : (i === currentIdx ? 'sbc-current' : 'sbc-future');
     return '<div class="status-breadcrumb-step ' + role + '" style="--sbc-color:var(' + STATUS_FLOW_VAR[s] + ')"'
-      + ' onclick="confirmStatusStep(\'' + esc(String(orderId)) + '\',\'' + s + '\')">' + s + '</div>';
+      + ' tabindex="0" role="button"'
+      + ' onclick="confirmStatusStep(\'' + esc(String(orderId)) + '\',\'' + s + '\')"'
+      + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click();}">' + s + '</div>';
   }).join('') + '</div>';
 }
 
@@ -316,15 +318,15 @@ function buildColourPicker(id, selectedName, onChangeFn){
   const swatchBg = sel ? sel.code : 'transparent';
   const label    = sel ? sel.name : '— none —';
   return `<div class="colour-picker-wrap" id="cpw-${id}">
-    <div class="colour-picker-btn" onclick="toggleColourPicker('${id}')" id="cpb-${id}">
+    <div class="colour-picker-btn" tabindex="0" role="button" onclick="toggleColourPicker('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" id="cpb-${id}">
       <div class="cp-swatch" style="--sw:${swatchBg}"></div>
       <span class="cp-label">${esc(label)}</span>
       <i class="ti ti-chevron-down cp-arrow"></i>
     </div>
     <div class="colour-picker-list" id="cpl-${id}" style="display:none">
-      <div class="cp-none" onclick="selectColour('${id}','',${onChangeFn})" >— none —</div>
+      <div class="cp-none" tabindex="0" role="button" onclick="selectColour('${id}','',${onChangeFn})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">— none —</div>
       ${avail.map(c=>`
-        <div class="cp-option ${c.name===selectedName?'selected':''}" onclick="selectColour('${id}','${escJsAttr(c.name)}',${onChangeFn})">
+        <div class="cp-option ${c.name===selectedName?'selected':''}" tabindex="0" role="button" onclick="selectColour('${id}','${escJsAttr(c.name)}',${onChangeFn})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
           <div class="cp-swatch" style="--sw:${esc(c.code)}"></div>
           <span>${esc(c.name)}</span>
         </div>`).join('')}
@@ -1487,7 +1489,7 @@ function renderInboxList(list) {
     const itemLines = [...itemQtys.entries()].map(([name, qty], i) =>
       '<div class="inbox-card-item-line"><span class="inbox-card-item-name">' + esc(name) + '</span><span class="inbox-card-item-qty">x ' + qty + '</span>' + (i===0 ? paidLabel : '') + '</div>'
     ).join('');
-    return '<div class="inbox-card ' + blClass + (isSelected ? ' selected' : '') + '" onclick="showInboxDetail(\'' + esc(oid) + '\')">'
+    return '<div class="inbox-card ' + blClass + (isSelected ? ' selected' : '') + '" tabindex="0" role="button" onclick="showInboxDetail(\'' + esc(oid) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click();}">'
       + '<div class="inbox-card-content">'
       + '<div class="inbox-card-row1">'
       + '<span class="inbox-card-customer">' + (esc(first.customer) || '?') + '</span>'
@@ -1793,6 +1795,14 @@ function _mobileShowList() {
 }
 
 function setSidebarView(view) {
+  if(_settingsDirty && _sidebarView==='settings' && (_selectedSettingsCat==='cats'||_selectedSettingsCat==='colours') && view!=='settings'){
+    var label = _selectedSettingsCat==='cats' ? 'Categories & Options' : 'Colour Library';
+    showConfirm('You have unsaved changes in '+label+'. Discard them?', function(){
+      _settingsDirty = false;
+      setSidebarView(view);
+    }, {confirmLabel:'Discard', isDanger:true});
+    return;
+  }
   closeMobileMenu();
   _mobileShowList();
   _sidebarView = view;
@@ -1964,7 +1974,7 @@ function _showCustomerDetail(customerId) {
       var bc = 'b-'+statusSlug(status);
       var orderNum = orderNumFromId(oid);
       var catNames = [...new Set(rows.map(function(r){var cat=cats.find(function(c){return String(c.id)===String(r.catId);});return cat?cat.name:null;}).filter(Boolean))].join(', ');
-      html += '<div class="inbox-item-card inbox-item-card-clickable" onclick="_switchToOrder(\''+esc(String(oid))+'\')">'
+      html += '<div class="inbox-item-card inbox-item-card-clickable" tabindex="0" role="button" onclick="_switchToOrder(\''+esc(String(oid))+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click();}">'
         + '<div class="inbox-item-left"><div class="inbox-item-qty">'+rows.length+'</div><div class="inbox-item-qty-label">items</div><div class="inbox-item-price">$'+total.toFixed(2)+'</div></div>'
         + '<div class="inbox-item-divider"></div>'
         + '<div class="inbox-item-right"><div class="inbox-item-cat">'+orderNum+' &mdash; '+esc(catNames)+'</div>'
@@ -2100,7 +2110,7 @@ function _showInventoryDetail(itemId) {
     + (consumption.length
       ? '<div class="related-orders-list">' + consumption.map(function(c){
           var orderNum = orderNumFromId(c.orderId);
-          return '<div class="inbox-item-card inbox-item-card-clickable" onclick="_switchToOrder(\''+esc(String(c.orderId))+'\')">'
+          return '<div class="inbox-item-card inbox-item-card-clickable" tabindex="0" role="button" onclick="_switchToOrder(\''+esc(String(c.orderId))+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.click();}">'
             + '<div class="inbox-item-left"><div class="inbox-item-qty">-'+c.qty+'</div><div class="inbox-item-qty-label">units</div></div>'
             + '<div class="inbox-item-divider"></div>'
             + '<div class="inbox-item-right"><div class="inbox-item-cat">Order '+orderNum+'</div>'
@@ -2214,7 +2224,26 @@ function _renderViewSettings() {
   if (detail) detail.innerHTML = '<div class="inbox-no-selection"><i class="ti ti-settings"></i><p>Select a settings category</p></div>';
 }
 
+// Categories & Options and Colour Library require an explicit Save (unlike
+// Payment/Delivery, which autosave) — track unsaved edits so navigating away
+// or closing the tab warns instead of silently discarding them.
+var _settingsDirty = false;
+function _markSettingsDirty(){ _settingsDirty = true; }
+document.addEventListener('input', function(e){ if(e.target.closest('#catFlatList, #colourList')) _markSettingsDirty(); });
+document.addEventListener('change', function(e){ if(e.target.closest('#catFlatList, #colourList')) _markSettingsDirty(); });
+window.addEventListener('beforeunload', function(e){
+  if(_settingsDirty){ e.preventDefault(); e.returnValue = ''; }
+});
+
 function _showSettingsDetail(catId) {
+  if(_settingsDirty && (_selectedSettingsCat==='cats'||_selectedSettingsCat==='colours') && catId!==_selectedSettingsCat){
+    var label = _selectedSettingsCat==='cats' ? 'Categories & Options' : 'Colour Library';
+    showConfirm('You have unsaved changes in '+label+'. Discard them?', function(){
+      _settingsDirty = false;
+      _showSettingsDetail(catId);
+    }, {confirmLabel:'Discard', isDanger:true});
+    return;
+  }
   _selectedSettingsCat = catId;
   document.querySelectorAll('#inboxList .inbox-card').forEach(function(el) {
     el.classList.toggle('selected', (el.getAttribute('onclick')||'').includes("'" + catId + "'"));

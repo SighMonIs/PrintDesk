@@ -9,6 +9,8 @@
 *:hover::-webkit-scrollbar-thumb{background:var(--border2);}
 button:focus{outline:none;}
 button:focus-visible{outline:2px solid var(--accent2);outline-offset:1px;}
+[role="button"]:focus{outline:none;}
+[role="button"]:focus-visible{outline:2px solid var(--accent2);outline-offset:1px;}
 :root{--base:#121212;}
 
 /* ── Centered app shell ──────────────────────────────────── */
