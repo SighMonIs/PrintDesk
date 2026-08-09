@@ -1,8 +1,8 @@
 // PrintDesk configuration
 // This file is safe to commit to GitHub — it contains only the public anon key.
-// The service role key (needed for user management) is stored in localStorage only.
-// To set it up on a device, run this once in the browser console:
-//   localStorage.setItem('pd_SUPABASE_SERVICE_KEY', 'your-service-role-key')
+// User management (invite/edit/delete) goes through the admin-users Edge
+// Function, which holds the service-role key as a server-side secret — see
+// supabase/functions/admin-users.
 
 window.CONFIG = {
   SUPABASE_URL: 'https://brcwodrrpkxerxlpfgkd.supabase.co',

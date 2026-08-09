@@ -305,27 +305,9 @@ let editingUserId = null;
 
 async function loadUsers(){
   const el = document.getElementById('usersList');
-  // Warn if service key not set
-  if(!getCfg('SUPABASE_SERVICE_KEY')){
-    el.innerHTML = `<div class="empty empty-warn">
-      <i class="ti ti-alert-triangle"></i>
-      <div class="service-key-hint">
-        Service key not set. Run this in your browser console once:<br>
-        <code class="service-key-code">
-          localStorage.setItem('pd_SUPABASE_SERVICE_KEY', 'your-key')
-        </code>
-      </div>
-    </div>`;
-    return;
-  }
   el.innerHTML = '<div class="empty"><i class="ti ti-loader-2"></i> Loading…</div>';
   try{
-    // Uses Supabase admin API via service role — but we only have anon key
-    // So we use the auth admin endpoint with the user's JWT
-    const token = getAccessToken();
-    const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users', {
-      headers: SB_ADMIN_HEADERS()
-    });
+    const res = await sbAdminCall('GET', 'users');
     if(!res.ok){
       // Fallback — just show current user if admin endpoint not available
       el.innerHTML = renderUserCard(currentUser, true);
@@ -376,11 +358,7 @@ async function resendInvite(email, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader-2"></i>';
   try {
-    const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/invite', {
-      method: 'POST',
-      headers: SB_ADMIN_HEADERS(),
-      body: JSON.stringify({ email, redirect_to: 'https://simonreid.space' })
-    });
+    const res = await sbAdminCall('POST', 'invite', { email, redirect_to: 'https://simonreid.space' });
     if (!res.ok) { const d = await res.json(); throw new Error(d.msg || d.message || 'Failed'); }
     btn.innerHTML = '<i class="ti ti-check"></i>';
     btn.title = 'Invite resent!';
@@ -437,28 +415,19 @@ async function saveUser(){
   btn.innerHTML = '<i class="ti ti-loader-2"></i> Saving…';
 
   try{
-    const token = getAccessToken();
     let res, data;
 
     if(editingUserId){
       // Update existing user
       const body = { data: { display_name: name } };
       if(password) body.password = password;
-      res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users/' + editingUserId, {
-        method: 'PUT',
-        headers: SB_ADMIN_HEADERS(),
-        body: JSON.stringify(body)
-      });
+      res = await sbAdminCall('PUT', 'users/' + editingUserId, body);
     } else {
       // Invite new user — Supabase sends email with link to simonreid.space
-      res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/invite', {
-        method: 'POST',
-        headers: SB_ADMIN_HEADERS(),
-        body: JSON.stringify({
-          email,
-          data: { display_name: name },
-          redirect_to: 'https://simonreid.space'
-        })
+      res = await sbAdminCall('POST', 'invite', {
+        email,
+        data: { display_name: name },
+        redirect_to: 'https://simonreid.space'
       });
     }
 
@@ -488,10 +457,7 @@ async function saveUser(){
 async function deleteUser(id, name){
   showConfirm(`Delete user "${name}"? This cannot be undone.`, async () => {
     try{
-      const res = await fetch(getCfg('SUPABASE_URL') + '/auth/v1/admin/users/' + id, {
-        method: 'DELETE',
-        headers: SB_ADMIN_HEADERS()
-      });
+      const res = await sbAdminCall('DELETE', 'users/' + id);
       if(!res.ok){ const d=await res.json(); throw new Error(d.msg||'Delete failed'); }
       loadUsers();
     }catch(e){

@@ -250,12 +250,21 @@ const SB_HEADERS = () => ({
   'Prefer':        'return=representation'
 });
 
-// Admin headers use service role key — for user management only
-const SB_ADMIN_HEADERS = () => ({
-  'apikey':        getCfg('SUPABASE_SERVICE_KEY') || getCfg('SUPABASE_KEY'),
-  'Authorization': 'Bearer ' + (getCfg('SUPABASE_SERVICE_KEY') || getAccessToken()),
-  'Content-Type':  'application/json'
-});
+// User management (list/invite/update/delete) goes through the admin-users
+// Edge Function, which holds the service-role key server-side and checks the
+// caller's own access token — see supabase/functions/admin-users. `path` is
+// one of 'users', 'invite', or 'users/<id>'.
+async function sbAdminCall(method, path, body){
+  return fetch(getCfg('SUPABASE_URL') + '/functions/v1/admin-users', {
+    method: 'POST',
+    headers: {
+      'apikey':        getCfg('SUPABASE_KEY'),
+      'Authorization': 'Bearer ' + (getAccessToken() || getCfg('SUPABASE_KEY')),
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify({method, path, body})
+  });
+}
 
 function sbUrl(table, query){
   return getCfg('SUPABASE_URL') + '/rest/v1/' + table + (query||'');
