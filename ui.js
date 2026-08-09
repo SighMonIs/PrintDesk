@@ -26,7 +26,7 @@ function selectStatus(orderId, rowId, newStatus, optEl){
   const wrap = list?.closest('.status-dd-wrap');
   const btn  = wrap?.querySelector('.status-dd-btn');
   if(btn){
-    btn.className = 'status-dd-btn b-'+newStatus.toLowerCase().replace(' ','-');
+    btn.className = 'status-dd-btn b-'+statusSlug(newStatus);
     btn.innerHTML = newStatus + ' <i class="ti ti-chevron-down"></i>';
   }
   // Update active dot
@@ -67,7 +67,7 @@ async function selectOrderStatus(orderId, newStatus, optEl){
   const list = document.getElementById('sdd-order-'+orderId);
   if(list) list.classList.remove('open');
   const btn = list?.closest('.status-dd-wrap')?.querySelector('.status-dd-btn');
-  if(btn){ btn.className='status-dd-btn order-status-dd b-'+newStatus.toLowerCase().replace(' ','-'); btn.innerHTML='<span>'+newStatus+'</span><i class="ti ti-chevron-down"></i>'; }
+  if(btn){ btn.className='status-dd-btn order-status-dd b-'+statusSlug(newStatus); btn.innerHTML='<span>'+newStatus+'</span><i class="ti ti-chevron-down"></i>'; }
   list?.querySelectorAll('.status-dd-opt').forEach(o=>o.classList.toggle('active',o.textContent.trim()===newStatus));
   const rows = orders.filter(r=>String(r.orderId)===String(orderId));
   // Reaching Printed/Complete via the breadcrumb means every item is printed —
@@ -90,7 +90,7 @@ const STATUS_FLOW_VAR = {Pending:'--amber',Confirmed:'--blue',Printed:'--teal',C
 
 function _buildStatusBreadcrumb(orderId, status){
   if(status==='On Hold' || status==='Cancelled'){
-    return '<div class="status-badge-plain b-' + status.toLowerCase().replace(' ','-') + '">' + status + '</div>';
+    return '<div class="status-badge-plain b-' + statusSlug(status) + '">' + status + '</div>';
   }
   const currentIdx = STATUS_FLOW.indexOf(status);
   return '<div class="status-breadcrumb">' + STATUS_FLOW.map((s, i) => {
@@ -191,10 +191,13 @@ function renderTable(){
   renderInboxList(list);
 }
 
-function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 // ponytail: for free-text passed as a '...'-quoted JS argument inside an onclick="" attribute —
 // esc() alone isn't enough there since a raw apostrophe (e.g. "O'Brien") terminates the JS string early.
-function escJsAttr(s){return esc(String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"));}
+function escJsAttr(s){return esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"));}
+// Status -> CSS class slug (e.g. "On Hold" -> "on-hold"), used to build the
+// b-<slug>/bl-<slug> classes that color-code status badges/dropdowns.
+function statusSlug(status){ return String(status).toLowerCase().replace(' ','-'); }
 function sortBy(k){
   if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}
   savePreferences();
@@ -767,6 +770,18 @@ function _orderFormHtml(orderId){
     + '</div>';
 }
 
+// Populates #f-delivery/#f-payment from the active option lists, selecting
+// selectedDelivery/selectedPayment if given (falls back to the first active
+// option, then a hardcoded default) — shared by openAddModal and openEdit.
+function _populateDeliveryPaymentSelects(selectedDelivery, selectedPayment){
+  const fDelivery = document.getElementById('f-delivery');
+  fDelivery.innerHTML = getActiveDeliveryOptions().map(d=>`<option value="${esc(d.name)}">${esc(d.name)} - $${d.price.toFixed(2)}</option>`).join('');
+  fDelivery.value = selectedDelivery || getActiveDeliveryOptions()[0]?.name || 'Post';
+  const fPayment = document.getElementById('f-payment');
+  fPayment.innerHTML = getActivePaymentOptions().map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+  fPayment.value = selectedPayment || getActivePaymentOptions()[0]?.name || 'No';
+}
+
 function openAddModal(){
   editOId=null;acInst=null;
   document.getElementById('inboxDetail').innerHTML=_orderFormHtml();
@@ -777,14 +792,7 @@ function openAddModal(){
   document.getElementById('f-address').value='';
   document.getElementById('f-address').classList.remove('validated');
   document.getElementById('addrTick').style.display='none';
-  // Build delivery dropdown from config
-  const fDelivery = document.getElementById('f-delivery');
-  fDelivery.innerHTML = getActiveDeliveryOptions().map(d=>`<option value="${esc(d.name)}">${esc(d.name)} - $${d.price.toFixed(2)}</option>`).join('');
-  fDelivery.value = getActiveDeliveryOptions()[0]?.name||'Post';
-  // Build payment dropdown from config
-  const fPayment = document.getElementById('f-payment');
-  fPayment.innerHTML = getActivePaymentOptions().map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
-  fPayment.value = getActivePaymentOptions()[0]?.name||'No';
+  _populateDeliveryPaymentSelects();
   document.getElementById('newCustomerPanel').style.display='none';
   document.getElementById('f-holdstatus-row').style.display='none';
   updateAddrRefreshBtn();
@@ -815,12 +823,7 @@ function openEdit(orderId){
   document.getElementById('f-address').value=first.address||'';
   if(first.address){document.getElementById('f-address').classList.add('validated');document.getElementById('addrTick').style.display='';}
   else{document.getElementById('f-address').classList.remove('validated');document.getElementById('addrTick').style.display='none';}
-  const fDelivery2 = document.getElementById('f-delivery');
-  fDelivery2.innerHTML = getActiveDeliveryOptions().map(d=>`<option value="${esc(d.name)}">${esc(d.name)} - $${d.price.toFixed(2)}</option>`).join('');
-  fDelivery2.value = first.delivery||getActiveDeliveryOptions()[0]?.name||'Post';
-  const fPayment2 = document.getElementById('f-payment');
-  fPayment2.innerHTML = getActivePaymentOptions().map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
-  fPayment2.value = first.payment||getActivePaymentOptions()[0]?.name||'No';
+  _populateDeliveryPaymentSelects(first.delivery, first.payment);
   const d=toDisplay(first.date);
   document.getElementById('f-date').value=d;
   document.getElementById('f-date-display').textContent=d;
@@ -938,26 +941,10 @@ function validateOrder(){
   return errors;
 }
 
-async function saveOrder(){
-  // If new customer panel is open, create the customer first
-  if(document.getElementById('newCustomerPanel')?.style.display!=='none'){
-    await createCustomerInline();
-  }
-  const errors=validateOrder();
-  if(errors.length){
-    // Scroll to first error
-    const firstErr=document.querySelector('.field-error,.row-error');
-    if(firstErr)firstErr.scrollIntoView({behavior:'smooth',block:'center'});
-    return;
-  }
-  if(busy)return;
-  // If new customer panel is open, create the customer first
-  if(document.getElementById('newCustomerPanel')?.style.display!=='none'){
-    await createCustomerInline();
-  }
-  const customer=document.getElementById('f-customer').value.trim();
-  const rawModels=getModelData();
-  // Expand multi-item rows (pairwise on comma-separated values)
+// Splits a multi_item text field's comma-separated values into one model row
+// per value (pairwise across all multi_item fields on that category), e.g.
+// "Alice, Bob" on a Name field becomes two order rows, one per name.
+function _expandMultiItemModels(rawModels){
   const models=[];
   for(const m of rawModels){
     const catOpts=getCatOpts(m.catId).filter(o=>o.multi_item&&o.display==='text');
@@ -980,21 +967,34 @@ async function saveOrder(){
       models.push({...m,options:newParts.join('||')});
     }
   }
-  const orderId=editOId||nextOrderId();
+  return models;
+}
+
+// Reads the order form fields and builds one row object per (possibly
+// multi-item-expanded) model, all defaulted to a fresh/unsaved order row.
+function _buildOrderRowsFromForm(orderId){
+  const customer=document.getElementById('f-customer').value.trim();
+  const models=_expandMultiItemModels(getModelData());
   const date=document.getElementById('f-date').value;
   const delivery=document.getElementById('f-delivery').value;
   const payment=document.getElementById('f-payment').value;
   // Save whatever is in the address box — validated or not
   const address=document.getElementById('f-address').value.trim();
   const customerId = document.getElementById('f-customer-id').value||'';
-  const newRows=models.map((m,i)=>({
+  return models.map((m,i)=>({
     id:makeRowId(orderId, i),orderId,customer,customer_id:customerId,address,delivery,payment,
     model:m.model,catId:m.catId,qty:m.qty,price:m.price,
     total:parseFloat((m.qty*m.price).toFixed(2)),
     status:'Pending',date,notes:m.notes,options:m.options,
     printed:false,paid:false,inv_consumed:false
   }));
-  // When editing preserve the existing status/printed/inv_consumed (per item) and paid (per order)
+}
+
+// When editing an existing order, carries forward each row's existing
+// status/printed/inv_consumed (matched by model name) and the order's paid
+// flag, applies the hold-status override if set, and returns which rows need
+// an inventory qty reconcile (rows whose consumed qty actually changed).
+function _applyEditPreservedFields(newRows){
   const holdStatus = document.getElementById('f-holdstatus')?.value || '';
   const qtyChanges = new Map(); // rowId -> previous qty, only for rows already consumed from stock
   if(editOId){
@@ -1014,6 +1014,51 @@ async function saveOrder(){
       newRows.forEach(nr=>{ if(nr.status==='On Hold'||nr.status==='Cancelled') nr.status='Pending'; });
     }
   }
+  return {holdStatus, qtyChanges};
+}
+
+// Writes newRows to Supabase (soft-deleting the prior version of the order
+// first, if editing), reconciles inventory for any qty changes, then
+// auto-advances the order status if every item is now further along.
+async function _persistOrderRows(orderId, newRows, qtyChanges, holdStatus){
+  if(editOId) await sbPatch('orders', 'order_id=eq.'+encodeURIComponent(editOId), {deleted:true});
+  for(const row of newRows){
+    await sbUpsert('orders', {
+      id: row.id, order_id: row.orderId, customer: row.customer,
+      customer_id: row.customer_id||null,
+      address: row.address, delivery: row.delivery, payment: row.payment,
+      cat_id: row.catId, qty: row.qty,
+      price: row.price, total: row.total, status: row.status,
+      date: row.date, notes: row.notes, options: row.options,
+      printed: row.printed, paid: row.paid, inv_consumed: row.inv_consumed,
+      deleted: false
+    });
+  }
+  for(const row of newRows){
+    if(qtyChanges.has(row.id)) await _reconcileInventoryQtyChange(row, qtyChanges.get(row.id));
+  }
+  if(editOId && !holdStatus) await _maybeAdvanceStatus(orderId);
+}
+
+async function saveOrder(){
+  // If new customer panel is open, create the customer first — must happen
+  // before validateOrder() so it can see the newly-linked customer id.
+  if(document.getElementById('newCustomerPanel')?.style.display!=='none'){
+    await createCustomerInline();
+  }
+  const errors=validateOrder();
+  if(errors.length){
+    // Scroll to first error
+    const firstErr=document.querySelector('.field-error,.row-error');
+    if(firstErr)firstErr.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  if(busy)return;
+
+  const orderId=editOId||await nextOrderIdChecked();
+  const newRows=_buildOrderRowsFromForm(orderId);
+  const {holdStatus, qtyChanges}=_applyEditPreservedFields(newRows);
+
   busy=true;
   const btn=document.getElementById('saveBtn');
   btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Saving…';
@@ -1021,23 +1066,7 @@ async function saveOrder(){
   orders=orders.filter(o=>o.orderId!==orderId);
   orders.unshift(...newRows);renderTable();
   try{
-    if(editOId) await sbPatch('orders', 'order_id=eq.'+encodeURIComponent(editOId), {deleted:true});
-    for(const row of newRows){
-      await sbUpsert('orders', {
-        id: row.id, order_id: row.orderId, customer: row.customer,
-        customer_id: row.customer_id||null,
-        address: row.address, delivery: row.delivery, payment: row.payment,
-        cat_id: row.catId, qty: row.qty,
-        price: row.price, total: row.total, status: row.status,
-        date: row.date, notes: row.notes, options: row.options,
-        printed: row.printed, paid: row.paid, inv_consumed: row.inv_consumed,
-        deleted: false
-      });
-    }
-    for(const row of newRows){
-      if(qtyChanges.has(row.id)) await _reconcileInventoryQtyChange(row, qtyChanges.get(row.id));
-    }
-    if(editOId && !holdStatus) await _maybeAdvanceStatus(orderId);
+    await _persistOrderRows(orderId, newRows, qtyChanges, holdStatus);
     setStatus('ok','Saved · '+uniqueOrderCount()+' orders');
   }catch(e){setStatus('err','Save failed: '+e.message);}
   finally{busy=false;btn.disabled=false;btn.innerHTML='<i class="ti ti-check"></i> Save Order';}
@@ -1067,7 +1096,7 @@ async function updateStatus(orderId,rowId,newStatus,sel){
   }catch(e){
     // Revert on failure
     row.status=prevStatus;
-    if(sel){ sel.className=(sel.classList.contains('status-dd-btn')?'status-dd-btn':'status-select')+' b-'+prevStatus.toLowerCase().replace(' ','-'); }
+    if(sel){ sel.className=(sel.classList.contains('status-dd-btn')?'status-dd-btn':'status-select')+' b-'+statusSlug(prevStatus); }
     setStatus('err','Update failed: '+e.message);
     alert('Status save failed: '+e.message);
   }finally{
@@ -1128,7 +1157,7 @@ async function _reconcileInventoryQtyChange(row, prevQty){
     try{
       await sbUpsert('inventory_consumption', rec);
       inventoryConsumption.push(normaliseInventoryConsumption(rec));
-    }catch(e){ /* non-fatal */ }
+    }catch(e){ console.error('Inventory reconcile failed for item '+item.id+' (order '+row.orderId+'):', e); }
   }
 }
 
@@ -1142,10 +1171,10 @@ async function _consumeInventoryForOrder(rows){
       try{
         await sbUpsert('inventory_consumption', rec);
         inventoryConsumption.push(normaliseInventoryConsumption(rec));
-      }catch(e){ /* non-fatal — don't block the status update over a logging failure */ }
+      }catch(e){ console.error('Inventory consume failed for item '+item.id+' (order '+row.orderId+'):', e); /* non-fatal — don't block the status update */ }
     }
     row.inv_consumed = true;
-    try{ await sbPatch('orders', 'id=eq.'+encodeURIComponent(row.id), {inv_consumed:true}); }catch(e){}
+    try{ await sbPatch('orders', 'id=eq.'+encodeURIComponent(row.id), {inv_consumed:true}); }catch(e){ console.error('Failed to mark order '+row.orderId+' as inv_consumed:', e); }
   }
 }
 
@@ -1521,8 +1550,8 @@ function renderInboxList(list) {
     const deliveryCost = deliveryOptions.find(d => d.name === first.delivery)?.price || 0;
     const total = rows.reduce((s, r) => s + r.total, 0) + deliveryCost;
     const status = first.status || 'Pending';
-    const blClass = 'bl-' + status.toLowerCase().replace(' ', '-');
-    const bClass = 'b-' + status.toLowerCase().replace(' ', '-');
+    const blClass = 'bl-' + statusSlug(status);
+    const bClass = 'b-' + statusSlug(status);
     const isSelected = oid === String(_inboxSelectedOrderId);
     const itemQtys = new Map();
     rows.forEach(r => {
@@ -1599,27 +1628,9 @@ function _badgeEligibility(catName, catOpts, parsedOpts) {
   };
 }
 
-function _showInboxDetailFromData(orderId, rows) {
-  const detailEl = document.getElementById('inboxDetail');
-  if (!detailEl || !rows || !rows.length) return;
-
-  const first = rows[0];
-  const status = first.status || 'Pending';
-  const deliveryCost = deliveryOptions.find(d => d.name === first.delivery)?.price || 0;
-  const total = rows.reduce((s, r) => s + r.total, 0) + deliveryCost;
-  const orderNum = orderNumFromId(orderId);
-
-  const statusDd = _buildStatusBreadcrumb(orderId, status);
-
-  const paidToggle = '<button class="paid-btn ' + (first.paid ? 'paid-btn-yes' : 'paid-btn-no') + '"'
-    + ' onclick="toggleOrderPaid(\'' + esc(String(orderId)) + '\',' + (!first.paid) + ')">'
-    + (first.paid ? 'Paid' : 'Unpaid')
-    + '</button>';
-
-  const deliveryOpt = deliveryOptions.find(d => d.name === first.delivery);
-  const deliveryIcon = '<i class="ti ' + ((deliveryOpt && deliveryOpt.icon) || 'ti-mail') + '"></i>';
-
-  // Compute unique categories in this order for the filter panel
+// Resets the detail-view item search/sort state and builds the filter-panel
+// checkbox list + sort-panel option list for the order detail's item toolbar.
+function _buildDetailFilterSortPanels(rows) {
   const _detailCatNames = [...new Set(rows.map(r => { const c = cats.find(x => String(x.id) === String(r.catId)); return c ? c.name : '?'; }))].sort();
   window._itemSearch = '';
   window._itemSort = 'default';
@@ -1645,7 +1656,12 @@ function _showInboxDetailFromData(orderId, rows) {
             }).join('')
         : '');
 
-  const itemsHtml = rows.map((row, _idx) => {
+  return {catFilterOpts, sortPanelOpts};
+}
+
+// Builds the per-item card HTML for the order detail's items list.
+function _buildDetailItemsHtml(rows) {
+  return rows.map((row, _idx) => {
     const cat = cats.find(c => String(c.id) === String(row.catId));
     const parsedOpts = {};
     if (row.options) row.options.split('||').forEach(p => {
@@ -1708,7 +1724,11 @@ function _showInboxDetailFromData(orderId, rows) {
       + '<div class="inbox-item-actions">' + printedBtn + badgeBtn + '</div>'
       + '</div>';
   }).join('');
+}
 
+// Builds the order-level action buttons above the items list (bulk badge
+// download, shipping label, invoice) — each conditional on order contents.
+function _buildDetailActionButtons(orderId, rows, first) {
   const badgeEligibleRows = rows.map(r => {
     const rowCat = cats.find(c => String(c.id) === String(r.catId));
     const rowCatOpts = opts.filter(o => String(o.catId) === String(r.catId));
@@ -1726,6 +1746,33 @@ function _showInboxDetailFromData(orderId, rows) {
     : '';
 
   const invoiceBtn = '<button class="sort-btn-main" onclick="generateInvoice(\'' + esc(String(orderId)) + '\')" title="Download invoice"><i class="ti ti-file-invoice"></i> Invoice</button>';
+
+  return {bulkBadgeBtn, printBtn, invoiceBtn};
+}
+
+function _showInboxDetailFromData(orderId, rows) {
+  const detailEl = document.getElementById('inboxDetail');
+  if (!detailEl || !rows || !rows.length) return;
+
+  const first = rows[0];
+  const status = first.status || 'Pending';
+  const deliveryCost = deliveryOptions.find(d => d.name === first.delivery)?.price || 0;
+  const total = rows.reduce((s, r) => s + r.total, 0) + deliveryCost;
+  const orderNum = orderNumFromId(orderId);
+
+  const statusDd = _buildStatusBreadcrumb(orderId, status);
+
+  const paidToggle = '<button class="paid-btn ' + (first.paid ? 'paid-btn-yes' : 'paid-btn-no') + '"'
+    + ' onclick="toggleOrderPaid(\'' + esc(String(orderId)) + '\',' + (!first.paid) + ')">'
+    + (first.paid ? 'Paid' : 'Unpaid')
+    + '</button>';
+
+  const deliveryOpt = deliveryOptions.find(d => d.name === first.delivery);
+  const deliveryIcon = '<i class="ti ' + ((deliveryOpt && deliveryOpt.icon) || 'ti-mail') + '"></i>';
+
+  const {catFilterOpts, sortPanelOpts} = _buildDetailFilterSortPanels(rows);
+  const itemsHtml = _buildDetailItemsHtml(rows);
+  const {bulkBadgeBtn, printBtn, invoiceBtn} = _buildDetailActionButtons(orderId, rows, first);
 
   detailEl.innerHTML = '<div class="inbox-detail">'
     + '<div class="status-row-wrap">' + statusDd
@@ -1990,7 +2037,7 @@ function _showCustomerDetail(customerId) {
       var first = rows[0];
       var total = orderTotals.get(oid);
       var status = first.status||'Pending';
-      var bc = 'b-'+status.toLowerCase().replace(' ','-');
+      var bc = 'b-'+statusSlug(status);
       var orderNum = orderNumFromId(oid);
       var catNames = [...new Set(rows.map(function(r){var cat=cats.find(function(c){return String(c.id)===String(r.catId);});return cat?cat.name:null;}).filter(Boolean))].join(', ');
       html += '<div class="inbox-item-card inbox-item-card-clickable" onclick="_switchToOrder(\''+esc(String(oid))+'\')">'
@@ -2251,68 +2298,86 @@ function _showSettingsDetail(catId) {
   var detail = document.getElementById('inboxDetail');
   if (!detail) return;
 
-  if (catId === 'stats') {
-    detail.innerHTML = '<div class="inbox-detail">'
-      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Stats</div></div></div>'
-      + _statsDetailHtml()
-      + '</div>';
-  } else if (catId === 'cats') {
-    detail.innerHTML = '<div class="inbox-detail">'
-      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Categories &amp; Options</div></div></div>'
-      + '<p class="settings-desc-text">Each category can have options — extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical icon-sm"></i> to reorder options.</p>'
-      + '<div class="cats-toolbar-row">'
-      + '<label class="show-archived-label">'
-      + '<input type="checkbox" id="showArchivedCb" onchange="toggleShowArchived(this)"> Show archived'
-      + '</label>'
-      + '<button class="btn success sm ml-auto" onclick="addCat()"><i class="ti ti-plus"></i> Add category</button>'
-      + '</div>'
-      + '<div id="catFlatList"></div>'
-      + '<div class="settings-actions-row">'
-      + '<button class="btn success" onclick="saveCatsAndOpts()"><i class="ti ti-cloud-upload"></i> Save</button>'
-      + '</div></div>';
-    if(typeof renderCatBlocks === 'function') {
-      var cb = document.getElementById('showArchivedCb');
-      if(cb) cb.checked = window.showArchivedCats || false;
-      renderCatBlocks();
-    }
-  } else if (catId === 'colours') {
-    detail.innerHTML = '<div class="inbox-detail">'
-      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Colour Library</div></div></div>'
-      + '<p class="settings-desc-text">Manage your available filament colours. Tick <strong class="text-emphasis">Available</strong> if you currently have that colour in stock.</p>'
-      + '<div class="settings-toolbar-row-end">'
-      + '<button class="btn success sm" onclick="addColour()"><i class="ti ti-plus"></i> Add colour</button>'
-      + '</div>'
-      + '<div class="colour-mgr-hdr"><span>Swatch</span><span>Name</span><span>Hex code</span><span>Available</span><span></span></div>'
-      + '<div id="colourList"></div>'
-      + '<div class="settings-actions-row">'
-      + '<button class="btn success" onclick="saveColours()"><i class="ti ti-cloud-upload"></i> Save</button>'
-      + '</div></div>';
-    if(typeof renderColourList === 'function') renderColourList();
-  } else if (catId === 'users') {
-    detail.innerHTML = '<div class="inbox-detail">'
-      + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Users</div></div></div>'
-      + '<p class="settings-desc-text">Invite team members to PrintDesk. They will receive an email to set their password.</p>'
-      + '<div class="settings-toolbar-row-end">'
-      + '<button class="btn success sm" onclick="openAddUserForm()"><i class="ti ti-plus"></i> Add user</button>'
-      + '</div>'
-      + '<div id="userForm" style="display:none">'
-      + '<div class="user-form-inner">'
-      + '<div class="field-row">'
-      + '<div class="field"><label>Display name</label><input type="text" id="uf-name" placeholder="Their name"></div>'
-      + '<div class="field"><label>Email</label><input type="email" id="uf-email" placeholder="user@example.com"></div>'
-      + '</div>'
-      + '<div class="field-row" id="uf-password-row" style="display:none">'
-      + '<div class="field"><label>New password</label><input type="password" id="uf-password" placeholder="Leave blank to keep current"></div>'
-      + '</div>'
-      + '<div id="uf-error" class="field-error-text" style="display:none"></div>'
-      + '<div class="user-form-actions">'
-      + '<button class="btn" onclick="closeUserForm()">Cancel</button>'
-      + '<button class="btn success" id="uf-save" onclick="saveUser()"><i class="ti ti-mail"></i> Send invite</button>'
-      + '</div></div></div>'
-      + '<div id="usersList"><div class="users-loading-placeholder"><i class="ti ti-loader-2"></i> Loading users…</div></div>'
-      + '</div>';
-    if(typeof loadUsers === 'function') { window.editingUserId = null; loadUsers(); }
-  } else if (catId === 'payment') {
+  if (catId === 'stats') _settingsDetailStats(detail);
+  else if (catId === 'cats') _settingsDetailCats(detail);
+  else if (catId === 'colours') _settingsDetailColours(detail);
+  else if (catId === 'users') _settingsDetailUsers(detail);
+  else if (catId === 'payment') _settingsDetailPayment(detail);
+  else if (catId === 'app') _settingsDetailApp(detail);
+
+  _mobileShowDetail();
+}
+
+function _settingsDetailStats(detail) {
+  detail.innerHTML = '<div class="inbox-detail">'
+    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Stats</div></div></div>'
+    + _statsDetailHtml()
+    + '</div>';
+}
+
+function _settingsDetailCats(detail) {
+  detail.innerHTML = '<div class="inbox-detail">'
+    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Categories &amp; Options</div></div></div>'
+    + '<p class="settings-desc-text">Each category can have options — extra fields shown when adding an item. Drag <i class="ti ti-grip-vertical icon-sm"></i> to reorder options.</p>'
+    + '<div class="cats-toolbar-row">'
+    + '<label class="show-archived-label">'
+    + '<input type="checkbox" id="showArchivedCb" onchange="toggleShowArchived(this)"> Show archived'
+    + '</label>'
+    + '<button class="btn success sm ml-auto" onclick="addCat()"><i class="ti ti-plus"></i> Add category</button>'
+    + '</div>'
+    + '<div id="catFlatList"></div>'
+    + '<div class="settings-actions-row">'
+    + '<button class="btn success" onclick="saveCatsAndOpts()"><i class="ti ti-cloud-upload"></i> Save</button>'
+    + '</div></div>';
+  if(typeof renderCatBlocks === 'function') {
+    var cb = document.getElementById('showArchivedCb');
+    if(cb) cb.checked = window.showArchivedCats || false;
+    renderCatBlocks();
+  }
+}
+
+function _settingsDetailColours(detail) {
+  detail.innerHTML = '<div class="inbox-detail">'
+    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Colour Library</div></div></div>'
+    + '<p class="settings-desc-text">Manage your available filament colours. Tick <strong class="text-emphasis">Available</strong> if you currently have that colour in stock.</p>'
+    + '<div class="settings-toolbar-row-end">'
+    + '<button class="btn success sm" onclick="addColour()"><i class="ti ti-plus"></i> Add colour</button>'
+    + '</div>'
+    + '<div class="colour-mgr-hdr"><span>Swatch</span><span>Name</span><span>Hex code</span><span>Available</span><span></span></div>'
+    + '<div id="colourList"></div>'
+    + '<div class="settings-actions-row">'
+    + '<button class="btn success" onclick="saveColours()"><i class="ti ti-cloud-upload"></i> Save</button>'
+    + '</div></div>';
+  if(typeof renderColourList === 'function') renderColourList();
+}
+
+function _settingsDetailUsers(detail) {
+  detail.innerHTML = '<div class="inbox-detail">'
+    + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">Users</div></div></div>'
+    + '<p class="settings-desc-text">Invite team members to PrintDesk. They will receive an email to set their password.</p>'
+    + '<div class="settings-toolbar-row-end">'
+    + '<button class="btn success sm" onclick="openAddUserForm()"><i class="ti ti-plus"></i> Add user</button>'
+    + '</div>'
+    + '<div id="userForm" style="display:none">'
+    + '<div class="user-form-inner">'
+    + '<div class="field-row">'
+    + '<div class="field"><label>Display name</label><input type="text" id="uf-name" placeholder="Their name"></div>'
+    + '<div class="field"><label>Email</label><input type="email" id="uf-email" placeholder="user@example.com"></div>'
+    + '</div>'
+    + '<div class="field-row" id="uf-password-row" style="display:none">'
+    + '<div class="field"><label>New password</label><input type="password" id="uf-password" placeholder="Leave blank to keep current"></div>'
+    + '</div>'
+    + '<div id="uf-error" class="field-error-text" style="display:none"></div>'
+    + '<div class="user-form-actions">'
+    + '<button class="btn" onclick="closeUserForm()">Cancel</button>'
+    + '<button class="btn success" id="uf-save" onclick="saveUser()"><i class="ti ti-mail"></i> Send invite</button>'
+    + '</div></div></div>'
+    + '<div id="usersList"><div class="users-loading-placeholder"><i class="ti ti-loader-2"></i> Loading users…</div></div>'
+    + '</div>';
+  if(typeof loadUsers === 'function') { window.editingUserId = null; loadUsers(); }
+}
+
+function _settingsDetailPayment(detail) {
     var visibleDelivery = _showArchivedDelivery ? deliveryOptions : deliveryOptions.filter(function(d){return !d.archived;});
     var deliveryRows = visibleDelivery.map(function(d) {
       var i = deliveryOptions.indexOf(d);
@@ -2405,7 +2470,9 @@ function _showSettingsDetail(catId) {
         }
       });
     }
-  } else if (catId === 'app') {
+}
+
+function _settingsDetailApp(detail) {
     detail.innerHTML = '<div class="inbox-detail">'
       + '<div class="inbox-detail-header"><div class="inbox-detail-header-top"><div class="inbox-detail-customer">App Settings</div></div></div>'
       + '<p class="settings-desc-text">Manage your account details and notification preferences.</p>'
@@ -2463,8 +2530,6 @@ function _showSettingsDetail(catId) {
     document.getElementById('settingsPasswordConfirm').value = '';
     document.getElementById('settingsPasswordError').style.display = 'none';
     loadNotificationSettings();
-  }
-  _mobileShowDetail();
 }
 
 function _settingsToggleRevenue(i) {

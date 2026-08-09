@@ -310,6 +310,23 @@ function nextOrderId(){
   const nums=orders.map(o=>o.orderId).filter(id=>/^O\d+$/.test(String(id))).map(id=>parseInt(String(id).slice(1)));
   return 'O'+padN((nums.length?Math.max(...nums):0)+1,10);
 }
+// nextOrderId() picks max(in-memory orders)+1 — if two staff create an order
+// in the same instant from slightly-stale local lists, they can compute the
+// same id and one silently clobbers the other. This checks the candidate id
+// against the server immediately before use and bumps past any collision,
+// which narrows that race to milliseconds instead of "however stale the
+// local list is". It doesn't eliminate it — a true fix needs server-side
+// atomic id generation (a schema change) — but it's cheap and safe as-is.
+async function nextOrderIdChecked(){
+  if(DEV_MODE) return nextOrderId(); // fixture data has no real backend to check against
+  let id = nextOrderId();
+  for(let i=0;i<5;i++){
+    const existing = await sbGet('orders', '?order_id=eq.'+encodeURIComponent(id)+'&select=order_id&limit=1');
+    if(!existing.length) return id;
+    id = 'O'+padN(parseInt(id.slice(1),10)+1, 10);
+  }
+  return id; // give up retrying — fall through with best-effort id rather than block saving
+}
 function makeRowId(orderId, itemIndex){
   // Format: O0001-1, O0001-2 etc — ties each row to its order
   const shortOrder = String(orderId).replace(/^O0*/, 'O');
@@ -416,7 +433,7 @@ async function sbReplace(table, rows){
   // Safe replace: upsert all rows first, then delete any that are no longer present
   // This avoids data loss if the insert fails after a delete
   if(rows.length){
-    const upsertRes = await fetch(sbUrl(table), {
+    const upsertRes = await sbFetch(sbUrl(table), {
       method: 'POST',
       headers: { ...SB_HEADERS(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
       body: JSON.stringify(rows)
@@ -425,17 +442,10 @@ async function sbReplace(table, rows){
   }
   // Delete rows not in the new set
   const ids = rows.map(r=>r.id).filter(Boolean);
-  if(ids.length){
-    const notIn = ids.map(id=>`"${id}"`).join(',');
-    await fetch(sbUrl(table, `?id=not.in.(${notIn})`), {
-      method: 'DELETE', headers: SB_HEADERS()
-    });
-  } else {
-    // No rows — delete all
-    await fetch(sbUrl(table, '?id=neq.NONE'), {
-      method: 'DELETE', headers: SB_HEADERS()
-    });
-  }
+  const delRes = ids.length
+    ? await sbFetch(sbUrl(table, `?id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`), { method: 'DELETE', headers: SB_HEADERS() })
+    : await sbFetch(sbUrl(table, '?id=neq.NONE'), { method: 'DELETE', headers: SB_HEADERS() }); // no rows — delete all
+  if(!delRes.ok){ const t=await delRes.text(); throw new Error('Delete failed: '+t.slice(0,200)); }
 }
 
 // ── Setup ──────────────────────────────────────────────────
