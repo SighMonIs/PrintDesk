@@ -1025,7 +1025,14 @@ function _badgeBuildBacking(backingStr) {
     threshold: _badgeAssetCache?.rndThreshold ?? 60,
     name: 'round_magnet',
   };
-  if (n.includes('keychain')) return { type: 'keychain' };
+  if (n.includes('keychain')) return {
+    type: 'keychain',
+    ringSide:          _badgeAssetCache?.ringSide          ?? 'left',
+    keychainDist:      _badgeAssetCache?.keychainDist      ?? 1.5,
+    holeDiameter:      _badgeAssetCache?.holeDiameter      ?? 10,
+    holeWidth:         _badgeAssetCache?.holeWidth         ?? 3,
+    alignKeychainHole: _badgeAssetCache?.alignKeychainHole ?? false,
+  };
   if (n.includes('pin'))    return { w: 32, h: 7,  d: 2, name: 'pin' };
   if (n.includes('magnet')) return { w: 46, h: 14, d: 2, name: 'magnet' };
   return null;
@@ -1151,6 +1158,11 @@ async function _loadBadgeAssets() {
     rndDiam:      s.round_magnet_diameter  ?? 17.15,
     rndDepth:     s.round_magnet_depth     ?? 2,
     rndThreshold: s.round_magnet_threshold ?? 60,
+    ringSide:          s.ring_side           ?? 'left',
+    keychainDist:      s.keychain_dist       ?? 1.5,
+    holeDiameter:      s.hole_diameter       ?? 10,
+    holeWidth:         s.hole_width          ?? 3,
+    alignKeychainHole: s.align_keychain_hole ?? false,
     projectSettingsTemplate: tmpl,
   };
   return _badgeAssetCache;
@@ -1263,7 +1275,7 @@ async function _runBadgeLoop(items, assets, onProgress) {
       }
     }
     const _kc = backing?.type === 'keychain';
-    const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, wordSpacing: assets.wordSpacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc });
+    const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, wordSpacing: assets.wordSpacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc, keychainSettings: _kc ? backing : undefined });
     entries.push({ name: fnMap.next(rawName, backingStr), data: result.zip });
   }
   return { entries, skipped };
@@ -1367,7 +1379,7 @@ async function generateBadge(url) {
       name, layerConfig, backing: _kc3 ? null : backing, font: _badgeFont,
       fsize: assets.fsize, spacing: assets.spacing, wordSpacing: assets.wordSpacing,
       projectSettingsTemplate: assets.projectSettingsTemplate,
-      keychain: _kc3,
+      keychain: _kc3, keychainSettings: _kc3 ? backing : undefined,
     });
 
     const b = new Blob([result.zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });

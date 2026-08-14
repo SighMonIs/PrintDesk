@@ -236,6 +236,11 @@ async function loadModel(){
   if(s.round_magnet_diameter!=null)  document.getElementById('rndMagDiam').value=s.round_magnet_diameter;
   if(s.round_magnet_depth!=null)     document.getElementById('rndMagDepth').value=s.round_magnet_depth;
   if(s.round_magnet_threshold!=null) document.getElementById('rndMagThreshold').value=s.round_magnet_threshold;
+  if(s.ring_side!=null)              document.getElementById('ringSide').value=s.ring_side;
+  if(s.keychain_dist!=null)          document.getElementById('keychainDist').value=s.keychain_dist;
+  if(s.hole_diameter!=null)          document.getElementById('holeDiameter').value=s.hole_diameter;
+  if(s.hole_width!=null)             document.getElementById('holeWidth').value=s.hole_width;
+  if(s.align_keychain_hole!=null)    document.getElementById('alignKeychainHole').checked=s.align_keychain_hole;
 
   const p=prefs[0]||{};
   defRotX=parseFloat(p.def_rot_x??'-0.4');
@@ -304,6 +309,11 @@ async function saveModelSettings(){
       round_magnet_diameter:  +document.getElementById('rndMagDiam').value||17.15,
       round_magnet_depth:     +document.getElementById('rndMagDepth').value||2,
       round_magnet_threshold: +document.getElementById('rndMagThreshold').value||60,
+      ring_side:              document.getElementById('ringSide')?.value||'left',
+      keychain_dist:          +document.getElementById('keychainDist')?.value||1.5,
+      hole_diameter:          +document.getElementById('holeDiameter')?.value||10,
+      hole_width:             +document.getElementById('holeWidth')?.value||3,
+      align_keychain_hole:    !!document.getElementById('alignKeychainHole')?.checked,
     });
     if(sRes?.code||sRes?.error) throw new Error(sRes.message||sRes.error||'badge_model_settings save failed');
 

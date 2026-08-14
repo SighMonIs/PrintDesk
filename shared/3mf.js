@@ -237,7 +237,7 @@ function _badgeConcatGeos(a, b) {
 // backing: { w, h, d, name } or null
 // keychain: if true, adds red-outline base + torus loop and skips backing cutout
 // Returns: { zip: Uint8Array, filename: string }
-function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0, wordSpacing = 0, projectSettingsTemplate = null, keychain = false }) {
+function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0, wordSpacing = 0, projectSettingsTemplate = null, keychain = false, keychainSettings = {} }) {
   const polys = _badgeCommandsToClipper(_badgeGetTextCommands(font, name, fsize, spacing, wordSpacing));
   const unioned = _badgeClipperUnion(polys);
   const { offX, offY, width: bboxWidth } = _badgeBboxCentre(unioned);
@@ -299,12 +299,12 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     const redLayer = layerConfig[0];
     const redPoly = _badgeClipperOffset(unioned, redLayer.border);
 
-    const ringSide3mf = document.getElementById('ringSide')?.value || 'left';
+    const ringSide3mf = keychainSettings.ringSide ?? (document.getElementById('ringSide')?.value || 'left');
     const isRight3mf  = ringSide3mf === 'right';
 
-    const keychainDist3mf = parseFloat(document.getElementById('keychainDist')?.value || localStorage.getItem('badge2_keychainDist') || '1.5');
-    const holeDiameter3mf = parseFloat(document.getElementById('holeDiameter')?.value || localStorage.getItem('badge2_holeDiameter') || '10');
-    const holeWidth3mf    = parseFloat(document.getElementById('holeWidth')?.value    || localStorage.getItem('badge2_holeWidth')    || '3');
+    const keychainDist3mf = parseFloat(keychainSettings.keychainDist ?? (document.getElementById('keychainDist')?.value || localStorage.getItem('badge2_keychainDist') || '1.5'));
+    const holeDiameter3mf = parseFloat(keychainSettings.holeDiameter ?? (document.getElementById('holeDiameter')?.value || localStorage.getItem('badge2_holeDiameter') || '10'));
+    const holeWidth3mf    = parseFloat(keychainSettings.holeWidth    ?? (document.getElementById('holeWidth')?.value    || localStorage.getItem('badge2_holeWidth')    || '3'));
     const innerR = holeDiameter3mf / 2;
     const outerR = innerR + 2.5;
 
@@ -359,7 +359,7 @@ function generate3MF({ name, layerConfig, backing, font, fsize = 49, spacing = 0
     // Inner D-shape hole
     const innerDPath = [];
     const holeR3mf = 1, innerEdgeX3mf = isRight3mf ? badgeEdge3mf + keychainDist3mf : badgeEdge3mf - keychainDist3mf, Nf3mf = 8;
-    const alignHole3mf = document.getElementById('alignKeychainHole')?.checked || localStorage.getItem('badge2_alignKeychainHole') === '1';
+    const alignHole3mf = keychainSettings.alignKeychainHole ?? (document.getElementById('alignKeychainHole')?.checked || localStorage.getItem('badge2_alignKeychainHole') === '1');
 
     // Arc
     for (let i = 0; i <= N3mf; i++) {
