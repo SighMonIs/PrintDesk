@@ -108,7 +108,7 @@ let _layerKeySeq=1, _inputKeySeq=1;
 
 function makeDefaultLayer(order){
   return {
-    _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, fillGaps:false, name:null,
+    _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, fillGaps:false, name:null, visible:true,
     content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
     fontSize:20, border:0, depth:1,
@@ -240,7 +240,7 @@ async function loadModel(id){
       _key:_layerKeySeq++, id:r.id, order:r.layer_order,
       type: isLegacyShape ? 'shape' : (r.layer_type||'text'),
       shapeType: r.shape_type || (r.layer_type==='circle' ? 'circle' : 'rectangle'),
-      negative:!!r.is_negative, fillGaps:!!r.fill_gaps, name:r.name||null,
+      negative:!!r.is_negative, fillGaps:!!r.fill_gaps, name:r.name||null, visible:r.visible!==false,
       content:r.content, inputId: r.input_id!=null ? (inputKeyById.get(String(r.input_id))??null) : null,
       hex:r.colour_hex, colourId:r.colour_id,
       fontId:r.font_id, fontObj:getCachedFont(r.font_id),
@@ -295,7 +295,7 @@ async function saveModel(){
         ...(l.id?{id:l.id}:{}),
         model_id: currentModel.id, layer_order: i, layer_type: l.type||'text',
         shape_type: l.type==='shape' ? (l.shapeType||'rectangle') : null,
-        is_negative: !!l.negative, fill_gaps: !!l.fillGaps, name: l.name||null,
+        is_negative: !!l.negative, fill_gaps: !!l.fillGaps, name: l.name||null, visible: l.visible!==false,
         content: l.content||'', input_id: l.inputId!=null ? (inputKeyToId.get(l.inputId)||null) : null,
         colour_hex: l.hex, colour_id: l.colourId||null,
         font_id: l.fontId||null, font_size: l.fontSize,
@@ -386,17 +386,55 @@ async function renameLayer(i){
   buildLayerListUI();
 }
 
+let dragSrcIndex=null;
+function onLayerDragStart(e,i){
+  dragSrcIndex=i;
+  e.dataTransfer.effectAllowed='move';
+  e.currentTarget.classList.add('dragging');
+}
+function onLayerDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+}
+function onLayerDrop(e,i){
+  e.preventDefault();
+  if(dragSrcIndex===null || dragSrcIndex===i) return;
+  const [moved] = layerConfig.splice(dragSrcIndex,1);
+  const dest = dragSrcIndex<i ? i-1 : i;
+  layerConfig.splice(dest,0,moved);
+  if(selectedLayerIndex===dragSrcIndex) selectedLayerIndex=dest;
+  else if(dragSrcIndex<selectedLayerIndex && dest>=selectedLayerIndex) selectedLayerIndex--;
+  else if(dragSrcIndex>selectedLayerIndex && dest<=selectedLayerIndex) selectedLayerIndex++;
+  dragSrcIndex=null;
+  markDirty();
+  buildLayerListUI(); buildLayerEditorUI(); scheduleRender();
+}
+function onLayerDragEnd(){
+  dragSrcIndex=null;
+  document.querySelectorAll('.layer-row.dragging').forEach(el=>el.classList.remove('dragging'));
+}
+
+function toggleLayerVisible(i){
+  const l = layerConfig[i];
+  if(!l) return;
+  l.visible = l.visible===false;
+  markDirty(l._key);
+  buildLayerListUI(); scheduleRender();
+}
+
 function buildLayerListUI(){
   const el = document.getElementById('layerList');
   el.innerHTML = layerConfig.map((l,i)=>`
-    <div class="layer-row${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}${l.negative?' negative':''}" onclick="selectLayer(${i})">
+    <div class="layer-row${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}${l.negative?' negative':''}${l.visible===false?' hidden-layer':''}"
+      onclick="selectLayer(${i})" draggable="true"
+      ondragstart="onLayerDragStart(event,${i})" ondragover="onLayerDragOver(event)" ondrop="onLayerDrop(event,${i})" ondragend="onLayerDragEnd()">
+      <i class="ti ti-grip-vertical lr-grip"></i>
+      <button class="lr-btn" title="${l.visible===false?'Show layer':'Hide layer'}" onclick="event.stopPropagation();toggleLayerVisible(${i})"><i class="ti ${l.visible===false?'ti-eye-off':'ti-eye'}"></i></button>
       ${l.negative ? '<i class="ti ti-corner-left-up lr-neg-arrow" title="Cuts the layer above"></i>' : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
       <span class="lr-label">${esc(layerLabel(l))}</span>
       <div class="layer-row-menu-wrap">
         <button class="lr-btn" title="Layer options" onclick="event.stopPropagation();toggleLayerMenu(${i})"><i class="ti ti-dots-vertical"></i></button>
         <div class="layer-row-menu" style="display:${openLayerMenuIndex===i?'flex':'none'}" onclick="event.stopPropagation()">
-          <div class="lrm-item" onclick="moveLayer(${i},-1);closeLayerMenu()"><i class="ti ti-arrow-up"></i> Move up</div>
-          <div class="lrm-item" onclick="moveLayer(${i},1);closeLayerMenu()"><i class="ti ti-arrow-down"></i> Move down</div>
           <div class="lrm-item" onclick="duplicateLayer(${i});closeLayerMenu()"><i class="ti ti-copy"></i> Duplicate</div>
           <div class="lrm-item" onclick="renameLayer(${i});closeLayerMenu()"><i class="ti ti-edit"></i> Rename</div>
           <div class="lrm-item danger" onclick="removeLayer(${i});closeLayerMenu()"><i class="ti ti-trash"></i> Delete</div>
@@ -432,15 +470,6 @@ function duplicateLayer(i){
   buildLayerListUI(); buildLayerEditorUI(); scheduleRender();
 }
 
-function moveLayer(i,dir){
-  const j=i+dir;
-  if(j<0||j>=layerConfig.length) return;
-  [layerConfig[i],layerConfig[j]]=[layerConfig[j],layerConfig[i]];
-  selectedLayerIndex=j;
-  markDirty();
-  buildLayerListUI(); buildLayerEditorUI(); scheduleRender();
-}
-
 // ── Layer editor UI ──────────────────────────────────────────
 function buildLayerEditorUI(){
   const editor = document.getElementById('layerEditor');
@@ -465,7 +494,7 @@ function buildLayerEditorUI(){
   document.getElementById('layDepth').value = l.depth;
   document.getElementById('layOffX').value = l.offsetX;
   document.getElementById('layOffY').value = l.offsetY;
-  document.getElementById('layOffZ').value = l.offsetZ;
+  document.getElementById('layOffZ').value = computeLayerZ(l) + (l.offsetZ||0);
   document.getElementById('layRotation').value = l.rotation;
   document.getElementById('layColourSwatch').style.background = l.hex;
   document.getElementById('layColourLabel').textContent = colourName(l.hex);
@@ -489,14 +518,17 @@ function onFreeMoveDrag(l){
   if(l!==layerConfig[selectedLayerIndex]) return;
   document.getElementById('layOffX').value = l.offsetX;
   document.getElementById('layOffY').value = l.offsetY;
-  document.getElementById('layOffZ').value = l.offsetZ;
+  document.getElementById('layOffZ').value = computeLayerZ(l) + (l.offsetZ||0);
   markDirty(l._key);
 }
 
 function onLayerFieldChange(field, value){
   const l = layerConfig[selectedLayerIndex];
   if(!l) return;
-  l[field]=value;
+  // The Z field shows the layer's actual resolved position (auto-stack +
+  // manual nudge), not the raw nudge — convert back to the stored delta.
+  if(field==='offsetZ') l.offsetZ = value - computeLayerZ(l);
+  else l[field]=value;
   if(field==='type' && value==='shape' && !l.shapeType) l.shapeType='rectangle';
   markDirty(l._key);
   if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerListUI();

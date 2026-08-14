@@ -422,10 +422,12 @@ function buildBadge() {
   let z = 0, maxW = 0, maxH = 0;
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
-    if (layer.negative) continue; // consumed by the non-negative layer above it, no z-slot of its own
+    if (layer.negative || layer.visible === false) continue; // consumed/hidden — no z-slot of its own
     const depth = layer.depth || 1;
     let result = getLayerShapes(layer);
-    for (let j = i + 1; result && j < layerConfig.length && layerConfig[j].negative; j++) result = applyNegative(layer, result, layerConfig[j]);
+    for (let j = i + 1; result && j < layerConfig.length && layerConfig[j].negative; j++) {
+      if (layerConfig[j].visible !== false) result = applyNegative(layer, result, layerConfig[j]);
+    }
     if (result && result.shapes.length) {
       const geo = new THREE.ExtrudeGeometry(result.shapes, { depth, bevelEnabled: false });
       const mat = new THREE.MeshPhongMaterial({ color: parseInt((layer.hex || '#888888').replace('#',''), 16), shininess: 40 });
@@ -448,10 +450,12 @@ function buildExportObjects() {
   let z = 0;
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
-    if (layer.negative) continue;
+    if (layer.negative || layer.visible === false) continue;
     const depth = layer.depth || 1;
     let result = getLayerShapes(layer);
-    for (let j = i + 1; result && j < layerConfig.length && layerConfig[j].negative; j++) result = applyNegative(layer, result, layerConfig[j]);
+    for (let j = i + 1; result && j < layerConfig.length && layerConfig[j].negative; j++) {
+      if (layerConfig[j].visible !== false) result = applyNegative(layer, result, layerConfig[j]);
+    }
     if (result && result.shapes.length) {
       let geo = new THREE.ExtrudeGeometry(result.shapes, { depth, bevelEnabled: false });
       geo.applyMatrix4(new THREE.Matrix4().makeRotationZ((layer.rotation || 0) * Math.PI / 180));
