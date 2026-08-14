@@ -281,10 +281,16 @@ async function refreshModelDropdown(selectId){
   if(selectId!=null) sel.value = selectId;
 }
 
+// Reopen whichever model was last open, so a refresh doesn't drop you back
+// onto a finished badge. Falls back to the first model if it's since gone.
+const LS_LAST_MODEL = 'badgemaker_lastModelId';
+
 async function loadModels(){
   await refreshModelDropdown();
-  if(models.length) await loadModel(models[0].id);
-  else resetToNewModel(null);
+  if(!models.length){ resetToNewModel(null); return; }
+  const last = localStorage.getItem(LS_LAST_MODEL);
+  const wanted = models.find(m => String(m.id) === String(last));
+  await loadModel((wanted || models[0]).id);
 }
 
 async function onModelSelect(){
@@ -339,6 +345,7 @@ async function deleteModel(){
   const ok = await askConfirm(`Delete "${currentModel.name}"? This can't be undone.`);
   if(!ok) return;
   await sbDelete('badgemaker_models', `?id=eq.${currentModel.id}`);
+  localStorage.removeItem(LS_LAST_MODEL);
   await loadModels();
 }
 
@@ -400,6 +407,9 @@ function onGlobalClickCloseUserMenu(e){
 async function loadModel(id){
   currentModel = models.find(m=>String(m.id)===String(id));
   if(!currentModel) return;
+  localStorage.setItem(LS_LAST_MODEL, currentModel.id);
+  // Keep the dropdown in step however we got here (restored on load, etc).
+  document.getElementById('modelSelect').value = currentModel.id;
   deletedLayerIds = []; deletedInputIds = [];
   const [rows, inputRows] = await Promise.all([
     sbGet('badgemaker_layers', `?model_id=eq.${currentModel.id}&order=layer_order`),
@@ -444,6 +454,7 @@ async function saveModel(){
       const created = await sbUpsert('badgemaker_models', {name:currentModel.name});
       if(created?.code||created?.error) throw new Error(created?.message||created?.error||'Create failed');
       currentModel = created[0];
+      localStorage.setItem(LS_LAST_MODEL, currentModel.id);   // newly created models skip loadModel
     } else {
       const res = await sbPatch('badgemaker_models', `?id=eq.${currentModel.id}`, {name:currentModel.name, updated_at:new Date().toISOString()});
       if(res) throw new Error(res.message||res.error||'Save failed');
@@ -469,7 +480,10 @@ async function saveModel(){
       const row = {
         ...(l.id?{id:l.id}:{}),
         model_id: currentModel.id, layer_order: i, layer_type: l.type||'text',
-        shape_type: l.type==='shape' ? (l.shapeType||'rectangle') : null,
+        // shape_type is the sub-type for shapes (rectangle/circle), backings
+        // (magnet/pin/round) and keychains (connector direction) alike —
+        // gating it on type==='shape' was wiping the other two on save.
+        shape_type: l.shapeType || null,
         is_negative: !!l.negative, negative_above_only: !!l.negAboveOnly, fill_gaps: !!l.fillGaps, fit_to_shape: !!l.fitToShape, name: l.name||null, visible: l.visible!==false,
         content: l.content||'', input_id: l.inputId!=null ? (inputKeyToId.get(l.inputId)||null) : null,
         colour_hex: l.hex, colour_id: l.colourId||null,

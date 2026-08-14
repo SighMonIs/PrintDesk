@@ -211,9 +211,12 @@ function animate() {
 // ── View cube (Bambu-style orientation gizmo) ──────────────────
 // Drawn as a second viewport over the main render, bottom-left, above the
 // "Drag to rotate" pill. Click a face, edge or corner to snap the view.
-const CUBE_PX = 88, CUBE_MARGIN = 12, CUBE_BOTTOM = 42;
+const CUBE_PX = 104, CUBE_MARGIN = 12, CUBE_BOTTOM = 42;
 const cubeScene = new THREE.Scene();
-const cubeCam = new THREE.OrthographicCamera(-1.9, 1.9, 1.9, -1.9, 0.1, 100);
+// Frustum just clears the cube's half-diagonal (√3 ≈ 1.732) so a corner-on
+// view still fits, while keeping the cube big enough to click comfortably.
+const CUBE_HALF = 1.78;
+const cubeCam = new THREE.OrthographicCamera(-CUBE_HALF, CUBE_HALF, CUBE_HALF, -CUBE_HALF, 0.1, 100);
 const CUBE_FACES = ['Right', 'Left', 'Top', 'Bottom', 'Front', 'Back']; // +x,-x,+y,-y,+z,-z
 
 function faceTexture(label) {
@@ -228,15 +231,19 @@ function faceTexture(label) {
   return new THREE.CanvasTexture(c);
 }
 
+// Mesh and outline live in one group so they rotate together — rotating the
+// mesh alone left the green edges stationary.
+const cubeGroup = new THREE.Group();
 const cubeMesh = new THREE.Mesh(
   new THREE.BoxGeometry(2, 2, 2),
   CUBE_FACES.map(f => new THREE.MeshBasicMaterial({ map: faceTexture(f) }))
 );
-cubeScene.add(cubeMesh);
-cubeScene.add(new THREE.LineSegments(
+cubeGroup.add(cubeMesh);
+cubeGroup.add(new THREE.LineSegments(
   new THREE.EdgesGeometry(new THREE.BoxGeometry(2.02, 2.02, 2.02)),
   new THREE.LineBasicMaterial({ color: 0x3ecf8e })
 ));
+cubeScene.add(cubeGroup);
 cubeCam.position.copy(new THREE.Vector3(0, -80, 160).normalize().multiplyScalar(10));
 cubeCam.lookAt(0, 0, 0);
 
@@ -247,7 +254,7 @@ function cubeViewportRect() {
 
 function renderViewCube() {
   const r = cubeViewportRect();
-  cubeMesh.rotation.set(rotX, rotY, 0);
+  cubeGroup.rotation.set(rotX, rotY, 0);
   renderer.clearDepth();
   renderer.setViewport(r.x, r.y, r.w, r.h);
   renderer.setScissor(r.x, r.y, r.w, r.h);
@@ -572,8 +579,16 @@ function shapeToClipperPaths(shape, offsetX, offsetY, rotationRad) {
     const rx = v.x * cos - v.y * sin, ry = v.x * sin + v.y * cos;
     return { X: Math.round((rx + offsetX) * _BADGE_SCALE), Y: Math.round(-(ry + offsetY) * _BADGE_SCALE) };
   };
-  const paths = [shape.getPoints(24).map(xf)];
-  for (const h of shape.holes) paths.push(h.getPoints(24).map(xf));
+  // Winding has to be normalised — outer one way, holes the other. THREE
+  // shapes don't guarantee it (the keychain ring's hole is wound the same
+  // way as its outer circle), and under Clipper's NonZero fill a same-wound
+  // hole counts as solid, which silently filled the ring in.
+  const wound = (pts, wantOuter) => {
+    const p = pts.map(xf);
+    return ClipperLib.Clipper.Orientation(p) === wantOuter ? p : p.reverse();
+  };
+  const paths = [wound(shape.getPoints(24), true)];
+  for (const h of shape.holes) paths.push(wound(h.getPoints(24), false));
   return paths;
 }
 
