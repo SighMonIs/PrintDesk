@@ -33,6 +33,38 @@ function askConfirm(message, confirmLabel='Delete'){
   });
 }
 
+// Three-way prompt for the unsaved-changes guard.
+function askSaveDiscard(message){
+  return new Promise(resolve=>{
+    const overlay=document.createElement('div');
+    overlay.className='bm-modal-overlay';
+    overlay.innerHTML=`<div class="bm-modal"><div class="bm-modal-msg"></div><div class="bm-modal-btns">`
+      +`<button class="btn sm" id="bmCancel">Cancel</button>`
+      +`<button class="btn sm" id="bmDiscard">Discard</button>`
+      +`<button class="btn sm primary" id="bmSave">Save</button></div></div>`;
+    overlay.querySelector('.bm-modal-msg').textContent=message;
+    document.body.appendChild(overlay);
+    const close=v=>{ overlay.remove(); resolve(v); };
+    overlay.querySelector('#bmSave').onclick=()=>close('save');
+    overlay.querySelector('#bmDiscard').onclick=()=>close('discard');
+    overlay.querySelector('#bmCancel').onclick=()=>close('cancel');
+    overlay.addEventListener('click', e=>{ if(e.target===overlay) close('cancel'); });
+  });
+}
+
+// Called before anything that would abandon in-progress edits.
+// Returns false if the user backed out.
+async function confirmLeaveUnsaved(){
+  if(!isDirty) return true;
+  const choice = await askSaveDiscard(`"${currentModel?.name||'This model'}" has unsaved changes.`);
+  if(choice==='cancel') return false;
+  if(choice==='save'){
+    await saveModel();
+    if(isDirty) return false;   // save failed — stay put rather than lose work
+  }
+  return true;
+}
+
 function setStatus(msg,cls=''){
   const el=document.getElementById('status');
   if(!el) return;
@@ -255,8 +287,13 @@ async function loadModels(){
   else resetToNewModel(null);
 }
 
-function onModelSelect(){
+async function onModelSelect(){
   const val = document.getElementById('modelSelect').value;
+  if(!await confirmLeaveUnsaved()){
+    // Put the dropdown back on the model we're still editing.
+    document.getElementById('modelSelect').value = currentModel?.id ?? '';
+    return;
+  }
   if(!val){ resetToNewModel(null); return; }
   loadModel(val);
 }
@@ -277,6 +314,7 @@ function resetToNewModel(name){
 }
 
 async function newModel(){
+  if(!await confirmLeaveUnsaved()) return;
   const name = await askText('Model name:');
   if(!name) return;
   resetToNewModel(name);
@@ -473,7 +511,13 @@ function addInput(){
   buildLayerEditorUI();
 }
 
-function removeInput(i){
+async function removeInput(i){
+  const inp = inputs[i];
+  if(!inp) return;
+  const bound = layerConfig.filter(l=>l.inputId===inp._key).length;
+  const warn = bound ? ` ${bound} layer(s) using it will fall back to their own text.` : '';
+  const ok = await askConfirm(`Delete input "${inp.name}"?${warn}`);
+  if(!ok) return;
   const [removed] = inputs.splice(i,1);
   if(removed.id) deletedInputIds.push(removed.id);
   layerConfig.forEach(l=>{ if(l.inputId===removed._key) l.inputId=null; });
@@ -606,8 +650,10 @@ function addLayer(){
   buildLayerListUI(); buildLayerEditorUI(); scheduleRender();
 }
 
-function removeLayer(i){
+async function removeLayer(i){
   if(layerConfig.length<=1){ setStatus('A badge needs at least one layer.','err'); return; }
+  const ok = await askConfirm(`Delete layer "${layerLabel(layerConfig[i])}"?`);
+  if(!ok) return;
   const [removed] = layerConfig.splice(i,1);
   if(removed.id) deletedLayerIds.push(removed.id);
   if(selectedLayerIndex>=layerConfig.length) selectedLayerIndex=layerConfig.length-1;
@@ -841,6 +887,14 @@ async function uploadFont(file){
   }
   document.getElementById('fontUploadInput').value='';
 }
+
+// Closing/reloading the tab or following a link out can't show our own modal,
+// so fall back to the browser's native "leave site?" prompt.
+window.addEventListener('beforeunload', e => {
+  if(!isDirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 
 // ── Boot ──────────────────────────────────────────────────────
 (async()=>{ const ok=await restoreSession(); if(ok) showApp(); else setStatus(''); })();

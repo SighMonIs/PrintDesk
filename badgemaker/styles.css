@@ -21,13 +21,19 @@
 
 /* Chrome stays neutral; green is for actions only. */
 .logo, .login-logo{color:var(--text);}
-.bm-right-col header{border-bottom:1px solid var(--border);}
+.app-screen > header{border-bottom:1px solid var(--border);}
 .panel{border-right:1px solid var(--border);}
 .right-panel{border-left:1px solid var(--border);}
 .preview{background:var(--bg);}
 
 /* Section labels: small, uppercase, muted — as in the Supabase sidebar. */
 .section-title{letter-spacing:0.6px;color:var(--muted);}
+
+/* Sidebar section headers: larger title with its own + button on the right,
+   replacing the full-width "Add ..." buttons that used to sit underneath. */
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.panel-title{font-size:13px;font-weight:600;color:var(--text);}
+.add-btn{width:26px;height:26px;padding:0;flex-shrink:0;font-size:14px;}
 
 /* Inputs/buttons: flat, bordered, subtle green focus. */
 .btn{background:var(--surface2);border-color:var(--border);}
@@ -51,11 +57,10 @@
   background:var(--surface);border:1px solid var(--border);box-shadow:0 4px 16px rgba(0,0,0,0.4);
 }
 
-/* Full-height sidebar: .panel spans the whole page height on the left;
-   header now sits only to its right (sidebar edge to screen edge),
-   above the preview, instead of spanning the full page width. Scoped to
-   this page only — ../badge/styles.css (and badge/shop) stay untouched. */
-.app-screen{flex-direction:row;}
+/* Header spans the full window; both sidebars and the preview sit below it.
+   Scoped to this page — ../badge/styles.css (and badge/shop) stay untouched. */
+.app-screen{flex-direction:column;}
+.bm-body{display:flex;flex:1;min-height:0;overflow:hidden;position:relative;z-index:1;}
 .panel{width:300px;flex-shrink:0;}
 .bm-right-col{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;}
 .bm-right-col .preview{flex:1;min-height:0;}
@@ -66,7 +71,8 @@
 
 /* Model controls centred in the header — absolute so the logo/right-side
    widths don't pull it off-centre. */
-.bm-right-col header{position:relative;}
+/* Above .bm-body so the model/account dropdowns aren't clipped by the preview */
+.app-screen > header{position:relative;z-index:200;}
 .header-model{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;}
 .header-model .model-select{height:28px;font-size:12px;}
 .model-menu-wrap{position:relative;}
@@ -85,7 +91,8 @@
 .layer-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;font-size:12px;}
 .layer-row:hover{border-color:rgba(255,255,255,0.25);}
 .layer-row.selected{border-color:var(--accent);background:var(--surface);}
-.layer-row.dirty{outline:2px solid var(--red);outline-offset:-1px;}
+/* No per-layer dirty outline — it hid the green "selected" border. Unsaved
+   state is shown by the red Save button and the Revert button instead. */
 .layer-row .lr-neg-icon{color:var(--red);font-size:14px;flex-shrink:0;}
 /* Negatives limited to the layer above sit indented, with the arrow in the gutter */
 .layer-row.negative{margin-left:18px;position:relative;}

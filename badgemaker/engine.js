@@ -78,9 +78,16 @@ const scrollZoomSpeed = 0.01;
 
 let isDragging = false, lastX = 0, lastY = 0;
 canvas.addEventListener('mousedown', e => {
+  // View cube first — it sits over the canvas and shouldn't start an orbit.
+  const cubeDir = cubeHitDirection(e);
+  if (cubeDir) { orientTo(cubeDir); return; }
   const axis = getHandleAxisAtEvent(e);
   if (axis) { startAxisDrag(axis, e); return; }
   isDragging = true; lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('mousemove', e => {
+  if (isDragging || dragAxis) return;
+  canvas.style.cursor = cubeHitDirection(e) ? 'pointer' : '';
 });
 window.addEventListener('mouseup', () => { isDragging = false; dragAxis = null; });
 window.addEventListener('mousemove', e => {
@@ -197,8 +204,97 @@ function animate() {
   camera.position.set(0, -80 * zoom, 160 * zoom);
   camera.lookAt(0, 0, 0);
   renderer.render(scene, camera);
+  renderViewCube();
 }
-animate();
+// animate() is started after the view-cube setup below, since it renders it.
+
+// ── View cube (Bambu-style orientation gizmo) ──────────────────
+// Drawn as a second viewport over the main render, bottom-left, above the
+// "Drag to rotate" pill. Click a face, edge or corner to snap the view.
+const CUBE_PX = 88, CUBE_MARGIN = 12, CUBE_BOTTOM = 42;
+const cubeScene = new THREE.Scene();
+const cubeCam = new THREE.OrthographicCamera(-1.9, 1.9, 1.9, -1.9, 0.1, 100);
+const CUBE_FACES = ['Right', 'Left', 'Top', 'Bottom', 'Front', 'Back']; // +x,-x,+y,-y,+z,-z
+
+function faceTexture(label) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#2a2a2a'; g.fillRect(0, 0, 128, 128);
+  g.strokeStyle = '#3ecf8e'; g.lineWidth = 4; g.strokeRect(2, 2, 124, 124);
+  g.fillStyle = '#ededed'; g.font = '600 20px system-ui, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(label.toUpperCase(), 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+const cubeMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(2, 2, 2),
+  CUBE_FACES.map(f => new THREE.MeshBasicMaterial({ map: faceTexture(f) }))
+);
+cubeScene.add(cubeMesh);
+cubeScene.add(new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(2.02, 2.02, 2.02)),
+  new THREE.LineBasicMaterial({ color: 0x3ecf8e })
+));
+cubeCam.position.copy(new THREE.Vector3(0, -80, 160).normalize().multiplyScalar(10));
+cubeCam.lookAt(0, 0, 0);
+
+function cubeViewportRect() {
+  const w = pane.clientWidth, h = pane.clientHeight;
+  return { x: CUBE_MARGIN, y: CUBE_BOTTOM, w: CUBE_PX, h: CUBE_PX, paneW: w, paneH: h };
+}
+
+function renderViewCube() {
+  const r = cubeViewportRect();
+  cubeMesh.rotation.set(rotX, rotY, 0);
+  renderer.clearDepth();
+  renderer.setViewport(r.x, r.y, r.w, r.h);
+  renderer.setScissor(r.x, r.y, r.w, r.h);
+  renderer.setScissorTest(true);
+  renderer.render(cubeScene, cubeCam);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, r.paneW, r.paneH);
+}
+
+// Pointer → cube hit, returning the local direction of the clicked
+// face/edge/corner (1, 2 or 3 axes at their extreme).
+const cubeRaycaster = new THREE.Raycaster();
+function cubeHitDirection(e) {
+  const r = cubeViewportRect();
+  const rect = canvas.getBoundingClientRect();
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
+  const vx = px - r.x, vy = py - (r.paneH - r.y - r.h);
+  if (vx < 0 || vy < 0 || vx > r.w || vy > r.h) return null;
+  cubeRaycaster.setFromCamera(new THREE.Vector2((vx / r.w) * 2 - 1, -(vy / r.h) * 2 + 1), cubeCam);
+  const hit = cubeRaycaster.intersectObject(cubeMesh, false)[0];
+  if (!hit) return null;
+  const p = cubeMesh.worldToLocal(hit.point.clone());
+  // Half-size is 1, so this leaves the middle 75% of each face as a face
+  // click and the outer band as edges/corners. Looser than this and edges
+  // swallow the face.
+  const EDGE_BAND = 0.75;
+  const dir = new THREE.Vector3(
+    Math.abs(p.x) > EDGE_BAND ? Math.sign(p.x) : 0,
+    Math.abs(p.y) > EDGE_BAND ? Math.sign(p.y) : 0,
+    Math.abs(p.z) > EDGE_BAND ? Math.sign(p.z) : 0,
+  );
+  return dir.lengthSq() ? dir.normalize() : null;
+}
+
+// Solve Rx(a)·Ry(b)·v = cameraDir. Ry zeroes v's x-component, then Rx
+// rotates the remaining (y,z) pair onto the camera's.
+function orientTo(v) {
+  const c = new THREE.Vector3(0, -80, 160).normalize();
+  const b = Math.atan2(-v.x, v.z);
+  const q = -v.x * Math.sin(b) + v.z * Math.cos(b);
+  const a = Math.atan2(c.z, c.y) - Math.atan2(q, v.y);
+  rotX = Math.atan2(Math.sin(a), Math.cos(a));   // normalise to (-π, π]
+  rotY = b;
+  syncSlidersFromView();
+}
+
+animate();   // safe now that the view cube's constants exist
 
 function resetView() { rotX = -0.4; rotY = 0.2; zoom = 1; syncSlidersFromView(); }
 function toggleGrid() {
