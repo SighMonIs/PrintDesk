@@ -386,32 +386,38 @@ async function renameLayer(i){
   buildLayerListUI();
 }
 
+// Live reorder: the row swaps position as you drag over its neighbours, so
+// the list itself is the preview (no separate drop-indicator or ghost row).
 let dragSrcIndex=null;
 function onLayerDragStart(e,i){
   dragSrcIndex=i;
   e.dataTransfer.effectAllowed='move';
-  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.setData('text/plain',String(i)); // Firefox needs data set to start a drag
+  const img = new Image();
+  img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  e.dataTransfer.setDragImage(img, 0, 0); // suppress the translucent ghost
 }
-function onLayerDragOver(e){
+function onLayerDragOver(e,i){
   e.preventDefault();
   e.dataTransfer.dropEffect='move';
-}
-function onLayerDrop(e,i){
-  e.preventDefault();
   if(dragSrcIndex===null || dragSrcIndex===i) return;
   const [moved] = layerConfig.splice(dragSrcIndex,1);
-  const dest = dragSrcIndex<i ? i-1 : i;
-  layerConfig.splice(dest,0,moved);
-  if(selectedLayerIndex===dragSrcIndex) selectedLayerIndex=dest;
-  else if(dragSrcIndex<selectedLayerIndex && dest>=selectedLayerIndex) selectedLayerIndex--;
-  else if(dragSrcIndex>selectedLayerIndex && dest<=selectedLayerIndex) selectedLayerIndex++;
-  dragSrcIndex=null;
-  markDirty();
-  buildLayerListUI(); buildLayerEditorUI(); scheduleRender();
+  layerConfig.splice(i,0,moved);
+  if(selectedLayerIndex===dragSrcIndex) selectedLayerIndex=i;
+  else if(dragSrcIndex<selectedLayerIndex && i>=selectedLayerIndex) selectedLayerIndex--;
+  else if(dragSrcIndex>selectedLayerIndex && i<=selectedLayerIndex) selectedLayerIndex++;
+  dragSrcIndex=i;
+  buildLayerListUI();
+}
+function onLayerDrop(e){
+  e.preventDefault();
 }
 function onLayerDragEnd(){
-  dragSrcIndex=null;
-  document.querySelectorAll('.layer-row.dragging').forEach(el=>el.classList.remove('dragging'));
+  if(dragSrcIndex!==null){
+    dragSrcIndex=null;
+    markDirty();
+    buildLayerEditorUI(); scheduleRender();
+  }
 }
 
 function toggleLayerVisible(i){
@@ -427,10 +433,10 @@ function buildLayerListUI(){
   el.innerHTML = layerConfig.map((l,i)=>`
     <div class="layer-row${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}${l.negative?' negative':''}${l.visible===false?' hidden-layer':''}"
       onclick="selectLayer(${i})" draggable="true"
-      ondragstart="onLayerDragStart(event,${i})" ondragover="onLayerDragOver(event)" ondrop="onLayerDrop(event,${i})" ondragend="onLayerDragEnd()">
-      <i class="ti ti-grip-vertical lr-grip"></i>
+      ondragstart="onLayerDragStart(event,${i})" ondragover="onLayerDragOver(event,${i})" ondrop="onLayerDrop(event)" ondragend="onLayerDragEnd()">
+      ${l.negative ? '<i class="ti ti-corner-left-up lr-neg-arrow" title="Cuts the layer above"></i>' : ''}
       <button class="lr-btn" title="${l.visible===false?'Show layer':'Hide layer'}" onclick="event.stopPropagation();toggleLayerVisible(${i})"><i class="ti ${l.visible===false?'ti-eye-off':'ti-eye'}"></i></button>
-      ${l.negative ? '<i class="ti ti-corner-left-up lr-neg-arrow" title="Cuts the layer above"></i>' : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
+      <div class="lr-swatch" style="background:${l.hex}"></div>
       <span class="lr-label">${esc(layerLabel(l))}</span>
       <div class="layer-row-menu-wrap">
         <button class="lr-btn" title="Layer options" onclick="event.stopPropagation();toggleLayerMenu(${i})"><i class="ti ti-dots-vertical"></i></button>

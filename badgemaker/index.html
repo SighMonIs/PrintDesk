@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BadgeMak3r</title>
 <link rel="stylesheet" href="../badge/styles.css?v=2.5.45">
-<link rel="stylesheet" href="styles.css?v=1.9.0">
+<link rel="stylesheet" href="styles.css?v=1.11.0">
 <style>
   #loginScreen { display: flex; }
   #appScreen   { display: none; }
@@ -32,16 +32,6 @@
     <!-- Panel (full page height) -->
     <div class="panel">
       <div>
-        <div class="section-title">Model</div>
-        <div style="display:flex;gap:6px">
-          <select class="model-select" id="modelSelect" onchange="onModelSelect()" style="flex:1"><option value="">Loading…</option></select>
-          <button class="btn sm" title="New model" onclick="newModel()"><i class="ti ti-plus"></i></button>
-          <button class="btn sm" title="Rename model" onclick="renameModel()"><i class="ti ti-edit"></i></button>
-          <button class="btn sm" title="Delete model" onclick="deleteModel()"><i class="ti ti-trash"></i></button>
-        </div>
-      </div>
-
-      <div>
         <div class="section-title">Inputs</div>
         <div id="inputList" class="input-list"></div>
         <button class="btn sm" style="width:100%;margin-top:6px" onclick="addInput()"><i class="ti ti-plus"></i> Add Input</button>
@@ -53,12 +43,12 @@
         <button class="btn sm" style="width:100%;margin-top:6px" onclick="addLayer()"><i class="ti ti-plus"></i> Add Layer</button>
       </div>
 
-      <div class="btn-group">
-        <button class="btn sm" id="saveBtn" onclick="saveModel()" style="flex:1"><i class="ti ti-device-floppy"></i> Save</button>
+      <div class="btn-group" id="bottomBtnGroup">
+        <button class="btn" id="saveBtn" onclick="saveModel()" style="flex:1"><i class="ti ti-device-floppy"></i> Save</button>
         <button class="btn primary" id="exportBtn" onclick="exportBadge()" style="flex:1" disabled><i class="ti ti-download"></i> Export 3MF</button>
       </div>
       <div class="status" id="status">Signing in…</div>
-      <div class="version-footer">badgemaker v1.9.0</div>
+      <div class="version-footer">badgemaker v1.11.0</div>
     </div>
 
   <!-- Right column: header (spans sidebar edge to screen edge) + preview -->
@@ -66,6 +56,12 @@
   <header>
     <a href="/" class="btn sm" style="margin-right:8px" title="Back to PrintDesk"><i class="ti ti-arrow-left"></i></a>
     <span class="logo">PrintDesk</span><span class="logo-sep">/</span><span class="logo-sub">BadgeMak3r</span>
+    <div class="header-model">
+      <select class="model-select" id="modelSelect" onchange="onModelSelect()" style="width:180px"><option value="">Loading…</option></select>
+      <button class="btn sm" title="New model" onclick="newModel()"><i class="ti ti-plus"></i></button>
+      <button class="btn sm" title="Rename model" onclick="renameModel()"><i class="ti ti-edit"></i></button>
+      <button class="btn sm" title="Delete model" onclick="deleteModel()"><i class="ti ti-trash"></i></button>
+    </div>
     <div class="header-right">
       <span class="user-chip" id="userChip"></span>
       <button class="btn sm" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</button>
@@ -172,8 +168,8 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" integrity="sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js" integrity="sha384-oV9/r5hoq7qHFHfbghYwt50E2fe8J20vXRW0eIGQl20k40zMEAhSXMCh9ANASVB9" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js" integrity="sha384-3TaxGqyHrMuRIWY5Z5WHNIzgNRqGIUJE+mk6tm+g1wkm9Ux2kUyOLfy9AsNWXA6u" crossorigin="anonymous"></script>
-<script src="../shared/3mf.js?v=1.9.0"></script>
-<script src="engine.js?v=1.9.0"></script>
-<script src="data.js?v=1.9.0"></script>
+<script src="../shared/3mf.js?v=1.11.0"></script>
+<script src="engine.js?v=1.11.0"></script>
+<script src="data.js?v=1.11.0"></script>
 </body>
 </html>
