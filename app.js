@@ -1016,7 +1016,10 @@ function _badgeBackingMinWidth(backingName) {
 }
 
 // Build backing config object from a backing name string
-function _badgeBuildBacking(backingStr) {
+// kcAssets: the Keychain model's own settings (see _loadKeychainAssets) — the
+// default _badgeAssetCache is loaded from an arbitrary other model and must
+// not be used for keychain ring dimensions.
+function _badgeBuildBacking(backingStr, kcAssets) {
   const n = (backingStr || '').toLowerCase();
   if (n.includes('round')) return {
     type: 'round',
@@ -1027,11 +1030,11 @@ function _badgeBuildBacking(backingStr) {
   };
   if (n.includes('keychain')) return {
     type: 'keychain',
-    ringSide:          _badgeAssetCache?.ringSide          ?? 'left',
-    keychainDist:      _badgeAssetCache?.keychainDist      ?? 1.5,
-    holeDiameter:      _badgeAssetCache?.holeDiameter      ?? 10,
-    holeWidth:         _badgeAssetCache?.holeWidth         ?? 3,
-    alignKeychainHole: _badgeAssetCache?.alignKeychainHole ?? false,
+    ringSide:          kcAssets?.ringSide          ?? 'left',
+    keychainDist:      kcAssets?.keychainDist      ?? 1.5,
+    holeDiameter:      kcAssets?.holeDiameter      ?? 10,
+    holeWidth:         kcAssets?.holeWidth         ?? 3,
+    alignKeychainHole: kcAssets?.alignKeychainHole ?? false,
   };
   if (n.includes('pin'))    return { w: 32, h: 7,  d: 2, name: 'pin' };
   if (n.includes('magnet')) return { w: 46, h: 14, d: 2, name: 'magnet' };
@@ -1158,14 +1161,43 @@ async function _loadBadgeAssets() {
     rndDiam:      s.round_magnet_diameter  ?? 17.15,
     rndDepth:     s.round_magnet_depth     ?? 2,
     rndThreshold: s.round_magnet_threshold ?? 60,
+    projectSettingsTemplate: tmpl,
+  };
+  return _badgeAssetCache;
+}
+
+// The default asset cache above is loaded from an arbitrary badge model
+// (alphabetically first), not necessarily "Keychain" — its font size and
+// layer borders differ per model, so keychain exports need their own model's
+// settings rather than borrowing whichever one _loadBadgeAssets happened to pick.
+let _keychainAssetCache = null;
+async function _loadKeychainAssets() {
+  if (_keychainAssetCache) return _keychainAssetCache;
+  const models = await sbGet('badge_models', '?archived=eq.false&name=eq.Keychain&limit=1');
+  if (!models || !models.length) return null;
+  const model = models[0];
+  const [layers, settings] = await Promise.all([
+    sbGet('badge_model_layers', `?model_id=eq.${model.id}&order=layer_order`),
+    sbGet('badge_model_settings', `?model_id=eq.${model.id}`),
+  ]);
+  const layerConfig = layers.map((l, i) => ({
+    id: l.id, hex: l.colour_hex, colourId: l.colour_id,
+    border: l.border_mm, depth: l.thickness_mm,
+    hasSlot: i === 0, isText: !l.filled,
+  }));
+  const s = settings[0] || {};
+  _keychainAssetCache = {
+    layerConfig,
+    fsize:      model.font_size || 49,
+    spacing:    s.letter_spacing || 0,
+    wordSpacing: s.word_spacing || 0,
     ringSide:          s.ring_side           ?? 'left',
     keychainDist:      s.keychain_dist       ?? 1.5,
     holeDiameter:      s.hole_diameter       ?? 10,
     holeWidth:         s.hole_width          ?? 3,
     alignKeychainHole: s.align_keychain_hole ?? false,
-    projectSettingsTemplate: tmpl,
   };
-  return _badgeAssetCache;
+  return _keychainAssetCache;
 }
 
 let _batchItems = null;
@@ -1254,12 +1286,17 @@ function _batchBuildFilenameMap(items) {
 
 async function _runBadgeLoop(items, assets, onProgress) {
   const entries = [], skipped = [], fnMap = _batchBuildFilenameMap(items);
+  const needsKeychain = items.some(it => (it.backing || '').toLowerCase().includes('keychain'));
+  const kcAssets = needsKeychain ? await _loadKeychainAssets() : null;
   for (let i = 0; i < items.length; i++) {
     const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
     const name = (rawName || 'NAME').toUpperCase();
     onProgress(i, items.length, name);
     await new Promise(r => setTimeout(r, 0));
-    const layerConfig = assets.layerConfig.map(l => ({ ...l }));
+    const backing = _badgeBuildBacking(backingStr, kcAssets);
+    const _kc = backing?.type === 'keychain';
+    const activeAssets = (_kc && kcAssets) ? kcAssets : assets;
+    const layerConfig = activeAssets.layerConfig.map(l => ({ ...l }));
     if (colourStr) {
       colourStr.split('|').map(s => s.trim()).forEach((colName, idx) => {
         if (idx >= layerConfig.length) return;
@@ -1267,15 +1304,13 @@ async function _runBadgeLoop(items, assets, onProgress) {
         if (c) { layerConfig[idx].hex = c.code; layerConfig[idx].colourId = c.id; }
       });
     }
-    const backing = _badgeBuildBacking(backingStr);
     if (backing) {
-      const bb = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
+      const bb = _badgeFont.getPath(name, 0, 0, activeAssets.fsize).getBoundingBox();
       if (bb.x2 - bb.x1 < (backing.type === 'round' ? backing.diameter : (backing.w || 0))) {
         skipped.push(name); continue;
       }
     }
-    const _kc = backing?.type === 'keychain';
-    const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: assets.fsize, spacing: assets.spacing, wordSpacing: assets.wordSpacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc, keychainSettings: _kc ? backing : undefined });
+    const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: activeAssets.fsize, spacing: activeAssets.spacing, wordSpacing: activeAssets.wordSpacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc, keychainSettings: _kc ? backing : undefined });
     entries.push({ name: fnMap.next(rawName, backingStr), data: result.zip });
   }
   return { entries, skipped };
@@ -1352,7 +1387,12 @@ async function generateBadge(url) {
     const assets = await _loadBadgeAssets();
     await _ensureBadgeDeps(assets);
 
-    const layerConfig = assets.layerConfig.map(l => ({ ...l }));
+    const kcAssets = backingStr.toLowerCase().includes('keychain') ? await _loadKeychainAssets() : null;
+    const backing = _badgeBuildBacking(backingStr, kcAssets);
+    const _kc3 = backing?.type === 'keychain';
+    const activeAssets = (_kc3 && kcAssets) ? kcAssets : assets;
+
+    const layerConfig = activeAssets.layerConfig.map(l => ({ ...l }));
     if (colourStr) {
       colourStr.split('|').map(s => s.trim()).forEach((colName, i) => {
         if (i >= layerConfig.length) return;
@@ -1361,11 +1401,9 @@ async function generateBadge(url) {
       });
     }
 
-    const backing = _badgeBuildBacking(backingStr);
-
     // Validate text width vs backing minimum
     if (backing) {
-      const bb = _badgeFont.getPath(name, 0, 0, assets.fsize).getBoundingBox();
+      const bb = _badgeFont.getPath(name, 0, 0, activeAssets.fsize).getBoundingBox();
       const textWidth = bb.x2 - bb.x1;
       const minW = backing.type === 'round' ? backing.diameter : (backing.w || 0);
       if (textWidth < minW) {
@@ -1374,10 +1412,9 @@ async function generateBadge(url) {
       }
     }
 
-    const _kc3 = backing?.type === 'keychain';
     const result = generate3MF({
       name, layerConfig, backing: _kc3 ? null : backing, font: _badgeFont,
-      fsize: assets.fsize, spacing: assets.spacing, wordSpacing: assets.wordSpacing,
+      fsize: activeAssets.fsize, spacing: activeAssets.spacing, wordSpacing: activeAssets.wordSpacing,
       projectSettingsTemplate: assets.projectSettingsTemplate,
       keychain: _kc3, keychainSettings: _kc3 ? backing : undefined,
     });
