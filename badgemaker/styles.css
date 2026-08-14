@@ -1,9 +1,19 @@
 /* BadgeMak3r-specific additions on top of ../badge/styles.css */
 
+/* Full-height sidebar: .panel spans the whole page height on the left;
+   header now sits only to its right (sidebar edge to screen edge),
+   above the preview, instead of spanning the full page width. Scoped to
+   this page only — ../badge/styles.css (and badge/shop) stay untouched. */
+.app-screen{flex-direction:row;}
+.panel{width:300px;flex-shrink:0;}
+.bm-right-col{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;}
+.bm-right-col .preview{flex:1;min-height:0;}
+
 .layer-list{display:flex;flex-direction:column;gap:4px;}
 .layer-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;font-size:12px;}
 .layer-row:hover{border-color:rgba(255,255,255,0.25);}
 .layer-row.selected{border-color:var(--accent);background:var(--surface);}
+.layer-row.dirty{outline:2px solid var(--red);outline-offset:-1px;}
 .layer-row .lr-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.15);}
 .layer-row .lr-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .layer-row .lr-btns{display:flex;gap:2px;flex-shrink:0;}
@@ -19,3 +29,6 @@
 .bm-modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;}
 .bm-modal-msg{font-size:13px;color:var(--text);}
 .bm-modal-btns{display:flex;gap:8px;justify-content:flex-end;}
+
+/* Unsaved-changes indicator */
+#saveBtn.dirty{background:var(--red);border-color:var(--red);color:#fff;}

@@ -188,7 +188,23 @@ function offsetPolysToShapes(unioned, borderMM, offX, offY) {
   });
 }
 
+// Square/circle primitives — no font/clipper needed, just a plain centred shape.
+function getShapeLayerShapes(layer) {
+  const size = layer.fontSize || 20;
+  const border = layer.border || 0;
+  const shape = new THREE.Shape();
+  if (layer.type === 'circle') {
+    const r = size / 2 + border;
+    shape.absarc(0, 0, r, 0, Math.PI * 2, false);
+    return { shapes: [shape], width: r * 2, height: r * 2 };
+  }
+  const h = size / 2 + border;
+  shape.moveTo(-h, -h); shape.lineTo(h, -h); shape.lineTo(h, h); shape.lineTo(-h, h); shape.closePath();
+  return { shapes: [shape], width: h * 2, height: h * 2 };
+}
+
 function getLayerShapes(layer) {
+  if (layer.type === 'square' || layer.type === 'circle') return getShapeLayerShapes(layer);
   const font = layer.fontObj;
   const text = (layer.content || '').toUpperCase();
   if (!font || !text) return null;
@@ -239,7 +255,8 @@ function buildExportObjects() {
       geo.applyMatrix4(new THREE.Matrix4().makeRotationZ((layer.rotation || 0) * Math.PI / 180));
       geo.applyMatrix4(new THREE.Matrix4().makeTranslation(layer.offsetX || 0, layer.offsetY || 0, z + (layer.offsetZ || 0)));
       geo = _badgeMergeVerticesForExport(geo);
-      objects.push({ geo, name: (layer.content || `layer${i+1}`).slice(0, 30) || `layer${i+1}`, colour: layer.hex, extruder: i + 1, id: objects.length + 1 });
+      const label = layer.type === 'text' ? (layer.content || `layer${i+1}`) : (layer.type === 'circle' ? 'Circle' : 'Square');
+      objects.push({ geo, name: label.slice(0, 30) || `layer${i+1}`, colour: layer.hex, extruder: i + 1, id: objects.length + 1 });
     }
     z += depth;
   });
