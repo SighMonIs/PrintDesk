@@ -457,7 +457,7 @@ function getShapeLayerShapes(layer) {
   }
   // "Fit to shape": match the badge body's size, with Width/Height acting as
   // +/- adjustments rather than absolute values.
-  let w, h;
+  let w, h;   // (rounded rectangles reuse `border` as their corner radius)
   if (layer.fitToShape) {
     const b = modelBounds(layer);
     w = Math.max(0.1, b.width  + (layer.fontSize || 0));
@@ -466,8 +466,38 @@ function getShapeLayerShapes(layer) {
     w = layer.fontSize || 20; h = layer.height || 20;
   }
   const hw = w / 2, hh = h / 2;
+  if (layer.shapeType === 'roundedrect') {
+    // `border` doubles as the corner radius here, clamped so it can't exceed
+    // half the shorter side (beyond that the corners would overlap).
+    const r = Math.max(0, Math.min(layer.border || 0, Math.min(w, h) / 2));
+    if (r > 0) {
+      shape.moveTo(-hw + r, -hh);
+      shape.lineTo(hw - r, -hh);
+      shape.absarc(hw - r, -hh + r, r, -Math.PI / 2, 0, false);
+      shape.lineTo(hw, hh - r);
+      shape.absarc(hw - r, hh - r, r, 0, Math.PI / 2, false);
+      shape.lineTo(-hw + r, hh);
+      shape.absarc(-hw + r, hh - r, r, Math.PI / 2, Math.PI, false);
+      shape.lineTo(-hw, -hh + r);
+      shape.absarc(-hw + r, -hh + r, r, Math.PI, Math.PI * 1.5, false);
+      shape.closePath();
+      return { shapes: [shape], width: w, height: h };
+    }
+  }
   shape.moveTo(-hw, -hh); shape.lineTo(hw, -hh); shape.lineTo(hw, hh); shape.lineTo(-hw, hh); shape.closePath();
   return { shapes: [shape], width: w, height: h };
+}
+
+// Vertical text: one character per line, each centred on its own advance
+// width. cmdsToCenteredShapes recentres the whole block afterwards.
+function verticalTextCommands(font, text, size) {
+  const cmds = [];
+  let y = 0;
+  for (const ch of [...text]) {
+    if (ch !== ' ') cmds.push(...font.getPath(ch, -font.getAdvanceWidth(ch, size) / 2, y, size).commands);
+    y += size;
+  }
+  return cmds;
 }
 
 // A text layer either types its own literal content, or binds to one of the
@@ -602,7 +632,9 @@ function getLayerShapes(layer) {
   const font = layer.fontObj;
   const text = resolveLayerText(layer).toUpperCase();
   if (!font || !text) return null;
-  const cmds = _badgeGetTextCommands(font, text, layer.fontSize || 20, 0, 0);
+  const size = layer.fontSize || 20;
+  const cmds = layer.vertical ? verticalTextCommands(font, text, size)
+                              : _badgeGetTextCommands(font, text, size, 0, 0);
   if (!cmds.length) return null;
   const centered = cmdsToCenteredShapes(cmds, layer.fillGaps);
   if (!centered) return null;

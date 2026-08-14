@@ -205,7 +205,7 @@ function nextLayerName(){
 
 function makeDefaultLayer(order){
   return {
-    _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, negAboveOnly:false, fillGaps:false, fitToShape:false, name:nextLayerName(), visible:true,
+    _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, negAboveOnly:false, fillGaps:false, fitToShape:false, vertical:false, name:nextLayerName(), visible:true,
     content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
     fontSize:20, height:20, border:0, depth:1, repeatThreshold:0,
@@ -424,7 +424,7 @@ async function loadModel(id){
       _key:_layerKeySeq++, id:r.id, order:r.layer_order,
       type: isLegacyShape ? 'shape' : (r.layer_type||'text'),
       shapeType: r.shape_type || (r.layer_type==='circle' ? 'circle' : 'rectangle'),
-      negative:!!r.is_negative, negAboveOnly:!!r.negative_above_only, fillGaps:!!r.fill_gaps, fitToShape:!!r.fit_to_shape, name:r.name||null, visible:r.visible!==false,
+      negative:!!r.is_negative, negAboveOnly:!!r.negative_above_only, fillGaps:!!r.fill_gaps, fitToShape:!!r.fit_to_shape, vertical:!!r.vertical, name:r.name||null, visible:r.visible!==false,
       content:r.content, inputId: r.input_id!=null ? (inputKeyById.get(String(r.input_id))??null) : null,
       hex:r.colour_hex, colourId:r.colour_id,
       fontId:r.font_id, fontObj:getCachedFont(r.font_id),
@@ -484,7 +484,7 @@ async function saveModel(){
         // (magnet/pin/round) and keychains (connector direction) alike —
         // gating it on type==='shape' was wiping the other two on save.
         shape_type: l.shapeType || null,
-        is_negative: !!l.negative, negative_above_only: !!l.negAboveOnly, fill_gaps: !!l.fillGaps, fit_to_shape: !!l.fitToShape, name: l.name||null, visible: l.visible!==false,
+        is_negative: !!l.negative, negative_above_only: !!l.negAboveOnly, fill_gaps: !!l.fillGaps, fit_to_shape: !!l.fitToShape, vertical: !!l.vertical, name: l.name||null, visible: l.visible!==false,
         content: l.content||'', input_id: l.inputId!=null ? (inputKeyToId.get(l.inputId)||null) : null,
         colour_hex: l.hex, colour_id: l.colourId||null,
         font_id: l.fontId||null, font_size: l.fontSize, height_mm: l.height||20,
@@ -557,7 +557,8 @@ function layerLabel(l){
   if(l.name) return l.name;
   if(l.type==='keychain') return 'Keychain ring';
   if(l.type==='backing') return BACKING_LABELS[l.shapeType] || 'Backing';
-  if(l.type==='shape') return l.shapeType==='circle' ? 'Circle' : 'Rectangle';
+  if(l.type==='shape') return l.shapeType==='circle' ? 'Circle'
+    : l.shapeType==='roundedrect' ? 'Rounded rectangle' : 'Rectangle';
   if(l.inputId!=null){
     const inp = inputs.find(x=>x._key===l.inputId);
     return inp ? (inp.defaultValue || `[${inp.name}]`) : '(empty)';
@@ -723,9 +724,12 @@ function buildLayerEditorUI(){
   // as hole ⌀ + wall thickness + connector length.
   const isKeychain = l.type==='keychain';
   const isRound = isBacking ? l.shapeType==='round' : l.shapeType==='circle';
+  const isRounded = l.type==='shape' && l.shapeType==='roundedrect';
   const hasWH = (l.type==='shape' || isBacking) && !isRound;
+  document.getElementById('verticalTextRow').style.display = (l.type==='text') ? '' : 'none';
+  document.getElementById('layVertical').checked = !!l.vertical;
   // Fit-to-shape turns Width/Height into +/- adjustments off the badge size.
-  const canFit = l.type==='shape' && l.shapeType==='rectangle';
+  const canFit = l.type==='shape' && (l.shapeType==='rectangle' || isRounded);
   const fitOn = canFit && !!l.fitToShape;
   document.getElementById('fitToShapeRow').style.display = canFit ? '' : 'none';
   document.getElementById('layFitToShape').checked = fitOn;
@@ -738,8 +742,11 @@ function buildLayerEditorUI(){
   document.getElementById('layFontSize').min = fitOn ? -200 : (isKeychain ? 1 : 1);
   document.getElementById('layHeight').min = fitOn ? -200 : 1;
   document.getElementById('layHeight').value = l.height ?? 20;   // ?? so a 0 adjustment survives
-  document.getElementById('borderRow').style.display = (l.type==='text' || isKeychain) ? '' : 'none';
-  document.getElementById('borderLabel').textContent = isKeychain ? 'Connector length (mm)' : 'Stroke / border (mm)';
+  // `border` is reused per type: stroke for text, connector length for the
+  // keychain, corner radius for a rounded rectangle.
+  document.getElementById('borderRow').style.display = (l.type==='text' || isKeychain || isRounded) ? '' : 'none';
+  document.getElementById('borderLabel').textContent =
+    isKeychain ? 'Connector length (mm)' : isRounded ? 'Corner radius (mm)' : 'Stroke / border (mm)';
   document.getElementById('keychainSideRow').style.display = isKeychain ? '' : 'none';
   if(isKeychain) document.getElementById('layKeychainSide').value = l.shapeType||'none';
   // Cutouts (backings and negatives) are holes — they have no colour.
@@ -781,7 +788,7 @@ function onLayerFieldChange(field, value){
   const l = layerConfig[selectedLayerIndex];
   if(!l) return;
   l[field]=value;
-  if(field==='type' && value==='shape' && !['rectangle','circle'].includes(l.shapeType)) l.shapeType='rectangle';
+  if(field==='type' && value==='shape' && !['rectangle','roundedrect','circle'].includes(l.shapeType)) l.shapeType='rectangle';
   if(field==='type' && value==='backing') applyBackingPreset(l, BACKING_PRESETS[l.shapeType] ? l.shapeType : 'magnet');
   if(field==='type' && value==='keychain'){
     // Defaults match the original generator's ring: 10mm hole, 2.5mm wall, 4mm deep.
