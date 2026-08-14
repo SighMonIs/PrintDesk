@@ -283,6 +283,8 @@ function buildBadge() {
   const unioned = clipperUnion(polys);
   const { offX, offY, width, height } = bboxCentre(unioned);
   lastBadgeWH = { width, height };
+  const sizeLabel = document.getElementById('badgeSizeLabel');
+  if (sizeLabel) sizeLabel.textContent = `${width.toFixed(1)} × ${height.toFixed(1)} mm`;
 
   const isKeychain = getBackingConfig()?.type === 'keychain';
 
