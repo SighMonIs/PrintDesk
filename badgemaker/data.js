@@ -42,13 +42,54 @@ function setStatus(msg,cls=''){
 // ── Supabase ──────────────────────────────────────────────────
 const SB_URL=(window.CONFIG&&window.CONFIG.SUPABASE_URL)||'';
 const SB_KEY=(window.CONFIG&&window.CONFIG.SUPABASE_KEY)||'';
-let sbToken=null, currentUser=null;
+let sbToken=null, sbRefreshToken=null, currentUser=null;
 
 function sbHeaders(){ return{'apikey':SB_KEY,'Authorization':'Bearer '+(sbToken||SB_KEY),'Content-Type':'application/json','Prefer':'return=representation'}; }
-async function sbGet(table,q=''){ const r=await fetch(`${SB_URL}/rest/v1/${table}${q}`,{headers:sbHeaders()}); return r.json(); }
-async function sbPatch(table,q,row){ const r=await fetch(`${SB_URL}/rest/v1/${table}${q}`,{method:'PATCH',headers:sbHeaders(),body:JSON.stringify(row)}); if(!r.ok) return await r.json(); return null; }
-async function sbUpsert(table,row){ const r=await fetch(`${SB_URL}/rest/v1/${table}`,{method:'POST',headers:{...sbHeaders(),'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(row)}); return r.json(); }
-async function sbDelete(table,q){ const r=await fetch(`${SB_URL}/rest/v1/${table}${q}`,{method:'DELETE',headers:sbHeaders()}); if(!r.ok) return await r.json(); return null; }
+
+// Access tokens expire after ~1h. Rather than losing a long editing session
+// to a failed save, swap in a fresh token using the refresh token and retry.
+let _refreshInFlight = null;
+async function refreshSession(){
+  if(!sbRefreshToken) return false;
+  if(_refreshInFlight) return _refreshInFlight;   // don't stampede on parallel 401s
+  _refreshInFlight = (async()=>{
+    try{
+      const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{
+        method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+        body: JSON.stringify({refresh_token: sbRefreshToken}),
+      });
+      const data = await res.json();
+      if(!res.ok || !data.access_token) return false;
+      storeSession(data);
+      return true;
+    }catch(e){ return false; }
+    finally{ _refreshInFlight = null; }
+  })();
+  return _refreshInFlight;
+}
+
+function storeSession(data){
+  sbToken = data.access_token;
+  if(data.refresh_token) sbRefreshToken = data.refresh_token;
+  if(data.user) currentUser = data.user;
+  localStorage.setItem('badgemaker_token', sbToken);
+  if(sbRefreshToken) localStorage.setItem('badgemaker_refresh', sbRefreshToken);
+}
+
+// Single entry point so every call gets the refresh-and-retry behaviour.
+// Headers are rebuilt per attempt so the retry picks up the new token, with
+// any caller extras (e.g. upsert's Prefer) merged on top.
+async function sbFetch(path, opts={}, extraHeaders={}){
+  const send = () => fetch(`${SB_URL}/rest/v1/${path}`, {...opts, headers: {...sbHeaders(), ...extraHeaders}});
+  let r = await send();
+  if(r.status === 401 && await refreshSession()) r = await send();
+  return r;
+}
+
+async function sbGet(table,q=''){ const r=await sbFetch(`${table}${q}`); return r.json(); }
+async function sbPatch(table,q,row){ const r=await sbFetch(`${table}${q}`,{method:'PATCH',body:JSON.stringify(row)}); if(!r.ok) return await r.json(); return null; }
+async function sbUpsert(table,row){ const r=await sbFetch(table,{method:'POST',body:JSON.stringify(row)},{'Prefer':'resolution=merge-duplicates,return=representation'}); return r.json(); }
+async function sbDelete(table,q){ const r=await sbFetch(`${table}${q}`,{method:'DELETE'}); if(!r.ok) return await r.json(); return null; }
 
 // ── Auth ──────────────────────────────────────────────────────
 async function doLogin(){
@@ -62,8 +103,7 @@ async function doLogin(){
     const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
     const data=await res.json();
     if(data.error) throw new Error(data.error_description||data.error);
-    sbToken=data.access_token; currentUser=data.user;
-    localStorage.setItem('badgemaker_token',sbToken);
+    storeSession(data);
     showApp();
   }catch(e){
     errEl.textContent=e.message; errEl.style.display='block';
@@ -72,17 +112,31 @@ async function doLogin(){
 }
 
 async function restoreSession(){
-  const t=localStorage.getItem('badgemaker_token')||localStorage.getItem('pd_access_token')||localStorage.getItem('pd_token'); if(!t) return false;
+  const t=localStorage.getItem('badgemaker_token')||localStorage.getItem('pd_access_token')||localStorage.getItem('pd_token');
+  sbRefreshToken=localStorage.getItem('badgemaker_refresh')||null;
+  if(!t && !sbRefreshToken) return false;
+  const fetchUser=async tok=>{
+    const res=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+tok}});
+    return res.ok ? res.json() : null;
+  };
   try{
-    const res=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+t}});
-    if(!res.ok) return false;
-    sbToken=t; currentUser=await res.json(); return true;
+    if(t){
+      const user=await fetchUser(t);
+      if(user){ sbToken=t; currentUser=user; return true; }
+    }
+    // Stored token dead — a valid refresh token still gets us back in.
+    if(await refreshSession()){
+      currentUser = await fetchUser(sbToken);
+      return !!currentUser;
+    }
+    return false;
   }catch(e){ return false; }
 }
 
 function doLogout(){
   localStorage.removeItem('badgemaker_token');
-  sbToken=null; currentUser=null;
+  localStorage.removeItem('badgemaker_refresh');
+  sbToken=null; sbRefreshToken=null; currentUser=null;
   document.getElementById('appScreen').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
 }
@@ -106,9 +160,20 @@ async function showApp(){
 let colours=[], fonts=[], models=[], currentModel=null, layerConfig=[], inputs=[], selectedLayerIndex=-1, deletedLayerIds=[], deletedInputIds=[];
 let _layerKeySeq=1, _inputKeySeq=1;
 
+// Layers get a plain incrementing name; rename via the row's ⋮ menu.
+// Counts existing "Layer N" names so it doesn't collide after deletes.
+function nextLayerName(){
+  let max = 0;
+  for(const l of layerConfig){
+    const m = /^Layer (\d+)$/.exec(l.name || '');
+    if(m) max = Math.max(max, +m[1]);
+  }
+  return `Layer ${Math.max(max + 1, layerConfig.length + 1)}`;
+}
+
 function makeDefaultLayer(order){
   return {
-    _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, fillGaps:false, name:null, visible:true,
+    _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, fillGaps:false, fitToShape:false, name:nextLayerName(), visible:true,
     content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
     fontSize:20, height:20, border:0, depth:1, repeatThreshold:0,
@@ -199,6 +264,7 @@ function onModelSelect(){
 function resetToNewModel(name){
   currentModel = name ? { id:null, name } : null;
   deletedLayerIds = []; deletedInputIds = [];
+  layerConfig = [];              // clear first so naming restarts at "Layer 1"
   layerConfig = [makeDefaultLayer(0)];
   inputs = [];
   selectedLayerIndex = 0;
@@ -255,7 +321,7 @@ async function loadModel(id){
       _key:_layerKeySeq++, id:r.id, order:r.layer_order,
       type: isLegacyShape ? 'shape' : (r.layer_type||'text'),
       shapeType: r.shape_type || (r.layer_type==='circle' ? 'circle' : 'rectangle'),
-      negative:!!r.is_negative, fillGaps:!!r.fill_gaps, name:r.name||null, visible:r.visible!==false,
+      negative:!!r.is_negative, fillGaps:!!r.fill_gaps, fitToShape:!!r.fit_to_shape, name:r.name||null, visible:r.visible!==false,
       content:r.content, inputId: r.input_id!=null ? (inputKeyById.get(String(r.input_id))??null) : null,
       hex:r.colour_hex, colourId:r.colour_id,
       fontId:r.font_id, fontObj:getCachedFont(r.font_id),
@@ -311,7 +377,7 @@ async function saveModel(){
         ...(l.id?{id:l.id}:{}),
         model_id: currentModel.id, layer_order: i, layer_type: l.type||'text',
         shape_type: l.type==='shape' ? (l.shapeType||'rectangle') : null,
-        is_negative: !!l.negative, fill_gaps: !!l.fillGaps, name: l.name||null, visible: l.visible!==false,
+        is_negative: !!l.negative, fill_gaps: !!l.fillGaps, fit_to_shape: !!l.fitToShape, name: l.name||null, visible: l.visible!==false,
         content: l.content||'', input_id: l.inputId!=null ? (inputKeyToId.get(l.inputId)||null) : null,
         colour_hex: l.hex, colour_id: l.colourId||null,
         font_id: l.fontId||null, font_size: l.fontSize, height_mm: l.height||20,
@@ -539,11 +605,20 @@ function buildLayerEditorUI(){
   const isKeychain = l.type==='keychain';
   const isRound = isBacking ? l.shapeType==='round' : l.shapeType==='circle';
   const hasWH = (l.type==='shape' || isBacking) && !isRound;
+  // Fit-to-shape turns Width/Height into +/- adjustments off the badge size.
+  const canFit = l.type==='shape' && l.shapeType==='rectangle';
+  const fitOn = canFit && !!l.fitToShape;
+  document.getElementById('fitToShapeRow').style.display = canFit ? '' : 'none';
+  document.getElementById('layFitToShape').checked = fitOn;
   document.getElementById('sizeOrWidthLabel').textContent =
-    isKeychain ? 'Hole ⌀ (mm)' : hasWH ? 'Width (mm)' : 'Size (mm)';
+    isKeychain ? 'Hole ⌀ (mm)' : fitOn ? 'Width +/− (mm)' : hasWH ? 'Width (mm)' : 'Size (mm)';
   document.getElementById('heightRow').style.display = (hasWH || isKeychain) ? '' : 'none';
-  document.getElementById('heightLabel').textContent = isKeychain ? 'Wall thickness (mm)' : 'Height (mm)';
-  document.getElementById('layHeight').value = l.height||20;
+  document.getElementById('heightLabel').textContent =
+    isKeychain ? 'Wall thickness (mm)' : fitOn ? 'Height +/− (mm)' : 'Height (mm)';
+  // Adjustments can go negative; absolute sizes can't.
+  document.getElementById('layFontSize').min = fitOn ? -200 : (isKeychain ? 1 : 1);
+  document.getElementById('layHeight').min = fitOn ? -200 : 1;
+  document.getElementById('layHeight').value = l.height ?? 20;   // ?? so a 0 adjustment survives
   document.getElementById('borderRow').style.display = (l.type==='text' || isKeychain) ? '' : 'none';
   document.getElementById('borderLabel').textContent = isKeychain ? 'Connector length (mm)' : 'Stroke / border (mm)';
   document.getElementById('keychainSideRow').style.display = isKeychain ? '' : 'none';
@@ -607,6 +682,24 @@ function applyBackingPreset(l, presetKey){
   if(!p) return;
   l.shapeType = presetKey;
   l.fontSize = p.width; l.height = p.height; l.depth = p.depth;
+}
+
+// Switching on fit-to-shape zeroes Width/Height so they start as pure
+// adjustments; switching off restores concrete sizes from the fitted result.
+function onFitToShapeToggle(checked){
+  const l = layerConfig[selectedLayerIndex];
+  if(!l) return;
+  if(checked){
+    l.fitToShape = true;
+    l.fontSize = 0; l.height = 0;
+  } else {
+    const b = modelBounds(l);
+    l.fitToShape = false;
+    l.fontSize = Math.max(1, +(b.width  + (l.fontSize||0)).toFixed(2));
+    l.height   = Math.max(1, +(b.height + (l.height  ||0)).toFixed(2));
+  }
+  markDirty(l._key);
+  buildLayerEditorUI(); scheduleRender();
 }
 
 function repeatCount(l){
@@ -677,7 +770,7 @@ async function uploadFont(file){
     if(created?.code||created?.error) throw new Error(created?.message||created?.error||'Font upload failed');
     const row = created[0];
     fonts.push(row);
-    fontCache.set(row.id, parsed);
+    fontCache.set(fontKey(row.id), parsed);
     buildFontDropdown();
     if(layerConfig[selectedLayerIndex]){
       document.getElementById('layFont').value = row.id;

@@ -261,11 +261,14 @@ function loadBuiltinFont() {
   return builtinFontPromise;
 }
 
-function getCachedFont(fontId) { return fontCache.get(fontId || 'builtin') || null; }
+// Keys are always strings: DB ids arrive as numbers from PostgREST but as
+// strings from <select>.value, and a Map keyed by 3 won't match "3".
+function fontKey(fontId) { return fontId == null || fontId === '' ? 'builtin' : String(fontId); }
+function getCachedFont(fontId) { return fontCache.get(fontKey(fontId)) || null; }
 
 function parseAndCacheFont(fontId, base64) {
   const font = opentype.parse(base64ToArrayBuffer(base64));
-  fontCache.set(fontId, font);
+  fontCache.set(fontKey(fontId), font);
   return font;
 }
 
@@ -348,7 +351,16 @@ function getShapeLayerShapes(layer) {
     shape.absarc(0, 0, r, 0, Math.PI * 2, false);
     return { shapes: [shape], width: r * 2, height: r * 2 };
   }
-  const w = layer.fontSize || 20, h = layer.height || 20;
+  // "Fit to shape": match the badge body's size, with Width/Height acting as
+  // +/- adjustments rather than absolute values.
+  let w, h;
+  if (layer.fitToShape) {
+    const b = modelBounds(layer);
+    w = Math.max(0.1, b.width  + (layer.fontSize || 0));
+    h = Math.max(0.1, b.height + (layer.height   || 0));
+  } else {
+    w = layer.fontSize || 20; h = layer.height || 20;
+  }
   const hw = w / 2, hh = h / 2;
   shape.moveTo(-hw, -hh); shape.lineTo(hw, -hh); shape.lineTo(hw, hh); shape.lineTo(-hw, hh); shape.closePath();
   return { shapes: [shape], width: w, height: h };
@@ -516,20 +528,33 @@ function zRangesOverlap(a, b) {
 // would otherwise punch straight through. Split the target into Z bands at
 // each cutter's start/end and only subtract within the bands it actually
 // spans — so a 2mm cutter leaves the bottom 1mm of a 3mm layer intact.
-// Overall width of the solid layers — what a repeating backing spreads across.
-// Cached per render pass since buildLayerSlabs runs once per layer.
-let _modelWidthCache = null;
-function invalidateModelWidth() { _modelWidthCache = null; }
-function modelWidth() {
-  if (_modelWidthCache !== null) return _modelWidthCache;
-  let w = 0;
+// Size of the badge body, used by "fit to shape" rectangles and by repeating
+// backings. Keychain rings are excluded — they hang off the badge rather than
+// being part of it — as are fit-to-shape layers themselves (they'd recurse).
+// Measured once per render pass; buildLayerSlabs runs per layer.
+let _layerDimsCache = null;
+function invalidateModelWidth() { _layerDimsCache = null; }
+function layerDims() {
+  if (_layerDimsCache) return _layerDimsCache;
+  const dims = new Map();
   for (const l of layerConfig) {
     if (isCutter(l) || l.visible === false) continue;
+    if (l.type === 'keychain') continue;
+    if (l.type === 'shape' && l.fitToShape) continue;
     const r = getLayerShapes(l);
-    if (r) w = Math.max(w, r.width);
+    if (r) dims.set(l._key, { w: r.width, h: r.height });
   }
-  return (_modelWidthCache = w);
+  return (_layerDimsCache = dims);
 }
+function modelBounds(exclude) {
+  let width = 0, height = 0;
+  for (const [key, d] of layerDims()) {
+    if (exclude && key === exclude._key) continue;
+    width = Math.max(width, d.w); height = Math.max(height, d.h);
+  }
+  return { width, height };
+}
+function modelWidth() { return modelBounds().width; }
 
 // A round-magnet backing can auto-repeat across the badge, matching the
 // original generator: one magnet per `repeatThreshold` mm of width, spread
