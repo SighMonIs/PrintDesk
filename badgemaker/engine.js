@@ -324,19 +324,18 @@ function offsetPolysToShapes(unioned, borderMM, offX, offY, fillGaps) {
   });
 }
 
-// Rectangle/circle primitives — no font/clipper needed, just a plain centred shape.
+// Rectangle/circle primitives — no font/clipper/stroke, just a plain centred shape.
 function getShapeLayerShapes(layer) {
-  const size = layer.fontSize || 20;
-  const border = layer.border || 0;
   const shape = new THREE.Shape();
   if (layer.shapeType === 'circle') {
-    const r = size / 2 + border;
+    const r = (layer.fontSize || 20) / 2;
     shape.absarc(0, 0, r, 0, Math.PI * 2, false);
     return { shapes: [shape], width: r * 2, height: r * 2 };
   }
-  const h = size / 2 + border;
-  shape.moveTo(-h, -h); shape.lineTo(h, -h); shape.lineTo(h, h); shape.lineTo(-h, h); shape.closePath();
-  return { shapes: [shape], width: h * 2, height: h * 2 };
+  const w = layer.fontSize || 20, h = layer.height || 20;
+  const hw = w / 2, hh = h / 2;
+  shape.moveTo(-hw, -hh); shape.lineTo(hw, -hh); shape.lineTo(hw, hh); shape.lineTo(-hw, hh); shape.closePath();
+  return { shapes: [shape], width: w, height: h };
 }
 
 // A text layer either types its own literal content, or binds to one of the

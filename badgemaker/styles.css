@@ -9,6 +9,10 @@
 .bm-right-col{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;}
 .bm-right-col .preview{flex:1;min-height:0;}
 
+/* Right sidebar: Selected Layer editor, same width as the left panel */
+.right-panel{width:300px;flex-shrink:0;padding:1.25rem;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:1rem;overflow-y:auto;overflow-x:hidden;min-height:0;}
+.right-panel .layer-setting-block{display:flex;flex-direction:column;gap:6px;}
+
 .layer-list{display:flex;flex-direction:column;gap:4px;}
 .layer-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;font-size:12px;}
 .layer-row:hover{border-color:rgba(255,255,255,0.25);}

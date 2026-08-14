@@ -111,7 +111,7 @@ function makeDefaultLayer(order){
     _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, fillGaps:false, name:null, visible:true,
     content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
-    fontSize:20, border:0, depth:1,
+    fontSize:20, height:20, border:0, depth:1,
     offsetX:0, offsetY:0, offsetZ:0, rotation:0,
   };
 }
@@ -244,7 +244,7 @@ async function loadModel(id){
       content:r.content, inputId: r.input_id!=null ? (inputKeyById.get(String(r.input_id))??null) : null,
       hex:r.colour_hex, colourId:r.colour_id,
       fontId:r.font_id, fontObj:getCachedFont(r.font_id),
-      fontSize:r.font_size, border:r.border_mm, depth:r.thickness_mm,
+      fontSize:r.font_size, height:r.height_mm||20, border:r.border_mm, depth:r.thickness_mm,
       offsetX:r.offset_x, offsetY:r.offset_y, offsetZ:r.offset_z, rotation:r.rotation,
     };
   });
@@ -298,7 +298,7 @@ async function saveModel(){
         is_negative: !!l.negative, fill_gaps: !!l.fillGaps, name: l.name||null, visible: l.visible!==false,
         content: l.content||'', input_id: l.inputId!=null ? (inputKeyToId.get(l.inputId)||null) : null,
         colour_hex: l.hex, colour_id: l.colourId||null,
-        font_id: l.fontId||null, font_size: l.fontSize,
+        font_id: l.fontId||null, font_size: l.fontSize, height_mm: l.height||20,
         border_mm: l.border, thickness_mm: l.depth,
         offset_x: l.offsetX, offset_y: l.offsetY, offset_z: l.offsetZ, rotation: l.rotation,
       };
@@ -489,6 +489,11 @@ function buildLayerEditorUI(){
   document.getElementById('layFillGaps').checked = !!l.fillGaps;
   buildFontDropdown();
   document.getElementById('layFont').value = l.fontId||'';
+  const isRect = l.type==='shape' && l.shapeType==='rectangle';
+  document.getElementById('sizeOrWidthLabel').textContent = isRect ? 'Width (mm)' : 'Size (mm)';
+  document.getElementById('heightRow').style.display = isRect ? '' : 'none';
+  document.getElementById('layHeight').value = l.height||20;
+  document.getElementById('borderRow').style.display = (l.type==='shape') ? 'none' : '';
   document.getElementById('layFontSize').value = l.fontSize;
   document.getElementById('layBorder').value = l.border;
   document.getElementById('layDepth').value = l.depth;
@@ -532,7 +537,7 @@ function onLayerFieldChange(field, value){
   if(field==='type' && value==='shape' && !l.shapeType) l.shapeType='rectangle';
   markDirty(l._key);
   if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerListUI();
-  if(field==='type'||field==='inputId') buildLayerEditorUI();
+  if(field==='type'||field==='shapeType'||field==='inputId') buildLayerEditorUI();
   scheduleRender();
 }
 
