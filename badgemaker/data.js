@@ -122,24 +122,39 @@ function makeDefaultInput(order){
 
 // ── Unsaved-changes tracking ────────────────────────────────────
 let isDirty=false, dirtyLayerKeys=new Set(), dirtyInputKeys=new Set();
+function updateDirtyUI(){
+  const save=document.getElementById('saveBtn');
+  if(save) save.classList.toggle('dirty', isDirty);
+  const revert=document.getElementById('revertBtn');
+  if(revert) revert.style.display = isDirty ? '' : 'none';
+}
 function markDirty(layerKey){
   isDirty=true;
   if(layerKey!=null) dirtyLayerKeys.add(layerKey);
-  const btn=document.getElementById('saveBtn');
-  if(btn) btn.classList.add('dirty');
+  updateDirtyUI();
 }
 function markInputDirty(inputKey){
   isDirty=true;
   dirtyInputKeys.add(inputKey);
-  const btn=document.getElementById('saveBtn');
-  if(btn) btn.classList.add('dirty');
+  updateDirtyUI();
   const row=document.querySelector(`.input-row[data-key="${inputKey}"]`);
   if(row) row.classList.add('dirty');
 }
 function clearDirty(){
   isDirty=false; dirtyLayerKeys.clear(); dirtyInputKeys.clear();
-  const btn=document.getElementById('saveBtn');
-  if(btn) btn.classList.remove('dirty');
+  updateDirtyUI();
+}
+
+// Revert = re-read the saved model from the DB, throwing away in-memory edits.
+// An unsaved new model has nothing to revert to, so fall back to the list.
+async function revertChanges(){
+  if(!isDirty) return;
+  const ok = await askConfirm('Discard all unsaved changes?', 'Revert');
+  if(!ok) return;
+  setStatus('Reverting…');
+  if(currentModel?.id) await loadModel(currentModel.id);
+  else await loadModels();
+  setStatus('Reverted','ok'); setTimeout(()=>setStatus(''),1500);
 }
 
 function colourName(hex){ const c=colours.find(c=>c.code?.toLowerCase()===(hex||'').toLowerCase()); return c?c.name:hex; }
@@ -434,9 +449,10 @@ function buildLayerListUI(){
     <div class="layer-row${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}${l.negative?' negative':''}${l.visible===false?' hidden-layer':''}"
       onclick="selectLayer(${i})" draggable="true"
       ondragstart="onLayerDragStart(event,${i})" ondragover="onLayerDragOver(event,${i})" ondrop="onLayerDrop(event)" ondragend="onLayerDragEnd()">
-      ${l.negative ? '<i class="ti ti-corner-left-up lr-neg-arrow" title="Cuts the layer above"></i>' : ''}
       <button class="lr-btn" title="${l.visible===false?'Show layer':'Hide layer'}" onclick="event.stopPropagation();toggleLayerVisible(${i})"><i class="ti ${l.visible===false?'ti-eye-off':'ti-eye'}"></i></button>
-      <div class="lr-swatch" style="background:${l.hex}"></div>
+      ${l.negative
+        ? '<i class="ti ti-ban lr-neg-icon" title="Negative — cuts the layers it overlaps"></i>'
+        : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
       <span class="lr-label">${esc(layerLabel(l))}</span>
       <div class="layer-row-menu-wrap">
         <button class="lr-btn" title="Layer options" onclick="event.stopPropagation();toggleLayerMenu(${i})"><i class="ti ti-dots-vertical"></i></button>
@@ -505,7 +521,7 @@ function buildLayerEditorUI(){
   document.getElementById('layDepth').value = l.depth;
   document.getElementById('layOffX').value = l.offsetX;
   document.getElementById('layOffY').value = l.offsetY;
-  document.getElementById('layOffZ').value = computeLayerZ(l) + (l.offsetZ||0);
+  document.getElementById('layOffZ').value = l.offsetZ;
   document.getElementById('layRotation').value = l.rotation;
   document.getElementById('layColourSwatch').style.background = l.hex;
   document.getElementById('layColourLabel').textContent = colourName(l.hex);
@@ -529,17 +545,14 @@ function onFreeMoveDrag(l){
   if(l!==layerConfig[selectedLayerIndex]) return;
   document.getElementById('layOffX').value = l.offsetX;
   document.getElementById('layOffY').value = l.offsetY;
-  document.getElementById('layOffZ').value = computeLayerZ(l) + (l.offsetZ||0);
+  document.getElementById('layOffZ').value = l.offsetZ;
   markDirty(l._key);
 }
 
 function onLayerFieldChange(field, value){
   const l = layerConfig[selectedLayerIndex];
   if(!l) return;
-  // The Z field shows the layer's actual resolved position (auto-stack +
-  // manual nudge), not the raw nudge — convert back to the stored delta.
-  if(field==='offsetZ') l.offsetZ = value - computeLayerZ(l);
-  else l[field]=value;
+  l[field]=value;
   if(field==='type' && value==='shape' && !l.shapeType) l.shapeType='rectangle';
   markDirty(l._key);
   if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerListUI();

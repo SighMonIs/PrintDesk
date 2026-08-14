@@ -44,14 +44,19 @@ try {
   pane.insertAdjacentHTML('beforeend', '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--muted,#999)">3D preview unavailable — your browser/GPU couldn\'t create a WebGL context.</div>');
 }
 
+// Viewport prefs (grid on/off, background colour) persist per browser.
+const LS_BG = 'badgemaker_bgColour', LS_GRID = 'badgemaker_gridVisible';
+const savedBg = parseInt(localStorage.getItem(LS_BG) ?? '0x18181b');
+
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x18181b);
+scene.background = new THREE.Color(isNaN(savedBg) ? 0x18181b : savedBg);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(50, -50, 100); scene.add(dl);
 const fl = new THREE.DirectionalLight(0xffffff, 0.3); fl.position.set(-50, 50, 50);  scene.add(fl);
 
 const grid = new THREE.GridHelper(300, 30, 0x333337, 0x222225);
+grid.visible = localStorage.getItem(LS_GRID) !== '0';
 const badgeGroup = new THREE.Group();
 scene.add(badgeGroup);
 badgeGroup.add(grid);
@@ -124,21 +129,9 @@ function makeAxisHandle(axis) {
   return group;
 }
 
-// Z-stack height of `layer` — mirrors buildBadge's accumulation (negative
-// layers don't occupy their own slot) so the handles sit at the right height.
-function computeLayerZ(layer) {
-  let z = 0;
-  for (const l of layerConfig) {
-    if (l === layer) return z;
-    if (!l.negative) z += (l.depth || 1);
-  }
-  return z;
-}
-
 function updateHandlePosition() {
   if (!freeMoveHandles || !freeMoveLayer) return;
-  const z = computeLayerZ(freeMoveLayer);
-  freeMoveHandles.position.set(freeMoveLayer.offsetX || 0, freeMoveLayer.offsetY || 0, z + (freeMoveLayer.offsetZ || 0));
+  freeMoveHandles.position.set(freeMoveLayer.offsetX || 0, freeMoveLayer.offsetY || 0, freeMoveLayer.offsetZ || 0);
 }
 
 function setFreeMoveLayer(layer) {
@@ -208,8 +201,31 @@ function animate() {
 animate();
 
 function resetView() { rotX = -0.4; rotY = 0.2; zoom = 1; syncSlidersFromView(); }
-function toggleGrid() { grid.visible = !grid.visible; document.getElementById('toggleGridBtn').style.opacity = grid.visible ? '1' : '0.4'; }
-function setBg(colour, el) { scene.background = new THREE.Color(colour); document.querySelectorAll('#viewportPanel [onclick^="setBg"]').forEach(e => e.style.border = '1px solid var(--border2)'); el.style.border = '2px solid var(--accent)'; }
+function toggleGrid() {
+  grid.visible = !grid.visible;
+  localStorage.setItem(LS_GRID, grid.visible ? '1' : '0');
+  syncGridBtn();
+}
+function syncGridBtn() {
+  const btn = document.getElementById('toggleGridBtn');
+  if (btn) btn.style.opacity = grid.visible ? '1' : '0.4';
+}
+function setBg(colour, el) {
+  scene.background = new THREE.Color(colour);
+  localStorage.setItem(LS_BG, '0x' + colour.toString(16).padStart(6, '0'));
+  syncBgSwatches();
+}
+// Highlight whichever swatch matches the current background (used on load too,
+// since the saved colour may not be the first swatch).
+function syncBgSwatches() {
+  const current = scene.background.getHexString();
+  document.querySelectorAll('#viewportPanel [onclick^="setBg"]').forEach(e => {
+    const match = e.style.background && new THREE.Color(e.style.background).getHexString() === current;
+    e.style.border = match ? '2px solid var(--accent)' : '1px solid var(--border2)';
+  });
+}
+syncGridBtn();
+syncBgSwatches();
 function toggleCamPanel(id) { const panels = ['camAnglePanel','viewportPanel']; panels.forEach(p => { if (p !== id) document.getElementById(p).style.display = 'none'; }); const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; }
 function applyCam() { rotX = parseFloat(document.getElementById('camRotX').value); rotY = parseFloat(document.getElementById('camRotY').value); zoom = parseFloat(document.getElementById('camZoom').value); }
 function syncNum(sId, nId) { const v = parseFloat(document.getElementById(sId).value); const step = parseFloat(document.getElementById(sId).step || '0.01'); const dec = step.toString().includes('.') ? step.toString().split('.')[1].length : 2; document.getElementById(nId).value = v.toFixed(dec); }
@@ -416,27 +432,39 @@ function applyNegative(target, targetResult, neg) {
 let renderTimer = null;
 function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(buildBadge, 150); }
 
+// A negative layer cuts every solid layer it physically overlaps in Z.
+function zRangesOverlap(a, b) {
+  const az = a.offsetZ || 0, bz = b.offsetZ || 0;
+  return az < bz + (b.depth || 1) && bz < az + (a.depth || 1);
+}
+function applyNegatives(layer, result) {
+  for (const neg of layerConfig) {
+    if (!result) break;
+    if (!neg.negative || neg.visible === false) continue;
+    if (!zRangesOverlap(layer, neg)) continue;
+    result = applyNegative(layer, result, neg);
+  }
+  return result;
+}
+
 function buildBadge() {
   badgeGroup.children.filter(c => c !== grid && c !== freeMoveHandles).forEach(c => badgeGroup.remove(c));
-  let z = 0, maxW = 0, maxH = 0;
+  let maxW = 0, maxH = 0;
+  // Every layer sits at its own Z — no auto-stacking, the user sets offsets.
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
-    if (layer.negative || layer.visible === false) continue; // consumed/hidden — no z-slot of its own
+    if (layer.negative || layer.visible === false) continue;
     const depth = layer.depth || 1;
-    let result = getLayerShapes(layer);
-    for (let j = i + 1; result && j < layerConfig.length && layerConfig[j].negative; j++) {
-      if (layerConfig[j].visible !== false) result = applyNegative(layer, result, layerConfig[j]);
-    }
+    let result = applyNegatives(layer, getLayerShapes(layer));
     if (result && result.shapes.length) {
       const geo = new THREE.ExtrudeGeometry(result.shapes, { depth, bevelEnabled: false });
       const mat = new THREE.MeshPhongMaterial({ color: parseInt((layer.hex || '#888888').replace('#',''), 16), shininess: 40 });
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(layer.offsetX || 0, layer.offsetY || 0, z + (layer.offsetZ || 0));
+      mesh.position.set(layer.offsetX || 0, layer.offsetY || 0, layer.offsetZ || 0);
       mesh.rotation.z = (layer.rotation || 0) * Math.PI / 180;
       badgeGroup.add(mesh);
       maxW = Math.max(maxW, result.width); maxH = Math.max(maxH, result.height);
     }
-    z += depth;
   }
   const sizeLabel = document.getElementById('badgeSizeLabel');
   if (sizeLabel) sizeLabel.textContent = maxW ? `${maxW.toFixed(1)} × ${maxH.toFixed(1)} mm` : '';
@@ -446,24 +474,19 @@ function buildBadge() {
 // ── 3MF export ───────────────────────────────────────────────────
 function buildExportObjects() {
   const objects = [];
-  let z = 0;
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
     if (layer.negative || layer.visible === false) continue;
     const depth = layer.depth || 1;
-    let result = getLayerShapes(layer);
-    for (let j = i + 1; result && j < layerConfig.length && layerConfig[j].negative; j++) {
-      if (layerConfig[j].visible !== false) result = applyNegative(layer, result, layerConfig[j]);
-    }
+    let result = applyNegatives(layer, getLayerShapes(layer));
     if (result && result.shapes.length) {
       let geo = new THREE.ExtrudeGeometry(result.shapes, { depth, bevelEnabled: false });
       geo.applyMatrix4(new THREE.Matrix4().makeRotationZ((layer.rotation || 0) * Math.PI / 180));
-      geo.applyMatrix4(new THREE.Matrix4().makeTranslation(layer.offsetX || 0, layer.offsetY || 0, z + (layer.offsetZ || 0)));
+      geo.applyMatrix4(new THREE.Matrix4().makeTranslation(layer.offsetX || 0, layer.offsetY || 0, layer.offsetZ || 0));
       geo = _badgeMergeVerticesForExport(geo);
       const label = layer.type === 'text' ? (resolveLayerText(layer) || `layer${i+1}`) : (layer.shapeType === 'circle' ? 'Circle' : 'Rectangle');
       objects.push({ geo, name: label.slice(0, 30) || `layer${i+1}`, colour: layer.hex, extruder: i + 1, id: objects.length + 1 });
     }
-    z += depth;
   }
   return objects;
 }
