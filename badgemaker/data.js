@@ -376,6 +376,7 @@ function onInputFieldChange(i, field, value){
 const BACKING_LABELS = {magnet:'Magnet backing', pin:'Pin backing', round:'Round magnet'};
 function layerLabel(l){
   if(l.name) return l.name;
+  if(l.type==='keychain') return 'Keychain ring';
   if(l.type==='backing') return BACKING_LABELS[l.shapeType] || 'Backing';
   if(l.type==='shape') return l.shapeType==='circle' ? 'Circle' : 'Rectangle';
   if(l.inputId!=null){
@@ -512,7 +513,7 @@ function buildLayerEditorUI(){
   document.getElementById('backingTypeRow').style.display = isBacking ? '' : 'none';
   if(isBacking) document.getElementById('layBackingType').value = l.shapeType||'magnet';
   // Backings are always cutouts, so the Negative toggle is redundant there.
-  document.getElementById('negativeRow').style.display = isBacking ? 'none' : '';
+  document.getElementById('negativeRow').style.display = (isBacking || l.type==='keychain') ? 'none' : '';
   document.getElementById('layNegative').checked = !!l.negative;
   // Auto-repeat only applies to round magnets (as in the original generator).
   const canRepeat = isBacking && l.shapeType==='round';
@@ -532,14 +533,21 @@ function buildLayerEditorUI(){
   document.getElementById('layFillGaps').checked = !!l.fillGaps;
   buildFontDropdown();
   document.getElementById('layFont').value = l.fontId||'';
-  // Width+Height for rectangles and non-round backings; a single Size for
-  // text and round shapes/backings.
+  // The three dimension fields are shared across types, relabelled to suit:
+  // text/shape/backing use Size|Width + Height + Stroke; keychain reuses them
+  // as hole ⌀ + wall thickness + connector length.
+  const isKeychain = l.type==='keychain';
   const isRound = isBacking ? l.shapeType==='round' : l.shapeType==='circle';
   const hasWH = (l.type==='shape' || isBacking) && !isRound;
-  document.getElementById('sizeOrWidthLabel').textContent = hasWH ? 'Width (mm)' : 'Size (mm)';
-  document.getElementById('heightRow').style.display = hasWH ? '' : 'none';
+  document.getElementById('sizeOrWidthLabel').textContent =
+    isKeychain ? 'Hole ⌀ (mm)' : hasWH ? 'Width (mm)' : 'Size (mm)';
+  document.getElementById('heightRow').style.display = (hasWH || isKeychain) ? '' : 'none';
+  document.getElementById('heightLabel').textContent = isKeychain ? 'Wall thickness (mm)' : 'Height (mm)';
   document.getElementById('layHeight').value = l.height||20;
-  document.getElementById('borderRow').style.display = (l.type==='text') ? '' : 'none';
+  document.getElementById('borderRow').style.display = (l.type==='text' || isKeychain) ? '' : 'none';
+  document.getElementById('borderLabel').textContent = isKeychain ? 'Connector length (mm)' : 'Stroke / border (mm)';
+  document.getElementById('keychainSideRow').style.display = isKeychain ? '' : 'none';
+  if(isKeychain) document.getElementById('layKeychainSide').value = l.shapeType||'none';
   // Cutouts (backings and negatives) are holes — they have no colour.
   document.getElementById('layColourWrap').closest('.adv-row').style.display = (isBacking || l.negative) ? 'none' : '';
   document.getElementById('layFontSize').value = l.fontSize;
@@ -581,6 +589,11 @@ function onLayerFieldChange(field, value){
   l[field]=value;
   if(field==='type' && value==='shape' && !['rectangle','circle'].includes(l.shapeType)) l.shapeType='rectangle';
   if(field==='type' && value==='backing') applyBackingPreset(l, BACKING_PRESETS[l.shapeType] ? l.shapeType : 'magnet');
+  if(field==='type' && value==='keychain'){
+    // Defaults match the original generator's ring: 10mm hole, 2.5mm wall, 4mm deep.
+    if(!KEYCHAIN_SIDES.includes(l.shapeType)) l.shapeType='right';
+    l.fontSize=10; l.height=2.5; l.border=3; l.depth=4; l.negative=false;
+  }
   markDirty(l._key);
   if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerListUI();
   if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='repeatThreshold') buildLayerEditorUI();

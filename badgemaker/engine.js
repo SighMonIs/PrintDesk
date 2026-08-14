@@ -376,7 +376,65 @@ const BACKING_PRESETS = {
 // Backings are cutouts, so they act exactly like negative layers.
 function isCutter(layer) { return layer.negative || layer.type === 'backing'; }
 
+// ── Keychain ring ──────────────────────────────────────────────
+// The original generator auto-welded a D-ring to the badge's left/right
+// edge. Here layers are freely positioned, so the ring is just a solid
+// layer you place yourself; the "connector" is the flat tab that extends
+// into the badge body so the slicer fuses them into one part.
+// Field reuse (no extra columns): fontSize = hole ⌀, height = wall
+// thickness, border = connector length, shapeType = connector direction.
+const KEYCHAIN_SIDES = ['none', 'left', 'right', 'up', 'down'];
+
+function circleToClipper(cx, cy, r, n = 64) {
+  const path = [];
+  for (let i = 0; i < n; i++) {
+    const a = (Math.PI * 2 * i) / n;
+    path.push({ X: Math.round((cx + r * Math.cos(a)) * _BADGE_SCALE), Y: Math.round((cy + r * Math.sin(a)) * _BADGE_SCALE) });
+  }
+  return path;
+}
+function rectToClipper(x0, y0, x1, y1) {
+  return [
+    { X: Math.round(x0 * _BADGE_SCALE), Y: Math.round(y0 * _BADGE_SCALE) },
+    { X: Math.round(x1 * _BADGE_SCALE), Y: Math.round(y0 * _BADGE_SCALE) },
+    { X: Math.round(x1 * _BADGE_SCALE), Y: Math.round(y1 * _BADGE_SCALE) },
+    { X: Math.round(x0 * _BADGE_SCALE), Y: Math.round(y1 * _BADGE_SCALE) },
+  ];
+}
+
+function getKeychainShapes(layer) {
+  const innerR = (layer.fontSize || 10) / 2;
+  const wall   = layer.height || 2.5;
+  const outerR = innerR + wall;
+  const side   = KEYCHAIN_SIDES.includes(layer.shapeType) ? layer.shapeType : 'none';
+  const conn   = Math.max(0, layer.border || 0);
+
+  // Outer silhouette: ring disc, unioned with the connector tab if any.
+  const outerPaths = [circleToClipper(0, 0, outerR)];
+  if (side !== 'none' && conn > 0) {
+    if (side === 'right')      outerPaths.push(rectToClipper(0, -outerR, outerR + conn, outerR));
+    else if (side === 'left')  outerPaths.push(rectToClipper(-outerR - conn, -outerR, 0, outerR));
+    else if (side === 'up')    outerPaths.push(rectToClipper(-outerR, 0, outerR, outerR + conn));
+    else                       outerPaths.push(rectToClipper(-outerR, -outerR - conn, outerR, 0));
+  }
+  const unioned = _badgeClipperUnion(outerPaths);
+  const outers = unioned.filter(p => ClipperLib.Clipper.Orientation(p));
+  if (!outers.length) return null;
+
+  const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE, p.Y / _BADGE_SCALE);
+  const shapes = outers.map(o => new THREE.Shape(o.map(toVec2)));
+  // Punch the ring hole into whichever outer contour contains it.
+  const holePath = circleToClipper(0, 0, innerR);
+  for (const s of shapes) {
+    const outer = outers[shapes.indexOf(s)];
+    if (pointInPolygon(holePath[0], outer)) s.holes.push(new THREE.Path(holePath.map(toVec2)));
+  }
+  const bb = _badgeBboxCentre(unioned);
+  return { shapes, width: bb.width, height: bb.height };
+}
+
 function getLayerShapes(layer) {
+  if (layer.type === 'keychain') return getKeychainShapes(layer);
   if (layer.type === 'backing') {
     const isRound = BACKING_PRESETS[layer.shapeType]?.round;
     return getShapeLayerShapes({ ...layer, shapeType: isRound ? 'circle' : 'rectangle' });
