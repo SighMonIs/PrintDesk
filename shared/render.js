@@ -11,8 +11,14 @@ fetch('../badge/project_settings_template.json').then(r=>r.json()).then(t=>{proj
 // ── Three.js setup ─────────────────────────────────────────────
 const canvas   = document.getElementById('canvas');
 const pane     = document.getElementById('previewPane');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setPixelRatio(window.devicePixelRatio);
+let renderer = null;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+} catch (e) {
+  console.error('WebGL context creation failed:', e);
+  pane.insertAdjacentHTML('beforeend', '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--muted,#999)">3D preview unavailable — your browser/GPU couldn\'t create a WebGL context. Try closing other tabs or restarting your browser.</div>');
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(parseInt(localStorage.getItem(LS_PREFIX+'bgColour') || '0x18181b'));
@@ -28,6 +34,7 @@ scene.add(badgeGroup);
 badgeGroup.add(grid);
 
 function resize() {
+  if (!renderer) return;
   const w = pane.clientWidth, h = pane.clientHeight;
   if (!w || !h) return; // container not laid out yet — wait for the next ResizeObserver tick rather than set a NaN/Infinity aspect
   renderer.setSize(w, h);
@@ -73,6 +80,7 @@ canvas.addEventListener('touchmove', e => {
 
 function animate() {
   requestAnimationFrame(animate);
+  if (!renderer) return;
   badgeGroup.rotation.x = rotX;
   badgeGroup.rotation.y = rotY;
   camera.position.set(0, -80 * zoom, 160 * zoom);
