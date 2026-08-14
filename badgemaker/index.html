@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BadgeMak3r</title>
+<link rel="stylesheet" href="../badge/styles.css?v=2.5.45">
+<link rel="stylesheet" href="styles.css?v=1.0.0">
+<style>
+  #loginScreen { display: flex; }
+  #appScreen   { display: none; }
+</style>
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.46.0/dist/fonts/tabler-icons.woff2?v3.46.0" as="font" type="font/woff2" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.46.0/dist/tabler-icons.min.css" integrity="sha384-ND+q1IVc0KDElX60dZaqKc7Xl9cdxd2PpU2JfVUHcurCkFVtVLFdt9vJfxtHSL3p" crossorigin="anonymous">
+</head>
+<body>
+
+<!-- ── Login ── -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">PrintDesk</div>
+    <div class="login-sub">BadgeMak3r — sign in to continue</div>
+    <div class="login-field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="username email" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="login-field"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="login-error" id="loginError"></div>
+    <button class="btn primary" id="loginBtn" onclick="doLogin()" style="width:100%"><i class="ti ti-login"></i> Sign in</button>
+  </div>
+</div>
+
+<!-- ── App ── -->
+<div class="app-screen" id="appScreen">
+  <header>
+    <a href="/" class="btn sm" style="margin-right:8px" title="Back to PrintDesk"><i class="ti ti-arrow-left"></i></a>
+    <span class="logo">PrintDesk</span><span class="logo-sep">/</span><span class="logo-sub">BadgeMak3r</span>
+    <div class="header-right">
+      <span class="user-chip" id="userChip"></span>
+      <button class="btn sm" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</button>
+    </div>
+  </header>
+  <main>
+    <!-- Panel -->
+    <div class="panel">
+      <div>
+        <div class="section-title">Model</div>
+        <div style="display:flex;gap:6px">
+          <select class="model-select" id="modelSelect" onchange="onModelSelect()" style="flex:1"><option value="">Loading…</option></select>
+          <button class="btn sm" title="New model" onclick="newModel()"><i class="ti ti-plus"></i></button>
+          <button class="btn sm" title="Rename model" onclick="renameModel()"><i class="ti ti-edit"></i></button>
+          <button class="btn sm" title="Delete model" onclick="deleteModel()"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Layers</div>
+        <div id="layerList" class="layer-list"></div>
+        <button class="btn sm" style="width:100%;margin-top:6px" onclick="addLayer()"><i class="ti ti-plus"></i> Add Layer</button>
+      </div>
+
+      <div id="layerEditor" class="layer-editor" style="display:none">
+        <div class="section-title">Selected Layer</div>
+        <div class="adv-row"><label>Text</label><input type="text" class="adv-text-input" id="layContent" style="width:150px" oninput="onLayerFieldChange('content',this.value)"></div>
+        <div class="adv-row"><label>Font</label>
+          <select class="adv-text-input" id="layFont" style="width:150px" onchange="onLayerFontChange(this.value)"></select>
+        </div>
+        <div class="adv-row"><label></label><button class="btn sm" style="width:150px" onclick="document.getElementById('fontUploadInput').click()"><i class="ti ti-upload"></i> Upload font…</button></div>
+        <input type="file" id="fontUploadInput" accept=".ttf,.otf" style="display:none" onchange="uploadFont(this.files[0])">
+        <div class="adv-row"><label>Colour</label>
+          <div class="colour-picker-wrap" id="layColourWrap" style="width:150px">
+            <div class="colour-picker-btn" onclick="toggleLayerColourPicker(this)">
+              <div class="cp-swatch" id="layColourSwatch"></div>
+              <span class="cp-label" id="layColourLabel">—</span>
+              <i class="ti ti-chevron-down" style="font-size:11px;color:var(--muted);flex-shrink:0"></i>
+            </div>
+            <div class="colour-picker-list" id="layColourList" style="display:none"></div>
+          </div>
+        </div>
+        <div class="adv-row"><label>Font size (mm)</label><input type="number" class="adv-input" id="layFontSize" min="2" max="200" step="0.5" onchange="onLayerFieldChange('fontSize',+this.value)"></div>
+        <div class="adv-row"><label>Stroke / border (mm)</label><input type="number" class="adv-input" id="layBorder" min="0" max="20" step="0.25" onchange="onLayerFieldChange('border',+this.value)"></div>
+        <div class="adv-row"><label>Depth (mm)</label><input type="number" class="adv-input" id="layDepth" min="0.1" max="20" step="0.1" onchange="onLayerFieldChange('depth',+this.value)"></div>
+        <div class="section-title" style="margin-top:8px">Position</div>
+        <div class="adv-row"><label>X offset (mm)</label><input type="number" class="adv-input" id="layOffX" step="0.5" onchange="onLayerFieldChange('offsetX',+this.value)"></div>
+        <div class="adv-row"><label>Y offset (mm)</label><input type="number" class="adv-input" id="layOffY" step="0.5" onchange="onLayerFieldChange('offsetY',+this.value)"></div>
+        <div class="adv-row"><label>Z offset (mm)</label><input type="number" class="adv-input" id="layOffZ" step="0.5" onchange="onLayerFieldChange('offsetZ',+this.value)"></div>
+        <div class="adv-row"><label>Rotation (°)</label><input type="number" class="adv-input" id="layRotation" step="1" onchange="onLayerFieldChange('rotation',+this.value)"></div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn sm" id="saveBtn" onclick="saveModel()" style="flex:1"><i class="ti ti-device-floppy"></i> Save</button>
+        <button class="btn primary" id="exportBtn" onclick="exportBadge()" style="flex:1" disabled><i class="ti ti-download"></i> Export 3MF</button>
+      </div>
+      <div class="status" id="status">Signing in…</div>
+      <div class="version-footer">badgemaker v1.0.0</div>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview" id="previewPane">
+      <canvas id="canvas"></canvas>
+      <div class="preview-controls">
+        <button class="btn sm" id="toggleGridBtn" onclick="toggleGrid()"><i class="ti ti-grid-dots"></i> Grid</button>
+        <button class="btn sm" onclick="toggleCamPanel('camAnglePanel')"><i class="ti ti-camera-cog"></i></button>
+        <button class="btn sm" onclick="toggleCamPanel('viewportPanel')"><i class="ti ti-palette"></i></button>
+      </div>
+      <div class="cam-panel" id="camAnglePanel" style="display:none">
+        <div class="cam-panel-title">Camera Angle</div>
+        <div class="cam-row"><label>rotX</label><input type="range" id="camRotX" min="-1.57" max="1.57" step="0.01" value="-0.4" oninput="syncNum('camRotX','camRotXN');applyCam()"><input type="number" id="camRotXN" value="-0.40" step="0.01" oninput="syncSlider('camRotX','camRotXN');applyCam()"></div>
+        <div class="cam-row"><label>rotY</label><input type="range" id="camRotY" min="-3.14" max="3.14" step="0.01" value="0.2" oninput="syncNum('camRotY','camRotYN');applyCam()"><input type="number" id="camRotYN" value="0.20" step="0.01" oninput="syncSlider('camRotY','camRotYN');applyCam()"></div>
+        <div class="cam-row"><label>Zoom</label><input type="range" id="camZoom" min="0.3" max="4" step="0.05" value="1" oninput="syncNum('camZoom','camZoomN');applyCam()"><input type="number" id="camZoomN" value="1.00" step="0.05" oninput="syncSlider('camZoom','camZoomN');applyCam()"></div>
+      </div>
+      <div class="cam-panel" id="viewportPanel" style="display:none">
+        <div class="cam-panel-title">Viewport</div>
+        <div class="cam-row">
+          <label>Background</label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+            <div onclick="setBg(0x18181b,this)" style="width:24px;height:24px;border-radius:4px;background:#18181b;border:2px solid var(--accent);cursor:pointer"></div>
+            <div onclick="setBg(0x444444,this)" style="width:24px;height:24px;border-radius:4px;background:#444;border:1px solid var(--border2);cursor:pointer"></div>
+            <div onclick="setBg(0x888888,this)" style="width:24px;height:24px;border-radius:4px;background:#888;border:1px solid var(--border2);cursor:pointer"></div>
+            <div onclick="setBg(0xcccccc,this)" style="width:24px;height:24px;border-radius:4px;background:#ccc;border:1px solid var(--border2);cursor:pointer"></div>
+            <div onclick="setBg(0xffffff,this)" style="width:24px;height:24px;border-radius:4px;background:#fff;border:1px solid var(--border2);cursor:pointer"></div>
+          </div>
+        </div>
+      </div>
+      <button onclick="resetView()" class="btn sm" style="position:absolute;top:10px;left:50%;transform:translateX(-50%)"><i class="ti ti-rotate-2"></i> Reset Camera</button>
+      <div class="preview-label">Drag to rotate · Scroll to zoom</div>
+      <div class="preview-size" id="badgeSizeLabel"></div>
+    </div>
+  </main>
+</div>
+
+<script src="../config.js" onerror="console.warn('config.js missing')"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" integrity="sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js" integrity="sha384-oV9/r5hoq7qHFHfbghYwt50E2fe8J20vXRW0eIGQl20k40zMEAhSXMCh9ANASVB9" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js" integrity="sha384-3TaxGqyHrMuRIWY5Z5WHNIzgNRqGIUJE+mk6tm+g1wkm9Ux2kUyOLfy9AsNWXA6u" crossorigin="anonymous"></script>
+<script src="../shared/3mf.js?v=1.0.0"></script>
+<script src="engine.js?v=1.0.0"></script>
+<script src="data.js?v=1.0.0"></script>
+</body>
+</html>
