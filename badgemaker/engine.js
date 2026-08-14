@@ -510,34 +510,59 @@ function circleToClipper(cx, cy, r, n = 64) {
   }
   return path;
 }
-function rectToClipper(x0, y0, x1, y1) {
-  return [
-    { X: Math.round(x0 * _BADGE_SCALE), Y: Math.round(y0 * _BADGE_SCALE) },
-    { X: Math.round(x1 * _BADGE_SCALE), Y: Math.round(y0 * _BADGE_SCALE) },
-    { X: Math.round(x1 * _BADGE_SCALE), Y: Math.round(y1 * _BADGE_SCALE) },
-    { X: Math.round(x0 * _BADGE_SCALE), Y: Math.round(y1 * _BADGE_SCALE) },
-  ];
-}
+// Ring geometry follows the original generator (shared/render.js): the outer
+// is a D — a semicircle with flat sides running into the badge — and the hole
+// is a matching slot, semicircular at the far end with a filleted flat edge
+// facing the badge. Built with the connector pointing +x, then rotated.
+// Defaults line up with the original's (⌀10 hole, 3mm flat, 2.5mm wall).
+const KEYCHAIN_FLAT = 0.6;    // flat edge distance from centre, as a fraction of r
+const KEYCHAIN_FILLET = 1;    // corner radius on the hole's flat edge, mm
 
-// The hole is a D, flat edge facing the connector (as on the original
-// generator's ring) so the split ring seats against it. With no connector
-// there's no side to flatten, so it stays a plain circle.
-const KEYCHAIN_FLAT = 0.6;   // chord distance from centre, as a fraction of r
-function keychainHolePath(r, side) {
-  if (side === 'none') return circleToClipper(0, 0, r);
-  const a0 = Math.acos(KEYCHAIN_FLAT);        // where the flat chord meets the arc
-  const N = 48, pts = [];
-  for (let i = 0; i <= N; i++) {              // major arc, away from the flat
-    const a = a0 + (2 * Math.PI - 2 * a0) * i / N;
-    pts.push([r * Math.cos(a), r * Math.sin(a)]);
-  }
-  const phi = side === 'right' ? 0 : side === 'up' ? Math.PI / 2
-            : side === 'left'  ? Math.PI : -Math.PI / 2;
+function keySide(side) {
+  return side === 'right' ? 0 : side === 'up' ? Math.PI / 2
+       : side === 'left'  ? Math.PI : -Math.PI / 2;
+}
+function toClipRot(pts, phi) {
   const cos = Math.cos(phi), sin = Math.sin(phi);
   return pts.map(([x, y]) => ({
     X: Math.round((x * cos - y * sin) * _BADGE_SCALE),
     Y: Math.round((x * sin + y * cos) * _BADGE_SCALE),
   }));
+}
+// Semicircle on the far side (+x is the connector direction), from (0,r) round
+// through (-r,0) to (0,-r).
+function farSemicircle(r, N = 48) {
+  const pts = [];
+  for (let i = 0; i <= N; i++) {
+    const a = Math.PI / 2 + (Math.PI * i) / N;
+    pts.push([r * Math.cos(a), r * Math.sin(a)]);
+  }
+  return pts;
+}
+
+function keychainOuterPath(outerR, conn, side) {
+  const pts = farSemicircle(outerR);
+  pts.push([conn, -outerR], [conn, outerR]);   // flat sides into the badge
+  return toClipRot(pts, keySide(side));
+}
+
+function keychainHolePath(r, side, hasConnector) {
+  if (!hasConnector) return circleToClipper(0, 0, r);
+  const f = r * KEYCHAIN_FLAT;                       // flat edge position
+  const fr = Math.min(KEYCHAIN_FILLET, r * 0.4, f);  // corner radius
+  const pts = farSemicircle(r);
+  const Nf = 8;
+  pts.push([f - fr, -r]);                            // bottom edge
+  for (let i = 0; i <= Nf; i++) {                    // bottom corner
+    const a = -Math.PI / 2 + (Math.PI / 2) * i / Nf;
+    pts.push([f - fr + fr * Math.cos(a), -r + fr + fr * Math.sin(a)]);
+  }
+  pts.push([f, r - fr]);                             // flat edge
+  for (let i = 0; i <= Nf; i++) {                    // top corner
+    const a = (Math.PI / 2) * i / Nf;
+    pts.push([f - fr + fr * Math.cos(a), r - fr + fr * Math.sin(a)]);
+  }
+  return toClipRot(pts, keySide(side));
 }
 
 function getKeychainShapes(layer) {
@@ -547,14 +572,11 @@ function getKeychainShapes(layer) {
   const side   = KEYCHAIN_SIDES.includes(layer.shapeType) ? layer.shapeType : 'none';
   const conn   = Math.max(0, layer.border || 0);
 
-  // Outer silhouette: ring disc, unioned with the connector tab if any.
-  const outerPaths = [circleToClipper(0, 0, outerR)];
-  if (side !== 'none' && conn > 0) {
-    if (side === 'right')      outerPaths.push(rectToClipper(0, -outerR, outerR + conn, outerR));
-    else if (side === 'left')  outerPaths.push(rectToClipper(-outerR - conn, -outerR, 0, outerR));
-    else if (side === 'up')    outerPaths.push(rectToClipper(-outerR, 0, outerR, outerR + conn));
-    else                       outerPaths.push(rectToClipper(-outerR, -outerR - conn, outerR, 0));
-  }
+  // Outer silhouette: a D — semicircle plus flat sides running into the
+  // badge — or a plain disc when there's no connector.
+  const hasConn = side !== 'none' && conn > 0;
+  const outerPaths = [hasConn ? keychainOuterPath(outerR, conn, side)
+                              : circleToClipper(0, 0, outerR)];
   const unioned = _badgeClipperUnion(outerPaths);
   const outers = unioned.filter(p => ClipperLib.Clipper.Orientation(p));
   if (!outers.length) return null;
@@ -562,7 +584,7 @@ function getKeychainShapes(layer) {
   const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE, p.Y / _BADGE_SCALE);
   const shapes = outers.map(o => new THREE.Shape(o.map(toVec2)));
   // Punch the ring hole into whichever outer contour contains it.
-  const holePath = keychainHolePath(innerR, side);
+  const holePath = keychainHolePath(innerR, side, hasConn);
   for (const s of shapes) {
     const outer = outers[shapes.indexOf(s)];
     if (pointInPolygon(holePath[0], outer)) s.holes.push(new THREE.Path(holePath.map(toVec2)));
