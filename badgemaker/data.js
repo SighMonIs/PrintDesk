@@ -208,7 +208,7 @@ function makeDefaultLayer(order){
     _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, negAboveOnly:false, fillGaps:false, fitToShape:false, vertical:false, name:nextLayerName(), visible:true,
     content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
-    fontSize:20, height:20, border:0, depth:1, repeatThreshold:0,
+    fontSize:20, height:20, border:0, depth:1, repeatThreshold:0, letterSpacing:0, wordSpacing:0,
     offsetX:0, offsetY:0, offsetZ:0, rotation:0,
   };
 }
@@ -430,6 +430,7 @@ async function loadModel(id){
       fontId:r.font_id, fontObj:getCachedFont(r.font_id),
       fontSize:r.font_size, height:r.height_mm||20, border:r.border_mm, depth:r.thickness_mm,
       repeatThreshold:r.repeat_threshold_mm||0,
+      letterSpacing:r.letter_spacing_mm||0, wordSpacing:r.word_spacing_mm||0,
       offsetX:r.offset_x, offsetY:r.offset_y, offsetZ:r.offset_z, rotation:r.rotation,
     };
   });
@@ -489,6 +490,7 @@ async function saveModel(){
         colour_hex: l.hex, colour_id: l.colourId||null,
         font_id: l.fontId||null, font_size: l.fontSize, height_mm: l.height||20,
         repeat_threshold_mm: l.repeatThreshold||0,
+        letter_spacing_mm: l.letterSpacing||0, word_spacing_mm: l.wordSpacing||0,
         border_mm: l.border, thickness_mm: l.depth,
         offset_x: l.offsetX, offset_y: l.offsetY, offset_z: l.offsetZ, rotation: l.rotation,
       };
@@ -717,6 +719,11 @@ function buildLayerEditorUI(){
   document.getElementById('layContentRow').style.display = l.inputId!=null ? 'none' : '';
   document.getElementById('layContent').value = l.content||'';
   document.getElementById('layFillGaps').checked = !!l.fillGaps;
+  document.getElementById('layLetterSpacing').value = l.letterSpacing ?? 0;
+  document.getElementById('layWordSpacing').value = l.wordSpacing ?? 0;
+  // In vertical mode letter spacing is the gap between stacked characters.
+  document.getElementById('letterSpacingLabel').textContent =
+    l.vertical ? 'Line spacing (mm)' : 'Letter spacing (mm)';
   buildFontDropdown();
   document.getElementById('layFont').value = l.fontId||'';
   // The three dimension fields are shared across types, relabelled to suit:
@@ -797,7 +804,7 @@ function onLayerFieldChange(field, value){
   }
   markDirty(l._key);
   if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly') buildLayerListUI();
-  if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly'||field==='repeatThreshold') buildLayerEditorUI();
+  if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly'||field==='repeatThreshold'||field==='vertical') buildLayerEditorUI();
   scheduleRender();
 }
 

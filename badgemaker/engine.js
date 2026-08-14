@@ -489,13 +489,15 @@ function getShapeLayerShapes(layer) {
 }
 
 // Vertical text: one character per line, each centred on its own advance
-// width. cmdsToCenteredShapes recentres the whole block afterwards.
-function verticalTextCommands(font, text, size) {
+// width. cmdsToCenteredShapes recentres the whole block afterwards. Letter
+// spacing becomes the gap between lines here, word spacing the gap at a space.
+function verticalTextCommands(font, text, size, letterSpacing = 0, wordSpacing = 0) {
   const cmds = [];
   let y = 0;
   for (const ch of [...text]) {
-    if (ch !== ' ') cmds.push(...font.getPath(ch, -font.getAdvanceWidth(ch, size) / 2, y, size).commands);
-    y += size;
+    if (ch === ' ') { y += size + letterSpacing + wordSpacing; continue; }
+    cmds.push(...font.getPath(ch, -font.getAdvanceWidth(ch, size) / 2, y, size).commands);
+    y += size + letterSpacing;
   }
   return cmds;
 }
@@ -633,8 +635,9 @@ function getLayerShapes(layer) {
   const text = resolveLayerText(layer).toUpperCase();
   if (!font || !text) return null;
   const size = layer.fontSize || 20;
-  const cmds = layer.vertical ? verticalTextCommands(font, text, size)
-                              : _badgeGetTextCommands(font, text, size, 0, 0);
+  const ls = layer.letterSpacing || 0, ws = layer.wordSpacing || 0;
+  const cmds = layer.vertical ? verticalTextCommands(font, text, size, ls, ws)
+                              : _badgeGetTextCommands(font, text, size, ls, ws);
   if (!cmds.length) return null;
   const centered = cmdsToCenteredShapes(cmds, layer.fillGaps);
   if (!centered) return null;
