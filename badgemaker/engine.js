@@ -5,6 +5,33 @@
 let projectSettingsTemplate = null;
 fetch('../badge/project_settings_template.json').then(r=>r.json()).then(t=>{projectSettingsTemplate=t;}).catch(()=>{});
 
+// ── Number field +/- spinners (ported from shared/render.js) ────
+function stepInput(input, dir) {
+  const step = parseFloat(input.step) || 1;
+  const min  = input.min !== '' ? parseFloat(input.min) : -Infinity;
+  const max  = input.max !== '' ? parseFloat(input.max) :  Infinity;
+  const dec  = step.toString().includes('.') ? step.toString().split('.')[1].length : 0;
+  const newVal = Math.min(max, Math.max(min, (parseFloat(input.value) || 0) + dir * step));
+  input.value = newVal.toFixed(dec);
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function wrapSpinners(container) {
+  if (!container) return;
+  container.querySelectorAll('input[type="number"]').forEach(input => {
+    if (input.closest('.spin-wrap')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'spin-wrap';
+    input.parentNode.insertBefore(wrap, input);
+    const minus = document.createElement('button');
+    minus.className = 'spin-btn'; minus.type = 'button'; minus.textContent = '−';
+    minus.onclick = () => stepInput(input, -1);
+    const plus = document.createElement('button');
+    plus.className = 'spin-btn'; plus.type = 'button'; plus.textContent = '+';
+    plus.onclick = () => stepInput(input, 1);
+    wrap.appendChild(minus); wrap.appendChild(input); wrap.appendChild(plus);
+  });
+}
+
 // ── Three.js setup ─────────────────────────────────────────────
 const canvas = document.getElementById('canvas');
 const pane   = document.getElementById('previewPane');
@@ -45,9 +72,14 @@ let rotX = -0.4, rotY = 0.2, zoom = 1;
 const scrollZoomSpeed = 0.01;
 
 let isDragging = false, lastX = 0, lastY = 0;
-canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
-window.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mousedown', e => {
+  const axis = getHandleAxisAtEvent(e);
+  if (axis) { startAxisDrag(axis, e); return; }
+  isDragging = true; lastX = e.clientX; lastY = e.clientY;
+});
+window.addEventListener('mouseup', () => { isDragging = false; dragAxis = null; });
 window.addEventListener('mousemove', e => {
+  if (dragAxis) { updateAxisDrag(e); return; }
   if (!isDragging) return;
   rotY += (e.clientX - lastX) * 0.01;
   rotX += (e.clientY - lastY) * 0.01;
@@ -70,6 +102,99 @@ canvas.addEventListener('touchmove', e => {
   ltX = e.touches[0].clientX; ltY = e.touches[0].clientY;
   e.preventDefault();
 }, { passive: false });
+
+// ── Free Move gizmo: draggable X/Y/Z handles for the selected layer ──
+let freeMoveLayer = null, freeMoveHandles = null;
+let dragAxis = null, dragPlane = null, dragAxisDir = null, dragStartHit = null, dragStartOffset = null;
+const raycaster = new THREE.Raycaster();
+const mouseNDC = new THREE.Vector2();
+const AXIS_COLOURS = { x: 0xff4444, y: 0x44dd66, z: 0x4488ff };
+
+function makeAxisHandle(axis) {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: AXIS_COLOURS[axis], depthTest: false });
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 8), mat);
+  const head  = new THREE.Mesh(new THREE.ConeGeometry(1.6, 5, 10), mat);
+  shaft.position.y = 7; head.position.y = 16.5;
+  group.add(shaft, head);
+  if (axis === 'x') group.rotation.z = -Math.PI / 2;
+  else if (axis === 'z') group.rotation.x = Math.PI / 2;
+  group.renderOrder = 999;
+  group.traverse(o => { if (o.isMesh) o.userData.axis = axis; });
+  return group;
+}
+
+// Z-stack height of `layer` — mirrors buildBadge's accumulation (negative
+// layers don't occupy their own slot) so the handles sit at the right height.
+function computeLayerZ(layer) {
+  let z = 0;
+  for (const l of layerConfig) {
+    if (l === layer) return z;
+    if (!l.negative) z += (l.depth || 1);
+  }
+  return z;
+}
+
+function updateHandlePosition() {
+  if (!freeMoveHandles || !freeMoveLayer) return;
+  const z = computeLayerZ(freeMoveLayer);
+  freeMoveHandles.position.set(freeMoveLayer.offsetX || 0, freeMoveLayer.offsetY || 0, z + (freeMoveLayer.offsetZ || 0));
+}
+
+function setFreeMoveLayer(layer) {
+  if (freeMoveHandles) { badgeGroup.remove(freeMoveHandles); freeMoveHandles = null; }
+  freeMoveLayer = layer || null;
+  if (!freeMoveLayer) return;
+  freeMoveHandles = new THREE.Group();
+  freeMoveHandles.add(makeAxisHandle('x'), makeAxisHandle('y'), makeAxisHandle('z'));
+  updateHandlePosition();
+  badgeGroup.add(freeMoveHandles);
+}
+
+function getHandleAxisAtEvent(e) {
+  if (!freeMoveHandles) return null;
+  const rect = canvas.getBoundingClientRect();
+  mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouseNDC, camera);
+  const hits = raycaster.intersectObjects(freeMoveHandles.children, true);
+  return hits.length ? hits[0].object.userData.axis : null;
+}
+
+function raycastToDragPlane(e) {
+  const rect = canvas.getBoundingClientRect();
+  mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouseNDC, camera);
+  const pt = new THREE.Vector3();
+  return raycaster.ray.intersectPlane(dragPlane, pt) ? pt : null;
+}
+
+function startAxisDrag(axis, e) {
+  dragAxis = axis;
+  const origin = freeMoveHandles.getWorldPosition(new THREE.Vector3());
+  const local = axis === 'x' ? new THREE.Vector3(1,0,0) : axis === 'y' ? new THREE.Vector3(0,1,0) : new THREE.Vector3(0,0,1);
+  dragAxisDir = local.applyQuaternion(badgeGroup.quaternion).normalize();
+  const toCam = new THREE.Vector3().subVectors(camera.position, origin);
+  let normal = new THREE.Vector3().crossVectors(dragAxisDir, toCam).cross(dragAxisDir);
+  if (normal.lengthSq() < 1e-6) normal = new THREE.Vector3().crossVectors(dragAxisDir, camera.up).cross(dragAxisDir);
+  normal.normalize();
+  dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, origin);
+  dragStartOffset = { offsetX: freeMoveLayer.offsetX || 0, offsetY: freeMoveLayer.offsetY || 0, offsetZ: freeMoveLayer.offsetZ || 0 };
+  dragStartHit = raycastToDragPlane(e);
+}
+
+function updateAxisDrag(e) {
+  if (!dragStartHit) return;
+  const hit = raycastToDragPlane(e);
+  if (!hit) return;
+  const dist = new THREE.Vector3().subVectors(hit, dragStartHit).dot(dragAxisDir);
+  const field = dragAxis === 'x' ? 'offsetX' : dragAxis === 'y' ? 'offsetY' : 'offsetZ';
+  freeMoveLayer[field] = Math.round((dragStartOffset[field] + dist) * 10) / 10;
+  if (typeof onFreeMoveDrag === 'function') onFreeMoveDrag(freeMoveLayer);
+  updateHandlePosition();
+  buildBadge();
+}
 
 function animate() {
   requestAnimationFrame(animate);
@@ -100,6 +225,7 @@ document.addEventListener('click', e => {
     if (p && p.style.display !== 'none' && !e.target.closest('#'+id) && !e.target.closest('.preview-controls')) p.style.display = 'none';
   });
   if (typeof onGlobalClickCloseColourPicker === 'function') onGlobalClickCloseColourPicker(e);
+  if (typeof onGlobalClickCloseLayerMenu === 'function') onGlobalClickCloseLayerMenu(e);
 });
 
 // ── Font loading/caching ───────────────────────────────────────
@@ -144,20 +270,30 @@ function arrayBufferToBase64(buf) {
 // ── Layer geometry ──────────────────────────────────────────────
 // Text commands -> THREE shapes centred on the glyph bbox (so a layer with
 // offsetX/Y/Z all at 0 sits centred at the badge origin, per-layer).
-function cmdsToCenteredShapes(cmds) {
+function cmdsToCenteredShapes(cmds, fillGaps) {
   const polys = _badgeCommandsToClipper(cmds);
   const unioned = _badgeClipperUnion(polys);
   if (!unioned.length) return null;
   const { offX, offY, width, height } = _badgeBboxCentre(unioned);
-  const shapePath = new THREE.ShapePath();
-  for (const c of cmds) {
-    if      (c.type === 'M') shapePath.moveTo(c.x - offX, offY - c.y);
-    else if (c.type === 'L') shapePath.lineTo(c.x - offX, offY - c.y);
-    else if (c.type === 'C') shapePath.bezierCurveTo(c.x1-offX, offY-c.y1, c.x2-offX, offY-c.y2, c.x-offX, offY-c.y);
-    else if (c.type === 'Q') shapePath.quadraticCurveTo(c.x1-offX, offY-c.y1, c.x-offX, offY-c.y);
-    else if (c.type === 'Z') shapePath.currentPath.closePath();
+  let shapes;
+  if (fillGaps) {
+    // Solid silhouette — letter counters (O, A, B…) filled in, same as the
+    // non-text outline layers in the original badge tool.
+    const outers = unioned.filter(p => ClipperLib.Clipper.Orientation(p));
+    const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE - offX, offY - p.Y / _BADGE_SCALE);
+    shapes = outers.map(outer => new THREE.Shape(outer.map(toVec2)));
+  } else {
+    const shapePath = new THREE.ShapePath();
+    for (const c of cmds) {
+      if      (c.type === 'M') shapePath.moveTo(c.x - offX, offY - c.y);
+      else if (c.type === 'L') shapePath.lineTo(c.x - offX, offY - c.y);
+      else if (c.type === 'C') shapePath.bezierCurveTo(c.x1-offX, offY-c.y1, c.x2-offX, offY-c.y2, c.x-offX, offY-c.y);
+      else if (c.type === 'Q') shapePath.quadraticCurveTo(c.x1-offX, offY-c.y1, c.x-offX, offY-c.y);
+      else if (c.type === 'Z') shapePath.currentPath.closePath();
+    }
+    shapes = shapePath.toShapes(false);
   }
-  return { shapes: shapePath.toShapes(false), unioned, offX, offY, width, height };
+  return { shapes, unioned, offX, offY, width, height };
 }
 
 // Standard ray-casting point-in-polygon test (clipper coordinate space).
@@ -174,10 +310,10 @@ function pointInPolygon(pt, path) {
 // Stroke/border: offset the unioned glyph polygons outward and rebuild shapes,
 // re-assigning each hole to whichever outer contour actually contains it so
 // letter counters (O, A, B…) survive the offset.
-function offsetPolysToShapes(unioned, borderMM, offX, offY) {
+function offsetPolysToShapes(unioned, borderMM, offX, offY, fillGaps) {
   const expanded = _badgeClipperOffset(unioned, borderMM);
   const outers = expanded.filter(p => ClipperLib.Clipper.Orientation(p));
-  const holes  = expanded.filter(p => !ClipperLib.Clipper.Orientation(p));
+  const holes  = fillGaps ? [] : expanded.filter(p => !ClipperLib.Clipper.Orientation(p));
   const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE - offX, offY - p.Y / _BADGE_SCALE);
   return outers.map(outer => {
     const shape = new THREE.Shape(outer.map(toVec2));
@@ -188,12 +324,12 @@ function offsetPolysToShapes(unioned, borderMM, offX, offY) {
   });
 }
 
-// Square/circle primitives — no font/clipper needed, just a plain centred shape.
+// Rectangle/circle primitives — no font/clipper needed, just a plain centred shape.
 function getShapeLayerShapes(layer) {
   const size = layer.fontSize || 20;
   const border = layer.border || 0;
   const shape = new THREE.Shape();
-  if (layer.type === 'circle') {
+  if (layer.shapeType === 'circle') {
     const r = size / 2 + border;
     shape.absarc(0, 0, r, 0, Math.PI * 2, false);
     return { shapes: [shape], width: r * 2, height: r * 2 };
@@ -203,19 +339,78 @@ function getShapeLayerShapes(layer) {
   return { shapes: [shape], width: h * 2, height: h * 2 };
 }
 
+// A text layer either types its own literal content, or binds to one of the
+// model's named Inputs (so several layers can share one typed-once value).
+function resolveLayerText(layer) {
+  if (layer.inputId != null) {
+    const inp = inputs.find(x => x._key === layer.inputId);
+    return inp ? (inp.defaultValue || '') : '';
+  }
+  return layer.content || '';
+}
+
 function getLayerShapes(layer) {
-  if (layer.type === 'square' || layer.type === 'circle') return getShapeLayerShapes(layer);
+  if (layer.type === 'shape') return getShapeLayerShapes(layer);
   const font = layer.fontObj;
-  const text = (layer.content || '').toUpperCase();
+  const text = resolveLayerText(layer).toUpperCase();
   if (!font || !text) return null;
   const cmds = _badgeGetTextCommands(font, text, layer.fontSize || 20, 0, 0);
   if (!cmds.length) return null;
-  const centered = cmdsToCenteredShapes(cmds);
+  const centered = cmdsToCenteredShapes(cmds, layer.fillGaps);
   if (!centered) return null;
   if (!layer.border) return { shapes: centered.shapes, width: centered.width, height: centered.height };
-  const shapes = offsetPolysToShapes(centered.unioned, layer.border, centered.offX, centered.offY);
+  const shapes = offsetPolysToShapes(centered.unioned, layer.border, centered.offX, centered.offY, layer.fillGaps);
   if (!shapes.length) return null;
   return { shapes, width: centered.width + layer.border * 2, height: centered.height + layer.border * 2 };
+}
+
+// ── Negative layers: 2D boolean-subtract from the layer above ──────
+// Converts a THREE.Shape (with holes) to clipper paths, shifting by the
+// given offset/rotation so two layers' shapes can be combined in one space.
+function shapeToClipperPaths(shape, offsetX, offsetY, rotationRad) {
+  const cos = Math.cos(rotationRad), sin = Math.sin(rotationRad);
+  const xf = v => {
+    const rx = v.x * cos - v.y * sin, ry = v.x * sin + v.y * cos;
+    return { X: Math.round((rx + offsetX) * _BADGE_SCALE), Y: Math.round(-(ry + offsetY) * _BADGE_SCALE) };
+  };
+  const paths = [shape.getPoints(24).map(xf)];
+  for (const h of shape.holes) paths.push(h.getPoints(24).map(xf));
+  return paths;
+}
+
+function clipperDifferencePaths(subjectPaths, clipPaths) {
+  const c = new ClipperLib.Clipper();
+  c.AddPaths(subjectPaths, ClipperLib.PolyType.ptSubject, true);
+  c.AddPaths(clipPaths, ClipperLib.PolyType.ptClip, true);
+  const result = new ClipperLib.Paths();
+  c.Execute(ClipperLib.ClipType.ctDifference, result, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+  return result;
+}
+
+function clipperPathsToShapes(paths) {
+  const outers = paths.filter(p => ClipperLib.Clipper.Orientation(p));
+  const holes  = paths.filter(p => !ClipperLib.Clipper.Orientation(p));
+  const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE, -p.Y / _BADGE_SCALE);
+  return outers.map(outer => {
+    const shape = new THREE.Shape(outer.map(toVec2));
+    for (const h of holes) if (h.length && pointInPolygon(h[0], outer)) shape.holes.push(new THREE.Path(h.map(toVec2)));
+    return shape;
+  });
+}
+
+// Subtracts `neg`'s shape from `target`'s shape, in target's own local space
+// (so the caller can keep positioning/rotating the result using target's
+// own offsetX/offsetY/rotation exactly as it would have without the cut).
+function applyNegative(target, targetResult, neg) {
+  const negResult = getLayerShapes(neg);
+  if (!negResult) return targetResult;
+  const relX = (neg.offsetX || 0) - (target.offsetX || 0);
+  const relY = (neg.offsetY || 0) - (target.offsetY || 0);
+  const relRot = ((neg.rotation || 0) - (target.rotation || 0)) * Math.PI / 180;
+  const subjectPaths = targetResult.shapes.flatMap(s => shapeToClipperPaths(s, 0, 0, 0));
+  const clipPaths = negResult.shapes.flatMap(s => shapeToClipperPaths(s, relX, relY, relRot));
+  const diff = clipperDifferencePaths(subjectPaths, clipPaths);
+  return { shapes: diff.length ? clipperPathsToShapes(diff) : [], width: targetResult.width, height: targetResult.height };
 }
 
 // ── Preview rebuild ─────────────────────────────────────────────
@@ -223,12 +418,15 @@ let renderTimer = null;
 function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(buildBadge, 150); }
 
 function buildBadge() {
-  badgeGroup.children.filter(c => c !== grid).forEach(c => badgeGroup.remove(c));
+  badgeGroup.children.filter(c => c !== grid && c !== freeMoveHandles).forEach(c => badgeGroup.remove(c));
   let z = 0, maxW = 0, maxH = 0;
-  for (const layer of layerConfig) {
+  for (let i = 0; i < layerConfig.length; i++) {
+    const layer = layerConfig[i];
+    if (layer.negative) continue; // consumed by the non-negative layer above it, no z-slot of its own
     const depth = layer.depth || 1;
-    const result = getLayerShapes(layer);
-    if (result) {
+    let result = getLayerShapes(layer);
+    for (let j = i + 1; result && j < layerConfig.length && layerConfig[j].negative; j++) result = applyNegative(layer, result, layerConfig[j]);
+    if (result && result.shapes.length) {
       const geo = new THREE.ExtrudeGeometry(result.shapes, { depth, bevelEnabled: false });
       const mat = new THREE.MeshPhongMaterial({ color: parseInt((layer.hex || '#888888').replace('#',''), 16), shininess: 40 });
       const mesh = new THREE.Mesh(geo, mat);
@@ -241,25 +439,29 @@ function buildBadge() {
   }
   const sizeLabel = document.getElementById('badgeSizeLabel');
   if (sizeLabel) sizeLabel.textContent = maxW ? `${maxW.toFixed(1)} × ${maxH.toFixed(1)} mm` : '';
+  updateHandlePosition();
 }
 
 // ── 3MF export ───────────────────────────────────────────────────
 function buildExportObjects() {
   const objects = [];
   let z = 0;
-  layerConfig.forEach((layer, i) => {
+  for (let i = 0; i < layerConfig.length; i++) {
+    const layer = layerConfig[i];
+    if (layer.negative) continue;
     const depth = layer.depth || 1;
-    const result = getLayerShapes(layer);
-    if (result) {
+    let result = getLayerShapes(layer);
+    for (let j = i + 1; result && j < layerConfig.length && layerConfig[j].negative; j++) result = applyNegative(layer, result, layerConfig[j]);
+    if (result && result.shapes.length) {
       let geo = new THREE.ExtrudeGeometry(result.shapes, { depth, bevelEnabled: false });
       geo.applyMatrix4(new THREE.Matrix4().makeRotationZ((layer.rotation || 0) * Math.PI / 180));
       geo.applyMatrix4(new THREE.Matrix4().makeTranslation(layer.offsetX || 0, layer.offsetY || 0, z + (layer.offsetZ || 0)));
       geo = _badgeMergeVerticesForExport(geo);
-      const label = layer.type === 'text' ? (layer.content || `layer${i+1}`) : (layer.type === 'circle' ? 'Circle' : 'Square');
+      const label = layer.type === 'text' ? (resolveLayerText(layer) || `layer${i+1}`) : (layer.shapeType === 'circle' ? 'Circle' : 'Rectangle');
       objects.push({ geo, name: label.slice(0, 30) || `layer${i+1}`, colour: layer.hex, extruder: i + 1, id: objects.length + 1 });
     }
     z += depth;
-  });
+  }
   return objects;
 }
 

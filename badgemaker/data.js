@@ -99,31 +99,45 @@ async function showApp(){
 }
 
 // ── State ────────────────────────────────────────────────────
-// layerConfig entries: {_key, id, order, type, content, hex, colourId, fontId, fontObj,
+// layerConfig entries: {_key, id, order, type, content, inputId, hex, colourId, fontId, fontObj,
 //                        fontSize, border, depth, offsetX, offsetY, offsetZ, rotation}
-let colours=[], fonts=[], models=[], currentModel=null, layerConfig=[], selectedLayerIndex=-1, deletedLayerIds=[];
-let _layerKeySeq=1;
+// inputs entries: {_key, id, name, defaultValue, order} — inputId on a layer
+// refers to an input's _key (translated to/from the real DB id on load/save).
+let colours=[], fonts=[], models=[], currentModel=null, layerConfig=[], inputs=[], selectedLayerIndex=-1, deletedLayerIds=[], deletedInputIds=[];
+let _layerKeySeq=1, _inputKeySeq=1;
 
 function makeDefaultLayer(order){
   return {
-    _key:_layerKeySeq++, id:null, order, type:'text',
-    content:'TEXT', hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
+    _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, fillGaps:false, name:null,
+    content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
     fontSize:20, border:0, depth:1,
     offsetX:0, offsetY:0, offsetZ:0, rotation:0,
   };
 }
 
+function makeDefaultInput(order){
+  return { _key:_inputKeySeq++, id:null, name:`Field ${order+1}`, defaultValue:'', order };
+}
+
 // ── Unsaved-changes tracking ────────────────────────────────────
-let isDirty=false, dirtyLayerKeys=new Set();
+let isDirty=false, dirtyLayerKeys=new Set(), dirtyInputKeys=new Set();
 function markDirty(layerKey){
   isDirty=true;
   if(layerKey!=null) dirtyLayerKeys.add(layerKey);
   const btn=document.getElementById('saveBtn');
   if(btn) btn.classList.add('dirty');
 }
+function markInputDirty(inputKey){
+  isDirty=true;
+  dirtyInputKeys.add(inputKey);
+  const btn=document.getElementById('saveBtn');
+  if(btn) btn.classList.add('dirty');
+  const row=document.querySelector(`.input-row[data-key="${inputKey}"]`);
+  if(row) row.classList.add('dirty');
+}
 function clearDirty(){
-  isDirty=false; dirtyLayerKeys.clear();
+  isDirty=false; dirtyLayerKeys.clear(); dirtyInputKeys.clear();
   const btn=document.getElementById('saveBtn');
   if(btn) btn.classList.remove('dirty');
 }
@@ -169,12 +183,13 @@ function onModelSelect(){
 
 function resetToNewModel(name){
   currentModel = name ? { id:null, name } : null;
-  deletedLayerIds = [];
+  deletedLayerIds = []; deletedInputIds = [];
   layerConfig = [makeDefaultLayer(0)];
+  inputs = [];
   selectedLayerIndex = 0;
   document.getElementById('modelSelect').value = '';
   markDirty(layerConfig[0]._key);
-  buildLayerListUI(); buildLayerEditorUI();
+  buildInputListUI(); buildLayerListUI(); buildLayerEditorUI();
   document.getElementById('exportBtn').disabled = false;
   setStatus(name ? `New model "${name}" — click Save to create` : 'No models yet — click Save to create one');
   scheduleRender();
@@ -211,19 +226,32 @@ async function deleteModel(){
 async function loadModel(id){
   currentModel = models.find(m=>String(m.id)===String(id));
   if(!currentModel) return;
-  deletedLayerIds = [];
-  const rows = await sbGet('badgemaker_layers', `?model_id=eq.${currentModel.id}&order=layer_order`);
-  layerConfig = rows.map(r=>({
-    _key:_layerKeySeq++, id:r.id, order:r.layer_order, type:r.layer_type||'text',
-    content:r.content, hex:r.colour_hex, colourId:r.colour_id,
-    fontId:r.font_id, fontObj:getCachedFont(r.font_id),
-    fontSize:r.font_size, border:r.border_mm, depth:r.thickness_mm,
-    offsetX:r.offset_x, offsetY:r.offset_y, offsetZ:r.offset_z, rotation:r.rotation,
-  }));
+  deletedLayerIds = []; deletedInputIds = [];
+  const [rows, inputRows] = await Promise.all([
+    sbGet('badgemaker_layers', `?model_id=eq.${currentModel.id}&order=layer_order`),
+    sbGet('badgemaker_inputs', `?model_id=eq.${currentModel.id}&order=input_order`),
+  ]);
+  inputs = inputRows.map(r=>({ _key:_inputKeySeq++, id:r.id, name:r.name, defaultValue:r.default_value, order:r.input_order }));
+  const inputKeyById = new Map(inputs.map(i=>[String(i.id), i._key]));
+  layerConfig = rows.map(r=>{
+    // 'square'/'circle' are legacy layer_type values from before Type/Shape split
+    const isLegacyShape = r.layer_type==='square' || r.layer_type==='circle';
+    return {
+      _key:_layerKeySeq++, id:r.id, order:r.layer_order,
+      type: isLegacyShape ? 'shape' : (r.layer_type||'text'),
+      shapeType: r.shape_type || (r.layer_type==='circle' ? 'circle' : 'rectangle'),
+      negative:!!r.is_negative, fillGaps:!!r.fill_gaps, name:r.name||null,
+      content:r.content, inputId: r.input_id!=null ? (inputKeyById.get(String(r.input_id))??null) : null,
+      hex:r.colour_hex, colourId:r.colour_id,
+      fontId:r.font_id, fontObj:getCachedFont(r.font_id),
+      fontSize:r.font_size, border:r.border_mm, depth:r.thickness_mm,
+      offsetX:r.offset_x, offsetY:r.offset_y, offsetZ:r.offset_z, rotation:r.rotation,
+    };
+  });
   if(!layerConfig.length) layerConfig=[makeDefaultLayer(0)];
   selectedLayerIndex = 0;
   clearDirty();
-  buildLayerListUI(); buildLayerEditorUI();
+  buildInputListUI(); buildLayerListUI(); buildLayerEditorUI();
   document.getElementById('exportBtn').disabled=false;
   setStatus('');
   scheduleRender();
@@ -245,12 +273,31 @@ async function saveModel(){
       const res = await sbPatch('badgemaker_models', `?id=eq.${currentModel.id}`, {name:currentModel.name, updated_at:new Date().toISOString()});
       if(res) throw new Error(res.message||res.error||'Save failed');
     }
+    const inputKeyToId = new Map();
+    for(let i=0;i<inputs.length;i++){
+      const inp = inputs[i];
+      const row = {
+        ...(inp.id?{id:inp.id}:{}),
+        model_id: currentModel.id, input_order: i,
+        name: inp.name||`Field ${i+1}`, default_value: inp.defaultValue||'',
+      };
+      const res = await sbUpsert('badgemaker_inputs', row);
+      if(res?.code||res?.error) throw new Error(res.message||res.error||`Input ${i+1} save failed`);
+      if(!inp.id && res[0]) inp.id = res[0].id;
+      inputKeyToId.set(inp._key, inp.id);
+    }
+    for(const id of deletedInputIds){ await sbDelete('badgemaker_inputs', `?id=eq.${id}`); }
+    deletedInputIds = [];
+
     for(let i=0;i<layerConfig.length;i++){
       const l = layerConfig[i];
       const row = {
         ...(l.id?{id:l.id}:{}),
         model_id: currentModel.id, layer_order: i, layer_type: l.type||'text',
-        content: l.content||'', colour_hex: l.hex, colour_id: l.colourId||null,
+        shape_type: l.type==='shape' ? (l.shapeType||'rectangle') : null,
+        is_negative: !!l.negative, fill_gaps: !!l.fillGaps, name: l.name||null,
+        content: l.content||'', input_id: l.inputId!=null ? (inputKeyToId.get(l.inputId)||null) : null,
+        colour_hex: l.hex, colour_id: l.colourId||null,
         font_id: l.fontId||null, font_size: l.fontSize,
         border_mm: l.border, thickness_mm: l.depth,
         offset_x: l.offsetX, offset_y: l.offsetY, offset_z: l.offsetZ, rotation: l.rotation,
@@ -262,31 +309,98 @@ async function saveModel(){
     for(const id of deletedLayerIds){ await sbDelete('badgemaker_layers', `?id=eq.${id}`); }
     deletedLayerIds = [];
     await refreshModelDropdown(currentModel.id);
-    clearDirty(); buildLayerListUI();
+    clearDirty(); buildInputListUI(); buildLayerListUI();
     setStatus('Saved','ok'); setTimeout(()=>setStatus(''),2000);
   }catch(e){
     setStatus('Save failed: '+e.message,'err');
   }
 }
 
+// ── Inputs UI ────────────────────────────────────────────────
+function buildInputListUI(){
+  const el = document.getElementById('inputList');
+  el.innerHTML = inputs.map((inp,i)=>`
+    <div class="input-row${dirtyInputKeys.has(inp._key)?' dirty':''}" data-key="${inp._key}">
+      <input class="input-name" value="${esc(inp.name)}" placeholder="Field name" oninput="onInputFieldChange(${i},'name',this.value)">
+      <input class="input-value" value="${esc(inp.defaultValue)}" placeholder="Value" oninput="onInputFieldChange(${i},'defaultValue',this.value)">
+      <button class="lr-btn" title="Delete" onclick="removeInput(${i})"><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+}
+
+function addInput(){
+  const inp = makeDefaultInput(inputs.length);
+  inputs.push(inp);
+  markInputDirty(inp._key);
+  buildInputListUI();
+  buildLayerEditorUI();
+}
+
+function removeInput(i){
+  const [removed] = inputs.splice(i,1);
+  if(removed.id) deletedInputIds.push(removed.id);
+  layerConfig.forEach(l=>{ if(l.inputId===removed._key) l.inputId=null; });
+  markDirty();
+  buildInputListUI(); buildLayerListUI(); buildLayerEditorUI(); scheduleRender();
+}
+
+// Field edits update state in place (no full re-render) so the input the
+// user is actively typing in never loses focus/cursor position.
+function onInputFieldChange(i, field, value){
+  const inp = inputs[i];
+  if(!inp) return;
+  inp[field]=value;
+  markInputDirty(inp._key);
+  if(field==='name') buildLayerEditorUI(); // dropdown option labels
+  buildLayerListUI(); // list labels may show bound input values
+  scheduleRender();
+}
+
 // ── Layer list UI ────────────────────────────────────────────
 function layerLabel(l){
-  if(l.type==='square') return 'Square';
-  if(l.type==='circle') return 'Circle';
+  if(l.name) return l.name;
+  if(l.type==='shape') return l.shapeType==='circle' ? 'Circle' : 'Rectangle';
+  if(l.inputId!=null){
+    const inp = inputs.find(x=>x._key===l.inputId);
+    return inp ? (inp.defaultValue || `[${inp.name}]`) : '(empty)';
+  }
   return l.content||'(empty)';
+}
+
+let openLayerMenuIndex=null;
+function toggleLayerMenu(i){
+  openLayerMenuIndex = openLayerMenuIndex===i ? null : i;
+  buildLayerListUI();
+}
+function closeLayerMenu(){ openLayerMenuIndex=null; buildLayerListUI(); }
+function onGlobalClickCloseLayerMenu(e){
+  if(openLayerMenuIndex!==null && !e.target.closest('.layer-row-menu-wrap')) closeLayerMenu();
+}
+
+async function renameLayer(i){
+  const l = layerConfig[i];
+  if(!l) return;
+  const name = await askText('Layer name:', l.name || layerLabel(l));
+  if(!name) return;
+  l.name = name;
+  markDirty(l._key);
+  buildLayerListUI();
 }
 
 function buildLayerListUI(){
   const el = document.getElementById('layerList');
   el.innerHTML = layerConfig.map((l,i)=>`
-    <div class="layer-row${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}" onclick="selectLayer(${i})">
-      <div class="lr-swatch" style="background:${l.hex}"></div>
+    <div class="layer-row${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}${l.negative?' negative':''}" onclick="selectLayer(${i})">
+      ${l.negative ? '<i class="ti ti-corner-left-up lr-neg-arrow" title="Cuts the layer above"></i>' : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
       <span class="lr-label">${esc(layerLabel(l))}</span>
-      <div class="lr-btns">
-        <button class="lr-btn" title="Move up" onclick="event.stopPropagation();moveLayer(${i},-1)"><i class="ti ti-chevron-up"></i></button>
-        <button class="lr-btn" title="Move down" onclick="event.stopPropagation();moveLayer(${i},1)"><i class="ti ti-chevron-down"></i></button>
-        <button class="lr-btn" title="Duplicate" onclick="event.stopPropagation();duplicateLayer(${i})"><i class="ti ti-copy"></i></button>
-        <button class="lr-btn" title="Delete" onclick="event.stopPropagation();removeLayer(${i})"><i class="ti ti-trash"></i></button>
+      <div class="layer-row-menu-wrap">
+        <button class="lr-btn" title="Layer options" onclick="event.stopPropagation();toggleLayerMenu(${i})"><i class="ti ti-dots-vertical"></i></button>
+        <div class="layer-row-menu" style="display:${openLayerMenuIndex===i?'flex':'none'}" onclick="event.stopPropagation()">
+          <div class="lrm-item" onclick="moveLayer(${i},-1);closeLayerMenu()"><i class="ti ti-arrow-up"></i> Move up</div>
+          <div class="lrm-item" onclick="moveLayer(${i},1);closeLayerMenu()"><i class="ti ti-arrow-down"></i> Move down</div>
+          <div class="lrm-item" onclick="duplicateLayer(${i});closeLayerMenu()"><i class="ti ti-copy"></i> Duplicate</div>
+          <div class="lrm-item" onclick="renameLayer(${i});closeLayerMenu()"><i class="ti ti-edit"></i> Rename</div>
+          <div class="lrm-item danger" onclick="removeLayer(${i});closeLayerMenu()"><i class="ti ti-trash"></i> Delete</div>
+        </div>
       </div>
     </div>`).join('');
 }
@@ -334,8 +448,16 @@ function buildLayerEditorUI(){
   if(!l){ editor.style.display='none'; return; }
   editor.style.display='flex';
   document.getElementById('layType').value = l.type||'text';
+  document.getElementById('shapeTypeRow').style.display = (l.type==='shape') ? '' : 'none';
+  document.getElementById('layShapeType').value = l.shapeType||'rectangle';
+  document.getElementById('layNegative').checked = !!l.negative;
   document.getElementById('textOnlyFields').style.display = (l.type==='text') ? '' : 'none';
+  const srcSel = document.getElementById('layInputSource');
+  srcSel.innerHTML = '<option value="">Literal text</option>' + inputs.map(inp=>`<option value="${inp._key}">${esc(inp.name)}</option>`).join('');
+  srcSel.value = l.inputId||'';
+  document.getElementById('layContentRow').style.display = l.inputId!=null ? 'none' : '';
   document.getElementById('layContent').value = l.content||'';
+  document.getElementById('layFillGaps').checked = !!l.fillGaps;
   buildFontDropdown();
   document.getElementById('layFont').value = l.fontId||'';
   document.getElementById('layFontSize').value = l.fontSize;
@@ -347,15 +469,38 @@ function buildLayerEditorUI(){
   document.getElementById('layRotation').value = l.rotation;
   document.getElementById('layColourSwatch').style.background = l.hex;
   document.getElementById('layColourLabel').textContent = colourName(l.hex);
+  document.getElementById('layFreeMove').checked = !!l.freeMove;
+  setFreeMoveLayer(l.freeMove ? l : null);
+  wrapSpinners(editor);
+}
+
+// Free Move is a client-side editing aid (which axis handles are showing),
+// not saved data — toggling it doesn't dirty the model.
+function onFreeMoveToggle(checked){
+  const l = layerConfig[selectedLayerIndex];
+  if(!l) return;
+  l.freeMove = checked;
+  setFreeMoveLayer(checked ? l : null);
+}
+
+// Called by engine.js while a gizmo handle is being dragged, so the number
+// fields + layer list stay in sync live (no full editor rebuild mid-drag).
+function onFreeMoveDrag(l){
+  if(l!==layerConfig[selectedLayerIndex]) return;
+  document.getElementById('layOffX').value = l.offsetX;
+  document.getElementById('layOffY').value = l.offsetY;
+  document.getElementById('layOffZ').value = l.offsetZ;
+  markDirty(l._key);
 }
 
 function onLayerFieldChange(field, value){
   const l = layerConfig[selectedLayerIndex];
   if(!l) return;
   l[field]=value;
+  if(field==='type' && value==='shape' && !l.shapeType) l.shapeType='rectangle';
   markDirty(l._key);
-  if(field==='content'||field==='type') buildLayerListUI();
-  if(field==='type') buildLayerEditorUI();
+  if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerListUI();
+  if(field==='type'||field==='inputId') buildLayerEditorUI();
   scheduleRender();
 }
 

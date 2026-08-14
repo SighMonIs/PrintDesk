@@ -14,12 +14,27 @@
 .layer-row:hover{border-color:rgba(255,255,255,0.25);}
 .layer-row.selected{border-color:var(--accent);background:var(--surface);}
 .layer-row.dirty{outline:2px solid var(--red);outline-offset:-1px;}
+.layer-row.negative{margin-left:18px;}
+.layer-row.negative .lr-neg-arrow{color:var(--muted);font-size:14px;flex-shrink:0;}
 .layer-row .lr-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.15);}
 .layer-row .lr-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.layer-row .lr-btns{display:flex;gap:2px;flex-shrink:0;}
-.layer-row .lr-btn{width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--muted);cursor:pointer;border-radius:4px;padding:0;font-family:inherit;}
+.layer-row .lr-btn{width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--muted);cursor:pointer;border-radius:4px;padding:0;font-family:inherit;flex-shrink:0;}
 .layer-row .lr-btn:hover{background:rgba(255,255,255,0.1);color:var(--text);}
+.layer-row-menu-wrap{position:relative;flex-shrink:0;}
+.layer-row-menu{position:absolute;top:100%;right:0;margin-top:4px;flex-direction:column;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);z-index:60;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,0.5);padding:4px 0;cursor:default;}
+.lrm-item{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--text);}
+.lrm-item:hover{background:var(--surface2);}
+.lrm-item.danger{color:var(--red);}
 .layer-editor{border:1px solid var(--border2);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:8px;}
+
+.input-list{display:flex;flex-direction:column;gap:4px;}
+.input-row{display:flex;align-items:center;gap:6px;padding:4px;border-radius:var(--radius);}
+.input-row.dirty{outline:2px solid var(--red);outline-offset:-1px;}
+.input-row input{height:26px;padding:0 6px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;}
+.input-row .input-name{width:70px;flex-shrink:0;}
+.input-row .input-value{flex:1;min-width:0;}
+.input-row .lr-btn{width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--muted);cursor:pointer;border-radius:4px;padding:0;flex-shrink:0;}
+.input-row .lr-btn:hover{background:rgba(255,255,255,0.1);color:var(--text);}
 
 /* Single colour picker anchored to its wrap, unlike badge/'s per-row fixed+rect version */
 #layColourWrap .colour-picker-list{position:absolute;top:100%;left:0;right:0;margin-top:4px;width:auto;min-width:0;}
