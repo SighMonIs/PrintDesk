@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BadgeMak3r</title>
 <link rel="stylesheet" href="../badge/styles.css?v=2.5.45">
-<link rel="stylesheet" href="styles.css?v=1.25.0">
+<link rel="stylesheet" href="styles.css?v=1.27.0">
 <style>
   #loginScreen { display: flex; }
   #appScreen   { display: none; }
@@ -62,16 +62,27 @@
   <div class="bm-right-col">
   <header>
     <a href="/" class="btn sm" style="margin-right:8px" title="Back to PrintDesk"><i class="ti ti-arrow-left"></i></a>
-    <span class="logo">PrintDesk</span><span class="logo-sep">/</span><span class="logo-sub">BadgeMak3r</span>
+    <span class="logo">BadgeMak3r</span>
     <div class="header-model">
       <button class="btn sm btn-new" title="New model" onclick="newModel()"><i class="ti ti-plus"></i></button>
       <select class="model-select" id="modelSelect" onchange="onModelSelect()" style="width:180px"><option value="">Loading…</option></select>
-      <button class="btn sm" title="Rename model" onclick="renameModel()"><i class="ti ti-edit"></i></button>
-      <button class="btn sm" title="Delete model" onclick="deleteModel()"><i class="ti ti-trash"></i></button>
+      <div class="model-menu-wrap">
+        <button class="btn sm" title="Model options" onclick="event.stopPropagation();toggleModelMenu()"><i class="ti ti-dots-vertical"></i></button>
+        <div class="layer-row-menu" id="modelMenu" style="display:none" onclick="event.stopPropagation()">
+          <div class="lrm-item" onclick="closeModelMenu();renameModel()"><i class="ti ti-edit"></i> Rename</div>
+          <div class="lrm-item" onclick="closeModelMenu();duplicateModel()"><i class="ti ti-copy"></i> Duplicate</div>
+          <div class="lrm-item danger" onclick="closeModelMenu();deleteModel()"><i class="ti ti-trash"></i> Delete</div>
+        </div>
+      </div>
     </div>
     <div class="header-right">
-      <span class="user-chip" id="userChip"></span>
-      <button class="btn sm" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</button>
+      <div class="user-menu-wrap">
+        <button class="btn sm user-btn" id="userBtn" title="Account" onclick="event.stopPropagation();toggleUserMenu()"><i class="ti ti-user"></i></button>
+        <div class="layer-row-menu" id="userMenu" style="display:none" onclick="event.stopPropagation()">
+          <div class="lrm-user" id="userChip"></div>
+          <div class="lrm-item" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</div>
+        </div>
+      </div>
     </div>
   </header>
     <!-- Preview -->
@@ -144,6 +155,7 @@
         </select>
       </div>
       <div class="adv-row" id="negativeRow"><label>Negative (cuts overlapping layers)</label><input type="checkbox" id="layNegative" onchange="onLayerFieldChange('negative',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)"></div>
+      <div class="adv-row" id="negAboveOnlyRow" style="display:none"><label>Only apply to above layer</label><input type="checkbox" id="layNegAboveOnly" onchange="onLayerFieldChange('negAboveOnly',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)"></div>
     </div>
 
     <div class="layer-setting-block" id="repeatingBlock" style="display:none">
@@ -201,8 +213,8 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" integrity="sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js" integrity="sha384-oV9/r5hoq7qHFHfbghYwt50E2fe8J20vXRW0eIGQl20k40zMEAhSXMCh9ANASVB9" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js" integrity="sha384-3TaxGqyHrMuRIWY5Z5WHNIzgNRqGIUJE+mk6tm+g1wkm9Ux2kUyOLfy9AsNWXA6u" crossorigin="anonymous"></script>
-<script src="../shared/3mf.js?v=1.25.0"></script>
-<script src="engine.js?v=1.25.0"></script>
-<script src="data.js?v=1.25.0"></script>
+<script src="../shared/3mf.js?v=1.27.0"></script>
+<script src="engine.js?v=1.27.0"></script>
+<script src="data.js?v=1.27.0"></script>
 </body>
 </html>

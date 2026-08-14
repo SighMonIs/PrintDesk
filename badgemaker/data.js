@@ -173,7 +173,7 @@ function nextLayerName(){
 
 function makeDefaultLayer(order){
   return {
-    _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, fillGaps:false, fitToShape:false, name:nextLayerName(), visible:true,
+    _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, negAboveOnly:false, fillGaps:false, fitToShape:false, name:nextLayerName(), visible:true,
     content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
     fontSize:20, height:20, border:0, depth:1, repeatThreshold:0,
@@ -304,6 +304,61 @@ async function deleteModel(){
   await loadModels();
 }
 
+// Copies the current model's layers and inputs into a brand new model.
+// Done in memory then saved, so the ids are re-issued by the save path.
+async function duplicateModel(){
+  if(!currentModel){ setStatus('Select or create a model first.','err'); return; }
+  const name = await askText('Name for the copy:', `${currentModel.name} copy`);
+  if(!name) return;
+  setStatus('Duplicating…');
+  currentModel = { id:null, name };
+  deletedLayerIds = []; deletedInputIds = [];
+  // New _keys all round (ids are re-issued on save); layer→input bindings are
+  // re-pointed at the copied inputs via old-key → new-key.
+  const keyMap = new Map();
+  inputs = inputs.map(i => {
+    const newKey = _inputKeySeq++;
+    keyMap.set(i._key, newKey);
+    return {...i, _key:newKey, id:null};
+  });
+  layerConfig = layerConfig.map(l => ({
+    ...l, _key:_layerKeySeq++, id:null,
+    inputId: l.inputId != null ? (keyMap.get(l.inputId) ?? null) : null,
+  }));
+  document.getElementById('modelSelect').value = '';
+  markDirty();
+  buildInputListUI(); buildLayerListUI(); buildLayerEditorUI();
+  await saveModel();
+}
+
+// ── Model options menu ────────────────────────────────────────
+let modelMenuOpen=false;
+function toggleModelMenu(){
+  modelMenuOpen = !modelMenuOpen;
+  document.getElementById('modelMenu').style.display = modelMenuOpen ? 'flex' : 'none';
+}
+function closeModelMenu(){
+  modelMenuOpen = false;
+  const el = document.getElementById('modelMenu');
+  if(el) el.style.display = 'none';
+}
+function onGlobalClickCloseModelMenu(e){
+  if(modelMenuOpen && !e.target.closest('.model-menu-wrap')) closeModelMenu();
+}
+
+// ── Account menu ──────────────────────────────────────────────
+let userMenuOpen=false;
+function toggleUserMenu(){
+  userMenuOpen = !userMenuOpen;
+  document.getElementById('userMenu').style.display = userMenuOpen ? 'flex' : 'none';
+}
+function onGlobalClickCloseUserMenu(e){
+  if(userMenuOpen && !e.target.closest('.user-menu-wrap')){
+    userMenuOpen = false;
+    document.getElementById('userMenu').style.display = 'none';
+  }
+}
+
 async function loadModel(id){
   currentModel = models.find(m=>String(m.id)===String(id));
   if(!currentModel) return;
@@ -321,7 +376,7 @@ async function loadModel(id){
       _key:_layerKeySeq++, id:r.id, order:r.layer_order,
       type: isLegacyShape ? 'shape' : (r.layer_type||'text'),
       shapeType: r.shape_type || (r.layer_type==='circle' ? 'circle' : 'rectangle'),
-      negative:!!r.is_negative, fillGaps:!!r.fill_gaps, fitToShape:!!r.fit_to_shape, name:r.name||null, visible:r.visible!==false,
+      negative:!!r.is_negative, negAboveOnly:!!r.negative_above_only, fillGaps:!!r.fill_gaps, fitToShape:!!r.fit_to_shape, name:r.name||null, visible:r.visible!==false,
       content:r.content, inputId: r.input_id!=null ? (inputKeyById.get(String(r.input_id))??null) : null,
       hex:r.colour_hex, colourId:r.colour_id,
       fontId:r.font_id, fontObj:getCachedFont(r.font_id),
@@ -377,7 +432,7 @@ async function saveModel(){
         ...(l.id?{id:l.id}:{}),
         model_id: currentModel.id, layer_order: i, layer_type: l.type||'text',
         shape_type: l.type==='shape' ? (l.shapeType||'rectangle') : null,
-        is_negative: !!l.negative, fill_gaps: !!l.fillGaps, fit_to_shape: !!l.fitToShape, name: l.name||null, visible: l.visible!==false,
+        is_negative: !!l.negative, negative_above_only: !!l.negAboveOnly, fill_gaps: !!l.fillGaps, fit_to_shape: !!l.fitToShape, name: l.name||null, visible: l.visible!==false,
         content: l.content||'', input_id: l.inputId!=null ? (inputKeyToId.get(l.inputId)||null) : null,
         colour_hex: l.hex, colour_id: l.colourId||null,
         font_id: l.fontId||null, font_size: l.fontSize, height_mm: l.height||20,
@@ -517,15 +572,17 @@ function toggleLayerVisible(i){
 function buildLayerListUI(){
   const el = document.getElementById('layerList');
   el.innerHTML = layerConfig.map((l,i)=>`
-    <div class="layer-row${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}${l.negative?' negative':''}${l.visible===false?' hidden-layer':''}"
+    <div class="layer-row${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}${(l.negative&&l.negAboveOnly)?' negative':''}${l.visible===false?' hidden-layer':''}"
       onclick="selectLayer(${i})" draggable="true"
       ondragstart="onLayerDragStart(event,${i})" ondragover="onLayerDragOver(event,${i})" ondrop="onLayerDrop(event)" ondragend="onLayerDragEnd()">
       <button class="lr-btn" title="${l.visible===false?'Show layer':'Hide layer'}" onclick="event.stopPropagation();toggleLayerVisible(${i})"><i class="ti ${l.visible===false?'ti-eye-off':'ti-eye'}"></i></button>
-      ${l.type==='backing'
-        ? '<i class="ti ti-layout-bottombar lr-neg-icon" title="Backing — cuts a mount slot"></i>'
-        : l.negative
-          ? '<i class="ti ti-ban lr-neg-icon" title="Negative — cuts the layers it overlaps"></i>'
-          : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
+      ${l.negative && l.negAboveOnly
+        ? '<i class="ti ti-corner-left-up lr-neg-arrow" title="Negative — cuts only the layer above"></i>'
+        : l.type==='backing'
+          ? '<i class="ti ti-layout-bottombar lr-neg-icon" title="Backing — cuts a mount slot"></i>'
+          : l.negative
+            ? '<i class="ti ti-ban lr-neg-icon" title="Negative — cuts the layers it overlaps"></i>'
+            : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
       <span class="lr-label">${esc(layerLabel(l))}</span>
       <div class="layer-row-menu-wrap">
         <button class="lr-btn" title="Layer options" onclick="event.stopPropagation();toggleLayerMenu(${i})"><i class="ti ti-dots-vertical"></i></button>
@@ -581,6 +638,8 @@ function buildLayerEditorUI(){
   // Backings are always cutouts, so the Negative toggle is redundant there.
   document.getElementById('negativeRow').style.display = (isBacking || l.type==='keychain') ? 'none' : '';
   document.getElementById('layNegative').checked = !!l.negative;
+  document.getElementById('negAboveOnlyRow').style.display = (!isBacking && l.type!=='keychain' && l.negative) ? '' : 'none';
+  document.getElementById('layNegAboveOnly').checked = !!l.negAboveOnly;
   // Auto-repeat only applies to round magnets (as in the original generator).
   const canRepeat = isBacking && l.shapeType==='round';
   const repeatOn = canRepeat && (l.repeatThreshold||0) > 0;
@@ -670,8 +729,8 @@ function onLayerFieldChange(field, value){
     l.fontSize=10; l.height=2.5; l.border=3; l.depth=4; l.negative=false;
   }
   markDirty(l._key);
-  if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerListUI();
-  if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='repeatThreshold') buildLayerEditorUI();
+  if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly') buildLayerListUI();
+  if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly'||field==='repeatThreshold') buildLayerEditorUI();
   scheduleRender();
 }
 

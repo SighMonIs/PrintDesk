@@ -242,6 +242,8 @@ document.addEventListener('click', e => {
   });
   if (typeof onGlobalClickCloseColourPicker === 'function') onGlobalClickCloseColourPicker(e);
   if (typeof onGlobalClickCloseLayerMenu === 'function') onGlobalClickCloseLayerMenu(e);
+  if (typeof onGlobalClickCloseModelMenu === 'function') onGlobalClickCloseModelMenu(e);
+  if (typeof onGlobalClickCloseUserMenu === 'function') onGlobalClickCloseUserMenu(e);
 });
 
 // ── Font loading/caching ───────────────────────────────────────
@@ -576,8 +578,18 @@ function buildLayerSlabs(layer) {
   const base = getLayerShapes(layer);
   if (!base) return [];
   const z0 = layer.offsetZ || 0, z1 = z0 + (layer.depth || 1);
+  // "Only apply to above layer" limits a negative to the nearest non-cutter
+  // layer above it in the list, rather than everything it overlaps.
+  const targetIdx = layerConfig.indexOf(layer);
+  const appliesTo = c => {
+    if (!c.negAboveOnly) return true;
+    for (let j = layerConfig.indexOf(c) - 1; j >= 0; j--) {
+      if (!isCutter(layerConfig[j])) return j === targetIdx;
+    }
+    return false;
+  };
   const cutters = layerConfig
-    .filter(c => isCutter(c) && c.visible !== false && zRangesOverlap(layer, c))
+    .filter(c => isCutter(c) && c.visible !== false && zRangesOverlap(layer, c) && appliesTo(c))
     .flatMap(expandCutter);
   if (!cutters.length) return [{ zStart: z0, depth: z1 - z0, result: base }];
 
