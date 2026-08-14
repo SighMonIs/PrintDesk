@@ -364,7 +364,23 @@ function resolveLayerText(layer) {
   return layer.content || '';
 }
 
+// Backing presets carried over from the original badge generator
+// (shared/render.js getBackingConfig): pin 32x7x2, magnet 46x14x2,
+// round magnet ⌀17.15x2. Stored in shape_type; dimensions stay editable.
+const BACKING_PRESETS = {
+  magnet: { width: 46,    height: 14, depth: 2, round: false },
+  pin:    { width: 32,    height: 7,  depth: 2, round: false },
+  round:  { width: 17.15, height: 17.15, depth: 2, round: true  },
+};
+
+// Backings are cutouts, so they act exactly like negative layers.
+function isCutter(layer) { return layer.negative || layer.type === 'backing'; }
+
 function getLayerShapes(layer) {
+  if (layer.type === 'backing') {
+    const isRound = BACKING_PRESETS[layer.shapeType]?.round;
+    return getShapeLayerShapes({ ...layer, shapeType: isRound ? 'circle' : 'rectangle' });
+  }
   if (layer.type === 'shape') return getShapeLayerShapes(layer);
   const font = layer.fontObj;
   const text = resolveLayerText(layer).toUpperCase();
@@ -437,37 +453,63 @@ function zRangesOverlap(a, b) {
   const az = a.offsetZ || 0, bz = b.offsetZ || 0;
   return az < bz + (b.depth || 1) && bz < az + (a.depth || 1);
 }
-function applyNegatives(layer, result) {
-  for (const neg of layerConfig) {
-    if (!result) break;
-    if (!neg.negative || neg.visible === false) continue;
-    if (!zRangesOverlap(layer, neg)) continue;
-    result = applyNegative(layer, result, neg);
+
+// The cut is a 2D boolean, so a negative that's shallower than its target
+// would otherwise punch straight through. Split the target into Z bands at
+// each cutter's start/end and only subtract within the bands it actually
+// spans — so a 2mm cutter leaves the bottom 1mm of a 3mm layer intact.
+function buildLayerSlabs(layer) {
+  const base = getLayerShapes(layer);
+  if (!base) return [];
+  const z0 = layer.offsetZ || 0, z1 = z0 + (layer.depth || 1);
+  const cutters = layerConfig.filter(c => isCutter(c) && c.visible !== false && zRangesOverlap(layer, c));
+  if (!cutters.length) return [{ zStart: z0, depth: z1 - z0, result: base }];
+
+  const cuts = new Set([z0, z1]);
+  for (const c of cutters) {
+    const cz0 = c.offsetZ || 0, cz1 = cz0 + (c.depth || 1);
+    if (cz0 > z0 && cz0 < z1) cuts.add(cz0);
+    if (cz1 > z0 && cz1 < z1) cuts.add(cz1);
   }
-  return result;
+  const bounds = [...cuts].sort((a, b) => a - b);
+
+  const slabs = [];
+  for (let i = 0; i < bounds.length - 1; i++) {
+    const a = bounds[i], b = bounds[i + 1], mid = (a + b) / 2;
+    let result = base;
+    for (const c of cutters) {
+      if (!result) break;
+      const cz0 = c.offsetZ || 0, cz1 = cz0 + (c.depth || 1);
+      if (mid > cz0 && mid < cz1) result = applyNegative(layer, result, c);
+    }
+    if (result && result.shapes.length) slabs.push({ zStart: a, depth: b - a, result });
+  }
+  return slabs;
 }
 
 function buildBadge() {
   badgeGroup.children.filter(c => c !== grid && c !== freeMoveHandles).forEach(c => badgeGroup.remove(c));
-  let maxW = 0, maxH = 0;
+  let maxW = 0, maxH = 0, minZ = Infinity, maxZ = -Infinity;
   // Every layer sits at its own Z — no auto-stacking, the user sets offsets.
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
-    if (layer.negative || layer.visible === false) continue;
-    const depth = layer.depth || 1;
-    let result = applyNegatives(layer, getLayerShapes(layer));
-    if (result && result.shapes.length) {
-      const geo = new THREE.ExtrudeGeometry(result.shapes, { depth, bevelEnabled: false });
-      const mat = new THREE.MeshPhongMaterial({ color: parseInt((layer.hex || '#888888').replace('#',''), 16), shininess: 40 });
+    if (isCutter(layer) || layer.visible === false) continue;
+    const mat = new THREE.MeshPhongMaterial({ color: parseInt((layer.hex || '#888888').replace('#',''), 16), shininess: 40 });
+    for (const slab of buildLayerSlabs(layer)) {
+      const geo = new THREE.ExtrudeGeometry(slab.result.shapes, { depth: slab.depth, bevelEnabled: false });
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(layer.offsetX || 0, layer.offsetY || 0, layer.offsetZ || 0);
+      mesh.position.set(layer.offsetX || 0, layer.offsetY || 0, slab.zStart);
       mesh.rotation.z = (layer.rotation || 0) * Math.PI / 180;
       badgeGroup.add(mesh);
-      maxW = Math.max(maxW, result.width); maxH = Math.max(maxH, result.height);
+      maxW = Math.max(maxW, slab.result.width); maxH = Math.max(maxH, slab.result.height);
+      minZ = Math.min(minZ, slab.zStart); maxZ = Math.max(maxZ, slab.zStart + slab.depth);
     }
   }
   const sizeLabel = document.getElementById('badgeSizeLabel');
-  if (sizeLabel) sizeLabel.textContent = maxW ? `${maxW.toFixed(1)} × ${maxH.toFixed(1)} mm` : '';
+  if (sizeLabel) {
+    const d = isFinite(minZ) ? maxZ - minZ : 0;
+    sizeLabel.textContent = maxW ? `W ${maxW.toFixed(1)} × H ${maxH.toFixed(1)} × D ${d.toFixed(1)} mm` : '';
+  }
   updateHandlePosition();
 }
 
@@ -476,17 +518,18 @@ function buildExportObjects() {
   const objects = [];
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
-    if (layer.negative || layer.visible === false) continue;
-    const depth = layer.depth || 1;
-    let result = applyNegatives(layer, getLayerShapes(layer));
-    if (result && result.shapes.length) {
-      let geo = new THREE.ExtrudeGeometry(result.shapes, { depth, bevelEnabled: false });
+    if (isCutter(layer) || layer.visible === false) continue;
+    // One 3MF object per Z band (see buildLayerSlabs) — same colour/extruder.
+    const slabs = buildLayerSlabs(layer);
+    slabs.forEach((slab, s) => {
+      let geo = new THREE.ExtrudeGeometry(slab.result.shapes, { depth: slab.depth, bevelEnabled: false });
       geo.applyMatrix4(new THREE.Matrix4().makeRotationZ((layer.rotation || 0) * Math.PI / 180));
-      geo.applyMatrix4(new THREE.Matrix4().makeTranslation(layer.offsetX || 0, layer.offsetY || 0, layer.offsetZ || 0));
+      geo.applyMatrix4(new THREE.Matrix4().makeTranslation(layer.offsetX || 0, layer.offsetY || 0, slab.zStart));
       geo = _badgeMergeVerticesForExport(geo);
-      const label = layer.type === 'text' ? (resolveLayerText(layer) || `layer${i+1}`) : (layer.shapeType === 'circle' ? 'Circle' : 'Rectangle');
+      const base = layerLabel(layer) || `layer${i+1}`;
+      const label = slabs.length > 1 ? `${base}_${s+1}` : base;
       objects.push({ geo, name: label.slice(0, 30) || `layer${i+1}`, colour: layer.hex, extruder: i + 1, id: objects.length + 1 });
-    }
+    });
   }
   return objects;
 }

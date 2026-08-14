@@ -371,8 +371,10 @@ function onInputFieldChange(i, field, value){
 }
 
 // ── Layer list UI ────────────────────────────────────────────
+const BACKING_LABELS = {magnet:'Magnet backing', pin:'Pin backing', round:'Round magnet'};
 function layerLabel(l){
   if(l.name) return l.name;
+  if(l.type==='backing') return BACKING_LABELS[l.shapeType] || 'Backing';
   if(l.type==='shape') return l.shapeType==='circle' ? 'Circle' : 'Rectangle';
   if(l.inputId!=null){
     const inp = inputs.find(x=>x._key===l.inputId);
@@ -450,9 +452,11 @@ function buildLayerListUI(){
       onclick="selectLayer(${i})" draggable="true"
       ondragstart="onLayerDragStart(event,${i})" ondragover="onLayerDragOver(event,${i})" ondrop="onLayerDrop(event)" ondragend="onLayerDragEnd()">
       <button class="lr-btn" title="${l.visible===false?'Show layer':'Hide layer'}" onclick="event.stopPropagation();toggleLayerVisible(${i})"><i class="ti ${l.visible===false?'ti-eye-off':'ti-eye'}"></i></button>
-      ${l.negative
-        ? '<i class="ti ti-ban lr-neg-icon" title="Negative — cuts the layers it overlaps"></i>'
-        : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
+      ${l.type==='backing'
+        ? '<i class="ti ti-layout-bottombar lr-neg-icon" title="Backing — cuts a mount slot"></i>'
+        : l.negative
+          ? '<i class="ti ti-ban lr-neg-icon" title="Negative — cuts the layers it overlaps"></i>'
+          : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
       <span class="lr-label">${esc(layerLabel(l))}</span>
       <div class="layer-row-menu-wrap">
         <button class="lr-btn" title="Layer options" onclick="event.stopPropagation();toggleLayerMenu(${i})"><i class="ti ti-dots-vertical"></i></button>
@@ -498,9 +502,14 @@ function buildLayerEditorUI(){
   const l = layerConfig[selectedLayerIndex];
   if(!l){ editor.style.display='none'; return; }
   editor.style.display='flex';
+  const isBacking = l.type==='backing';
   document.getElementById('layType').value = l.type||'text';
   document.getElementById('shapeTypeRow').style.display = (l.type==='shape') ? '' : 'none';
-  document.getElementById('layShapeType').value = l.shapeType||'rectangle';
+  document.getElementById('layShapeType').value = (l.type==='shape' ? l.shapeType : null) || 'rectangle';
+  document.getElementById('backingTypeRow').style.display = isBacking ? '' : 'none';
+  if(isBacking) document.getElementById('layBackingType').value = l.shapeType||'magnet';
+  // Backings are always cutouts, so the Negative toggle is redundant there.
+  document.getElementById('negativeRow').style.display = isBacking ? 'none' : '';
   document.getElementById('layNegative').checked = !!l.negative;
   document.getElementById('textOnlyFields').style.display = (l.type==='text') ? '' : 'none';
   const srcSel = document.getElementById('layInputSource');
@@ -511,11 +520,16 @@ function buildLayerEditorUI(){
   document.getElementById('layFillGaps').checked = !!l.fillGaps;
   buildFontDropdown();
   document.getElementById('layFont').value = l.fontId||'';
-  const isRect = l.type==='shape' && l.shapeType==='rectangle';
-  document.getElementById('sizeOrWidthLabel').textContent = isRect ? 'Width (mm)' : 'Size (mm)';
-  document.getElementById('heightRow').style.display = isRect ? '' : 'none';
+  // Width+Height for rectangles and non-round backings; a single Size for
+  // text and round shapes/backings.
+  const isRound = isBacking ? l.shapeType==='round' : l.shapeType==='circle';
+  const hasWH = (l.type==='shape' || isBacking) && !isRound;
+  document.getElementById('sizeOrWidthLabel').textContent = hasWH ? 'Width (mm)' : 'Size (mm)';
+  document.getElementById('heightRow').style.display = hasWH ? '' : 'none';
   document.getElementById('layHeight').value = l.height||20;
-  document.getElementById('borderRow').style.display = (l.type==='shape') ? 'none' : '';
+  document.getElementById('borderRow').style.display = (l.type==='text') ? '' : 'none';
+  // Cutouts (backings and negatives) are holes — they have no colour.
+  document.getElementById('layColourWrap').closest('.adv-row').style.display = (isBacking || l.negative) ? 'none' : '';
   document.getElementById('layFontSize').value = l.fontSize;
   document.getElementById('layBorder').value = l.border;
   document.getElementById('layDepth').value = l.depth;
@@ -553,11 +567,29 @@ function onLayerFieldChange(field, value){
   const l = layerConfig[selectedLayerIndex];
   if(!l) return;
   l[field]=value;
-  if(field==='type' && value==='shape' && !l.shapeType) l.shapeType='rectangle';
+  if(field==='type' && value==='shape' && !['rectangle','circle'].includes(l.shapeType)) l.shapeType='rectangle';
+  if(field==='type' && value==='backing') applyBackingPreset(l, BACKING_PRESETS[l.shapeType] ? l.shapeType : 'magnet');
   markDirty(l._key);
   if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerListUI();
-  if(field==='type'||field==='shapeType'||field==='inputId') buildLayerEditorUI();
+  if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerEditorUI();
   scheduleRender();
+}
+
+// Picking a backing preset fills in its real-world dimensions; they stay
+// editable afterwards in case a specific magnet/pin differs.
+function applyBackingPreset(l, presetKey){
+  const p = BACKING_PRESETS[presetKey];
+  if(!p) return;
+  l.shapeType = presetKey;
+  l.fontSize = p.width; l.height = p.height; l.depth = p.depth;
+}
+
+function onBackingTypeChange(presetKey){
+  const l = layerConfig[selectedLayerIndex];
+  if(!l) return;
+  applyBackingPreset(l, presetKey);
+  markDirty(l._key);
+  buildLayerListUI(); buildLayerEditorUI(); scheduleRender();
 }
 
 function onLayerFontChange(fontId){
