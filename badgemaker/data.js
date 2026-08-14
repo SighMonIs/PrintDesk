@@ -111,7 +111,7 @@ function makeDefaultLayer(order){
     _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, fillGaps:false, name:null, visible:true,
     content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
-    fontSize:20, height:20, border:0, depth:1,
+    fontSize:20, height:20, border:0, depth:1, repeatThreshold:0,
     offsetX:0, offsetY:0, offsetZ:0, rotation:0,
   };
 }
@@ -260,6 +260,7 @@ async function loadModel(id){
       hex:r.colour_hex, colourId:r.colour_id,
       fontId:r.font_id, fontObj:getCachedFont(r.font_id),
       fontSize:r.font_size, height:r.height_mm||20, border:r.border_mm, depth:r.thickness_mm,
+      repeatThreshold:r.repeat_threshold_mm||0,
       offsetX:r.offset_x, offsetY:r.offset_y, offsetZ:r.offset_z, rotation:r.rotation,
     };
   });
@@ -314,6 +315,7 @@ async function saveModel(){
         content: l.content||'', input_id: l.inputId!=null ? (inputKeyToId.get(l.inputId)||null) : null,
         colour_hex: l.hex, colour_id: l.colourId||null,
         font_id: l.fontId||null, font_size: l.fontSize, height_mm: l.height||20,
+        repeat_threshold_mm: l.repeatThreshold||0,
         border_mm: l.border, thickness_mm: l.depth,
         offset_x: l.offsetX, offset_y: l.offsetY, offset_z: l.offsetZ, rotation: l.rotation,
       };
@@ -469,7 +471,8 @@ function buildLayerListUI(){
     </div>`).join('');
 }
 
-function selectLayer(i){ selectedLayerIndex=i; buildLayerListUI(); buildLayerEditorUI(); }
+// Re-renders because the selected cutter is ghosted in the 3D view.
+function selectLayer(i){ selectedLayerIndex=i; buildLayerListUI(); buildLayerEditorUI(); scheduleRender(); }
 
 function addLayer(){
   const l = makeDefaultLayer(layerConfig.length);
@@ -511,6 +514,15 @@ function buildLayerEditorUI(){
   // Backings are always cutouts, so the Negative toggle is redundant there.
   document.getElementById('negativeRow').style.display = isBacking ? 'none' : '';
   document.getElementById('layNegative').checked = !!l.negative;
+  // Auto-repeat only applies to round magnets (as in the original generator).
+  const canRepeat = isBacking && l.shapeType==='round';
+  const repeatOn = canRepeat && (l.repeatThreshold||0) > 0;
+  document.getElementById('repeatingBlock').style.display = canRepeat ? '' : 'none';
+  document.getElementById('layRepeat').checked = repeatOn;
+  document.getElementById('repeatThresholdRow').style.display = repeatOn ? '' : 'none';
+  document.getElementById('layRepeatThreshold').value = l.repeatThreshold || 60;
+  const hint = document.getElementById('repeatHint');
+  if(canRepeat) hint.textContent = repeatOn ? `${repeatCount(l)} magnet(s) across ${modelWidth().toFixed(1)}mm` : '';
   document.getElementById('textOnlyFields').style.display = (l.type==='text') ? '' : 'none';
   const srcSel = document.getElementById('layInputSource');
   srcSel.innerHTML = '<option value="">Literal text</option>' + inputs.map(inp=>`<option value="${inp._key}">${esc(inp.name)}</option>`).join('');
@@ -571,7 +583,7 @@ function onLayerFieldChange(field, value){
   if(field==='type' && value==='backing') applyBackingPreset(l, BACKING_PRESETS[l.shapeType] ? l.shapeType : 'magnet');
   markDirty(l._key);
   if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerListUI();
-  if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative') buildLayerEditorUI();
+  if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='repeatThreshold') buildLayerEditorUI();
   scheduleRender();
 }
 
@@ -582,6 +594,20 @@ function applyBackingPreset(l, presetKey){
   if(!p) return;
   l.shapeType = presetKey;
   l.fontSize = p.width; l.height = p.height; l.depth = p.depth;
+}
+
+function repeatCount(l){
+  const t = l.repeatThreshold||0, w = modelWidth();
+  return (t>0 && w) ? Math.max(1, Math.ceil(w/t)) : 1;
+}
+
+// Threshold doubles as the on/off switch: 0 means no repeating.
+function onRepeatToggle(checked){
+  const l = layerConfig[selectedLayerIndex];
+  if(!l) return;
+  l.repeatThreshold = checked ? (l.repeatThreshold || 60) : 0;
+  markDirty(l._key);
+  buildLayerEditorUI(); scheduleRender();
 }
 
 function onBackingTypeChange(presetKey){

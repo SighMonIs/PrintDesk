@@ -458,11 +458,44 @@ function zRangesOverlap(a, b) {
 // would otherwise punch straight through. Split the target into Z bands at
 // each cutter's start/end and only subtract within the bands it actually
 // spans — so a 2mm cutter leaves the bottom 1mm of a 3mm layer intact.
+// Overall width of the solid layers — what a repeating backing spreads across.
+// Cached per render pass since buildLayerSlabs runs once per layer.
+let _modelWidthCache = null;
+function invalidateModelWidth() { _modelWidthCache = null; }
+function modelWidth() {
+  if (_modelWidthCache !== null) return _modelWidthCache;
+  let w = 0;
+  for (const l of layerConfig) {
+    if (isCutter(l) || l.visible === false) continue;
+    const r = getLayerShapes(l);
+    if (r) w = Math.max(w, r.width);
+  }
+  return (_modelWidthCache = w);
+}
+
+// A round-magnet backing can auto-repeat across the badge, matching the
+// original generator: one magnet per `repeatThreshold` mm of width, spread
+// evenly. Returns the cutter expanded into its repeated copies.
+function expandCutter(c) {
+  const t = c.repeatThreshold || 0;
+  if (!(c.type === 'backing' && c.shapeType === 'round' && t > 0)) return [c];
+  const w = modelWidth();
+  const n = Math.max(1, Math.ceil(w / t));
+  if (n <= 1 || !w) return [c];
+  const copies = [];
+  for (let k = 1; k <= n; k++) {
+    copies.push({ ...c, offsetX: (c.offsetX || 0) + w * (2 * k - 1 - n) / (2 * n) });
+  }
+  return copies;
+}
+
 function buildLayerSlabs(layer) {
   const base = getLayerShapes(layer);
   if (!base) return [];
   const z0 = layer.offsetZ || 0, z1 = z0 + (layer.depth || 1);
-  const cutters = layerConfig.filter(c => isCutter(c) && c.visible !== false && zRangesOverlap(layer, c));
+  const cutters = layerConfig
+    .filter(c => isCutter(c) && c.visible !== false && zRangesOverlap(layer, c))
+    .flatMap(expandCutter);
   if (!cutters.length) return [{ zStart: z0, depth: z1 - z0, result: base }];
 
   const cuts = new Set([z0, z1]);
@@ -488,6 +521,7 @@ function buildLayerSlabs(layer) {
 }
 
 function buildBadge() {
+  invalidateModelWidth();
   badgeGroup.children.filter(c => c !== grid && c !== freeMoveHandles).forEach(c => badgeGroup.remove(c));
   let maxW = 0, maxH = 0, minZ = Infinity, maxZ = -Infinity;
   // Every layer sits at its own Z — no auto-stacking, the user sets offsets.
@@ -505,6 +539,29 @@ function buildBadge() {
       minZ = Math.min(minZ, slab.zStart); maxZ = Math.max(maxZ, slab.zStart + slab.depth);
     }
   }
+  // Cutters render as nothing, so ghost the selected one to show where it sits.
+  const sel = layerConfig[selectedLayerIndex];
+  if (sel && isCutter(sel) && sel.visible !== false) {
+    const ghost = getLayerShapes(sel);
+    if (ghost && ghost.shapes.length) {
+      // depthTest off so it shows through the badge body — a cutter usually
+      // sits inside the solid layers it's cutting.
+      const mat = new THREE.MeshPhongMaterial({
+        color: 0xff5555, transparent: true, opacity: 0.35,
+        depthWrite: false, depthTest: false, side: THREE.DoubleSide,
+      });
+      // Ghost every repeated copy, so auto-repeat is visible while editing.
+      for (const copy of expandCutter(sel)) {
+        const geo = new THREE.ExtrudeGeometry(ghost.shapes, { depth: sel.depth || 1, bevelEnabled: false });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(copy.offsetX || 0, copy.offsetY || 0, copy.offsetZ || 0);
+        mesh.rotation.z = (sel.rotation || 0) * Math.PI / 180;
+        mesh.renderOrder = 998;
+        badgeGroup.add(mesh);
+      }
+    }
+  }
+
   const sizeLabel = document.getElementById('badgeSizeLabel');
   if (sizeLabel) {
     const d = isFinite(minZ) ? maxZ - minZ : 0;
@@ -515,6 +572,7 @@ function buildBadge() {
 
 // ── 3MF export ───────────────────────────────────────────────────
 function buildExportObjects() {
+  invalidateModelWidth();
   const objects = [];
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
