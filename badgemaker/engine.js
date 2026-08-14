@@ -303,7 +303,6 @@ function orientTo(v) {
 
 animate();   // safe now that the view cube's constants exist
 
-function resetView() { rotX = -0.4; rotY = 0.2; zoom = 1; syncSlidersFromView(); }
 function toggleGrid() {
   grid.visible = !grid.visible;
   localStorage.setItem(LS_GRID, grid.visible ? '1' : '0');
