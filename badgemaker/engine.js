@@ -519,6 +519,27 @@ function rectToClipper(x0, y0, x1, y1) {
   ];
 }
 
+// The hole is a D, flat edge facing the connector (as on the original
+// generator's ring) so the split ring seats against it. With no connector
+// there's no side to flatten, so it stays a plain circle.
+const KEYCHAIN_FLAT = 0.6;   // chord distance from centre, as a fraction of r
+function keychainHolePath(r, side) {
+  if (side === 'none') return circleToClipper(0, 0, r);
+  const a0 = Math.acos(KEYCHAIN_FLAT);        // where the flat chord meets the arc
+  const N = 48, pts = [];
+  for (let i = 0; i <= N; i++) {              // major arc, away from the flat
+    const a = a0 + (2 * Math.PI - 2 * a0) * i / N;
+    pts.push([r * Math.cos(a), r * Math.sin(a)]);
+  }
+  const phi = side === 'right' ? 0 : side === 'up' ? Math.PI / 2
+            : side === 'left'  ? Math.PI : -Math.PI / 2;
+  const cos = Math.cos(phi), sin = Math.sin(phi);
+  return pts.map(([x, y]) => ({
+    X: Math.round((x * cos - y * sin) * _BADGE_SCALE),
+    Y: Math.round((x * sin + y * cos) * _BADGE_SCALE),
+  }));
+}
+
 function getKeychainShapes(layer) {
   const innerR = (layer.fontSize || 10) / 2;
   const wall   = layer.height || 2.5;
@@ -541,7 +562,7 @@ function getKeychainShapes(layer) {
   const toVec2 = p => new THREE.Vector2(p.X / _BADGE_SCALE, p.Y / _BADGE_SCALE);
   const shapes = outers.map(o => new THREE.Shape(o.map(toVec2)));
   // Punch the ring hole into whichever outer contour contains it.
-  const holePath = circleToClipper(0, 0, innerR);
+  const holePath = keychainHolePath(innerR, side);
   for (const s of shapes) {
     const outer = outers[shapes.indexOf(s)];
     if (pointInPolygon(holePath[0], outer)) s.holes.push(new THREE.Path(holePath.map(toVec2)));
