@@ -75,14 +75,14 @@ function _badgeCommandsToClipper(cmds) {
 }
 
 // ── Text layout (word spacing — opentype.js has no built-in option) ─
-function _badgeGetTextCommands(font, text, fsize, letterSpacingMM, wordSpacingMM) {
+function _badgeGetTextCommands(font, text, fsize, letterSpacingMM, wordSpacingMM, x0 = 0, y0 = 0) {
   const opts = letterSpacingMM ? { letterSpacing: letterSpacingMM / fsize } : {};
-  if (!wordSpacingMM) return font.getPath(text, 0, 0, fsize, opts).commands;
+  if (!wordSpacingMM) return font.getPath(text, x0, y0, fsize, opts).commands;
   const words = text.split(' ');
-  let x = 0, commands = [];
+  let x = x0, commands = [];
   words.forEach((word, i) => {
     if (word) {
-      commands.push(...font.getPath(word, x, 0, fsize, opts).commands);
+      commands.push(...font.getPath(word, x, y0, fsize, opts).commands);
       x += font.getAdvanceWidth(word, fsize, opts);
     }
     if (i < words.length - 1) x += font.getAdvanceWidth(' ', fsize, opts) + wordSpacingMM;

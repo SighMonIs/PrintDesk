@@ -1,4 +1,7 @@
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Text boxes grow with their content — badge text can wrap or be typed over
+// several lines. +2 covers the 1px borders (everything here is border-box).
+function autoGrow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function escJsAttr(s){ return esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 
 // window.prompt/confirm/alert aren't reliable in every embedding context (e.g.
@@ -208,7 +211,7 @@ function makeDefaultLayer(order){
     _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, negAboveOnly:false, fillGaps:false, fitToShape:false, vertical:false, name:nextLayerName(), visible:true,
     content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
-    fontSize:20, height:20, border:0, depth:1, repeatThreshold:0, letterSpacing:0, wordSpacing:0,
+    fontSize:20, height:20, border:0, depth:1, repeatThreshold:0, letterSpacing:0, wordSpacing:0, lineSpacing:0,
     offsetX:0, offsetY:0, offsetZ:0, rotation:0,
   };
 }
@@ -430,7 +433,7 @@ async function loadModel(id){
       fontId:r.font_id, fontObj:getCachedFont(r.font_id),
       fontSize:r.font_size, height:r.height_mm||20, border:r.border_mm, depth:r.thickness_mm,
       repeatThreshold:r.repeat_threshold_mm||0,
-      letterSpacing:r.letter_spacing_mm||0, wordSpacing:r.word_spacing_mm||0,
+      letterSpacing:r.letter_spacing_mm||0, wordSpacing:r.word_spacing_mm||0, lineSpacing:r.line_spacing_mm||0,
       offsetX:r.offset_x, offsetY:r.offset_y, offsetZ:r.offset_z, rotation:r.rotation,
     };
   });
@@ -490,7 +493,7 @@ async function saveModel(){
         colour_hex: l.hex, colour_id: l.colourId||null,
         font_id: l.fontId||null, font_size: l.fontSize, height_mm: l.height||20,
         repeat_threshold_mm: l.repeatThreshold||0,
-        letter_spacing_mm: l.letterSpacing||0, word_spacing_mm: l.wordSpacing||0,
+        letter_spacing_mm: l.letterSpacing||0, word_spacing_mm: l.wordSpacing||0, line_spacing_mm: l.lineSpacing||0,
         border_mm: l.border, thickness_mm: l.depth,
         offset_x: l.offsetX, offset_y: l.offsetY, offset_z: l.offsetZ, rotation: l.rotation,
       };
@@ -514,9 +517,10 @@ function buildInputListUI(){
   el.innerHTML = inputs.map((inp,i)=>`
     <div class="input-row${dirtyInputKeys.has(inp._key)?' dirty':''}" data-key="${inp._key}">
       <input class="input-name" value="${esc(inp.name)}" placeholder="Field name" oninput="onInputFieldChange(${i},'name',this.value)">
-      <input class="input-value" value="${esc(inp.defaultValue)}" placeholder="Value" oninput="onInputFieldChange(${i},'defaultValue',this.value)">
+      <textarea class="input-value adv-textarea" rows="1" placeholder="Value" oninput="autoGrow(this);onInputFieldChange(${i},'defaultValue',this.value)">${esc(inp.defaultValue)}</textarea>
       <button class="lr-btn" title="Delete" onclick="removeInput(${i})"><i class="ti ti-trash"></i></button>
     </div>`).join('');
+  el.querySelectorAll('textarea').forEach(autoGrow);
 }
 
 function addInput(){
@@ -563,9 +567,9 @@ function layerLabel(l){
     : l.shapeType==='roundedrect' ? 'Rounded rectangle' : 'Rectangle';
   if(l.inputId!=null){
     const inp = inputs.find(x=>x._key===l.inputId);
-    return inp ? (inp.defaultValue || `[${inp.name}]`) : '(empty)';
+    return inp ? (inp.defaultValue.replace(/\n/g,' ') || `[${inp.name}]`) : '(empty)';
   }
-  return l.content||'(empty)';
+  return l.content?.replace(/\n/g,' ') || '(empty)';
 }
 
 let openLayerMenuIndex=null;
@@ -717,13 +721,16 @@ function buildLayerEditorUI(){
   srcSel.innerHTML = '<option value="">Literal text</option>' + inputs.map(inp=>`<option value="${inp._key}">${esc(inp.name)}</option>`).join('');
   srcSel.value = l.inputId||'';
   document.getElementById('layContentRow').style.display = l.inputId!=null ? 'none' : '';
-  document.getElementById('layContent').value = l.content||'';
+  const contentEl = document.getElementById('layContent');
+  contentEl.value = l.content||'';
+  autoGrow(contentEl);
   document.getElementById('layFillGaps').checked = !!l.fillGaps;
   document.getElementById('layLetterSpacing').value = l.letterSpacing ?? 0;
   document.getElementById('layWordSpacing').value = l.wordSpacing ?? 0;
+  document.getElementById('layLineSpacing').value = l.lineSpacing ?? 0;
   // In vertical mode letter spacing is the gap between stacked characters.
   document.getElementById('letterSpacingLabel').textContent =
-    l.vertical ? 'Line spacing (mm)' : 'Letter spacing (mm)';
+    l.vertical ? 'Character spacing (mm)' : 'Letter spacing (mm)';
   buildFontDropdown();
   document.getElementById('layFont').value = l.fontId||'';
   // The three dimension fields are shared across types, relabelled to suit:

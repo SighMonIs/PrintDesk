@@ -491,15 +491,29 @@ function getShapeLayerShapes(layer) {
 // Vertical text: one character per line, each centred on its own advance
 // width. cmdsToCenteredShapes recentres the whole block afterwards. Letter
 // spacing becomes the gap between lines here, word spacing the gap at a space.
-function verticalTextCommands(font, text, size, letterSpacing = 0, wordSpacing = 0) {
+function verticalTextCommands(font, text, size, letterSpacing = 0, wordSpacing = 0, lineSpacing = 0) {
   const cmds = [];
   let y = 0;
   for (const ch of [...text]) {
+    if (ch === '\n') { y += size + lineSpacing; continue; }
     if (ch === ' ') { y += size + letterSpacing + wordSpacing; continue; }
     cmds.push(...font.getPath(ch, -font.getAdvanceWidth(ch, size) / 2, y, size).commands);
     y += size + letterSpacing;
   }
   return cmds;
+}
+
+// Multi-line text: one baseline per newline-separated line, each centred on
+// its own advance width so the block reads as centre-aligned. lineSpacing is
+// the extra gap on top of the em size between baselines.
+function multilineTextCommands(font, text, size, letterSpacing, wordSpacing, lineSpacing) {
+  const lines = text.split('\n');
+  if (lines.length === 1) return _badgeGetTextCommands(font, text, size, letterSpacing, wordSpacing);
+  const opts = letterSpacing ? { letterSpacing: letterSpacing / size } : {};
+  return lines.flatMap((line, i) => {
+    const w = font.getAdvanceWidth(line, size, opts) + wordSpacing * (line.split(' ').length - 1);
+    return _badgeGetTextCommands(font, line, size, letterSpacing, wordSpacing, -w / 2, i * (size + lineSpacing));
+  });
 }
 
 // A text layer either types its own literal content, or binds to one of the
@@ -635,9 +649,9 @@ function getLayerShapes(layer) {
   const text = resolveLayerText(layer).toUpperCase();
   if (!font || !text) return null;
   const size = layer.fontSize || 20;
-  const ls = layer.letterSpacing || 0, ws = layer.wordSpacing || 0;
-  const cmds = layer.vertical ? verticalTextCommands(font, text, size, ls, ws)
-                              : _badgeGetTextCommands(font, text, size, ls, ws);
+  const ls = layer.letterSpacing || 0, ws = layer.wordSpacing || 0, lsp = layer.lineSpacing || 0;
+  const cmds = layer.vertical ? verticalTextCommands(font, text, size, ls, ws, lsp)
+                              : multilineTextCommands(font, text, size, ls, ws, lsp);
   if (!cmds.length) return null;
   const centered = cmdsToCenteredShapes(cmds, layer.fillGaps);
   if (!centered) return null;

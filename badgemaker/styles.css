@@ -40,10 +40,10 @@
 .btn:hover{background:#262626;border-color:var(--border2);}
 .btn.primary{color:#0f1f17;font-weight:600;}
 .btn.primary:hover{background:var(--accent2);border-color:var(--accent2);}
-.adv-input,.adv-text-input,.model-select,.name-input,.input-row input,.login-field input{
+.adv-input,.adv-text-input,.model-select,.name-input,.input-row input,.input-row textarea,.login-field input{
   background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
 }
-.adv-input:focus,.adv-text-input:focus,.model-select:focus,.input-row input:focus,.login-field input:focus{
+.adv-input:focus,.adv-text-input:focus,.model-select:focus,.input-row input:focus,.input-row textarea:focus,.login-field input:focus{
   border-color:var(--accent);outline:none;
 }
 .spin-btn{background:var(--surface2);border-color:var(--border);}
@@ -114,7 +114,9 @@
 .input-list{display:flex;flex-direction:column;gap:4px;}
 .input-row{display:flex;align-items:center;gap:6px;padding:4px;border-radius:var(--radius);}
 .input-row.dirty{outline:2px solid var(--red);outline-offset:-1px;}
-.input-row input{height:26px;padding:0 6px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;}
+.input-row input,.input-row textarea{height:26px;padding:0 6px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);outline:none;}
+/* Text boxes that grow with what's typed — height is set by autoGrow(). */
+.adv-textarea{font-family:inherit;line-height:1.4;height:auto;padding:4px 6px;resize:none;overflow:hidden;}
 .input-row .input-name{width:70px;flex-shrink:0;}
 .input-row .input-value{flex:1;min-width:0;}
 .input-row .lr-btn{width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--muted);cursor:pointer;border-radius:4px;padding:0;flex-shrink:0;}
