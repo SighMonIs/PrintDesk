@@ -87,6 +87,9 @@
 .right-panel{width:300px;flex-shrink:0;padding:0.9rem 1rem;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:0;overflow-y:auto;overflow-x:hidden;min-height:0;}
 /* Sections are split by a rule rather than boxed up — keeps the panel slim. */
 .right-panel .layer-setting-block{display:flex;flex-direction:column;gap:5px;background:none;border:0;border-top:1px solid var(--border);border-radius:0;padding:9px 0 0;margin-top:9px;}
+.right-panel .layer-setting-block:first-child{border-top:0;margin-top:0;padding-top:0;}
+/* Section headings match the left panel's. */
+.right-panel .section-title{font-size:13px;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0;}
 
 .layer-list{display:flex;flex-direction:column;gap:4px;}
 .layer-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;font-size:12px;}
