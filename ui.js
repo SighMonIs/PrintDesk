@@ -1292,23 +1292,25 @@ function resetFilterToDefault(){
   updateFilterDefaultBtn();
 }
 
+// Number of filter groups that differ from the saved default (or from "all ticked" if none saved)
+function _filterDiffCount(){
+  const raw = localStorage.getItem(FILTER_DEFAULT_KEY);
+  let def = null;
+  try{ def = raw ? JSON.parse(raw) : null; }catch(e){}
+  const cur = _currentFilterState();
+  return ['status','cat','pay'].filter(f=>{
+    const c = cur[f];
+    if(!c.length) return false;
+    const d = def && def[f];
+    if(!d) return !c.every(x=>x.c);
+    return c.some(x=>{ const m = d.find(y=>y.v===x.v); return m ? m.c !== x.c : !x.c; });
+  }).length;
+}
+
 function updateFilterDefaultBtn(){
   const btn = document.getElementById('filterResetBtn');
   if(!btn) return;
-  const raw = localStorage.getItem(FILTER_DEFAULT_KEY);
-  const defaultState = raw ? (()=>{ try{ return JSON.parse(raw); }catch(e){ return null; } })() : null;
-  const current = _currentFilterState();
-  const matchesDefault = ['status','cat','pay'].every(f=>{
-    const cur = current[f], def = defaultState ? defaultState[f] : null;
-    // No saved default for this group — "default" means everything checked
-    if(!def) return cur.every(x=>x.c);
-    if(cur.length !== def.length) return false;
-    return cur.every(x=>{
-      const match = def.find(d=>d.v===x.v);
-      return match && match.c === x.c;
-    });
-  });
-  btn.style.display = matchesDefault ? 'none' : '';
+  btn.style.display = _filterDiffCount() ? '' : 'none';
 }
 
 function getFilterValues(filter){
@@ -1320,13 +1322,7 @@ function getFilterValues(filter){
 }
 
 function updateFilterCount(){
-  // Count only groups where not everything is ticked (i.e. something is filtered out)
-  let count = 0;
-  ['status','cat','pay'].forEach(filter=>{
-    const all     = document.querySelectorAll(`[data-filter="${filter}"]`);
-    const checked = document.querySelectorAll(`[data-filter="${filter}"]:checked`);
-    if(all.length > 0 && all.length !== checked.length) count++;
-  });
+  const count = _filterDiffCount();
   const badge = document.getElementById('filterCount');
   const btn   = document.getElementById('filterBtn');
   if(badge){ badge.textContent=count; badge.style.display=count?'':'none'; }

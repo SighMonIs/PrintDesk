@@ -74,9 +74,10 @@ body{overflow:hidden;background:var(--base);margin:0;padding:0;}
 
 /* Sort row below search — filter left, sort right */
 .inbox-sort-row{
-  display:flex;justify-content:space-between;align-items:center;
+  display:flex;align-items:center;
   padding:6px 0 8px;gap:6px;
 }
+.inbox-sort-row > #sortWrap{margin-left:auto;}
 
 .inbox-list{flex:1;overflow-y:auto;padding:0;display:flex;flex-direction:column;}
 .inbox-list-footer{
