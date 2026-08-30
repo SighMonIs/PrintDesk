@@ -716,7 +716,12 @@ function buildLayerEditorUI(){
   document.getElementById('layRepeatThreshold').value = l.repeatThreshold || 60;
   const hint = document.getElementById('repeatHint');
   if(canRepeat) hint.textContent = repeatOn ? `${repeatCount(l)} magnet(s) across ${modelWidth().toFixed(1)}mm` : '';
-  document.getElementById('textOnlyFields').style.display = (l.type==='text') ? '' : 'none';
+  const isText = l.type==='text';
+  document.getElementById('textOnlyFields').style.display = isText ? '' : 'none';
+  // These live in Appearance but only apply to text, so they hide row by row
+  // rather than with their block.
+  for(const id of ['fillGapsRow','letterSpacingRow','wordSpacingRow','lineSpacingRow'])
+    document.getElementById(id).style.display = isText ? '' : 'none';
   const srcSel = document.getElementById('layInputSource');
   srcSel.innerHTML = '<option value="">Literal text</option>' + inputs.map(inp=>`<option value="${inp._key}">${esc(inp.name)}</option>`).join('');
   srcSel.value = l.inputId||'';
@@ -731,7 +736,7 @@ function buildLayerEditorUI(){
   // Alignment only shifts one line against another, so it needs >1 line;
   // vertical text stacks single characters and has nothing to align.
   document.getElementById('layAlign').value = l.align || 'center';
-  document.getElementById('alignRow').style.display = l.vertical ? 'none' : '';
+  document.getElementById('alignRow').style.display = (isText && !l.vertical) ? '' : 'none';
   // In vertical mode letter spacing is the gap between stacked characters.
   document.getElementById('letterSpacingLabel').textContent =
     l.vertical ? 'Character spacing (mm)' : 'Letter spacing (mm)';
