@@ -50,7 +50,7 @@
 .spin-btn:hover{background:#262626;border-color:var(--border2);}
 
 /* Cards and menus get real edges rather than relying on fill contrast. */
-.layer-setting-block,.layer-row,.colour-picker-btn{
+.layer-row,.colour-picker-btn{
   background:var(--surface2);border:1px solid var(--border);
 }
 .layer-row-menu,.colour-picker-list,.cam-panel,.bm-modal,.login-card{
@@ -84,8 +84,9 @@
 .btn.btn-new:hover{background:#6bc98a;border-color:#6bc98a;}
 
 /* Right sidebar: Selected Layer editor, same width as the left panel */
-.right-panel{width:300px;flex-shrink:0;padding:1.25rem;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:1rem;overflow-y:auto;overflow-x:hidden;min-height:0;}
-.right-panel .layer-setting-block{display:flex;flex-direction:column;gap:6px;}
+.right-panel{width:300px;flex-shrink:0;padding:0.9rem 1rem;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:0;overflow-y:auto;overflow-x:hidden;min-height:0;}
+/* Sections are split by a rule rather than boxed up — keeps the panel slim. */
+.right-panel .layer-setting-block{display:flex;flex-direction:column;gap:5px;background:none;border:0;border-top:1px solid var(--border);border-radius:0;padding:9px 0 0;margin-top:9px;}
 
 .layer-list{display:flex;flex-direction:column;gap:4px;}
 .layer-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;font-size:12px;}
