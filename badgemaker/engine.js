@@ -504,15 +504,18 @@ function verticalTextCommands(font, text, size, letterSpacing = 0, wordSpacing =
 }
 
 // Multi-line text: one baseline per newline-separated line, each centred on
-// its own advance width so the block reads as centre-aligned. lineSpacing is
-// the extra gap on top of the em size between baselines.
-function multilineTextCommands(font, text, size, letterSpacing, wordSpacing, lineSpacing) {
+// its own advance width, then shifted sideways per the layer's alignment.
+// lineSpacing is the extra gap on top of the em size between baselines. Only
+// the offsets *between* lines matter — cmdsToCenteredShapes recentres the
+// whole block on its bbox afterwards.
+function multilineTextCommands(font, text, size, letterSpacing, wordSpacing, lineSpacing, align = 'center') {
   const lines = text.split('\n');
   if (lines.length === 1) return _badgeGetTextCommands(font, text, size, letterSpacing, wordSpacing);
   const opts = letterSpacing ? { letterSpacing: letterSpacing / size } : {};
   return lines.flatMap((line, i) => {
     const w = font.getAdvanceWidth(line, size, opts) + wordSpacing * (line.split(' ').length - 1);
-    return _badgeGetTextCommands(font, line, size, letterSpacing, wordSpacing, -w / 2, i * (size + lineSpacing));
+    const x = align === 'left' ? 0 : align === 'right' ? -w : -w / 2;
+    return _badgeGetTextCommands(font, line, size, letterSpacing, wordSpacing, x, i * (size + lineSpacing));
   });
 }
 
@@ -651,7 +654,7 @@ function getLayerShapes(layer) {
   const size = layer.fontSize || 20;
   const ls = layer.letterSpacing || 0, ws = layer.wordSpacing || 0, lsp = layer.lineSpacing || 0;
   const cmds = layer.vertical ? verticalTextCommands(font, text, size, ls, ws, lsp)
-                              : multilineTextCommands(font, text, size, ls, ws, lsp);
+                              : multilineTextCommands(font, text, size, ls, ws, lsp, layer.align);
   if (!cmds.length) return null;
   const centered = cmdsToCenteredShapes(cmds, layer.fillGaps);
   if (!centered) return null;
