@@ -134,6 +134,8 @@
 .bm-modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:18px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;}
 .bm-modal-msg{font-size:13px;color:var(--text);}
 .bm-modal-btns{display:flex;gap:8px;justify-content:flex-end;}
+.bm-modal-wide{max-width:560px;}
+#bedCanvas{width:100%;height:auto;border-radius:var(--radius);background:var(--surface2);}
 
 /* Unsaved-changes indicator */
 #saveBtn.dirty{background:var(--red);border-color:var(--red);color:#fff;}

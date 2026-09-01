@@ -904,3 +904,109 @@ function exportBadge() {
   a.href = u; a.download = name + '.3mf'; a.click(); URL.revokeObjectURL(u);
   setStatus(`Exported ${name}.3mf`, 'ok');
 }
+
+// ── Print bed preview ────────────────────────────────────────────
+// Printable X × Y in mm. Bambu only — that's what the shop runs.
+const BAMBU_BEDS = {
+  'A1 mini': [180, 180],
+  'A1': [256, 256],
+  'P1P': [256, 256],
+  'P1S': [256, 256],
+  'X1': [256, 256],
+  'X1 Carbon': [256, 256],
+  'X1E': [256, 256],
+  'H2D': [350, 320],
+  'H2S': [350, 320],
+};
+
+// Same slabs the 3D preview and the 3MF export use, flattened to
+// world-space outlines for a top-down view.
+function bedFootprint() {
+  const parts = [];
+  for (const layer of layerConfig) {
+    if (isCutter(layer) || layer.visible === false) continue;
+    for (const slab of buildLayerSlabs(layer)) parts.push({ layer, slab });
+  }
+  parts.sort((a, b) => a.slab.zStart - b.slab.zStart); // paint bottom-up
+  return parts.map(({ layer, slab }) => {
+    const a = (layer.rotation || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const tf = p => ({ x: p.x * c - p.y * s + (layer.offsetX || 0), y: p.x * s + p.y * c + (layer.offsetY || 0) });
+    return {
+      hex: layer.hex || '#888888',
+      rings: slab.result.shapes.map(sh => ({ outer: sh.getPoints(24).map(tf), holes: (sh.holes || []).map(h => h.getPoints(24).map(tf)) })),
+    };
+  });
+}
+
+function drawBedCanvas(printer) {
+  const cv = document.getElementById('bedCanvas');
+  if (!cv) return;
+  const [bw, bh] = BAMBU_BEDS[printer] || BAMBU_BEDS['A1'];
+  const ctx = cv.getContext('2d');
+  const pad = 24, s = Math.min((cv.width - pad * 2) / bw, (cv.height - pad * 2) / bh);
+  const ox = (cv.width - bw * s) / 2, oy = (cv.height - bh * s) / 2;
+  const px = p => ox + p.x * s, py = p => oy + bh * s - p.y * s; // canvas Y is flipped
+
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = '#2a2a2e';
+  ctx.fillRect(ox, oy, bw * s, bh * s);
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  for (let x = 50; x < bw; x += 50) { ctx.beginPath(); ctx.moveTo(ox + x * s, oy); ctx.lineTo(ox + x * s, oy + bh * s); ctx.stroke(); }
+  for (let y = 50; y < bh; y += 50) { ctx.beginPath(); ctx.moveTo(ox, oy + y * s); ctx.lineTo(ox + bw * s, oy + y * s); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.strokeRect(ox, oy, bw * s, bh * s);
+
+  const parts = bedFootprint();
+  const all = parts.flatMap(p => p.rings.flatMap(r => r.outer));
+  const fit = document.getElementById('bedFit');
+  if (!all.length) { if (fit) fit.textContent = 'Nothing to place — add a layer first.'; return; }
+  const xs = all.map(p => p.x), ys = all.map(p => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const w = maxX - minX, h = maxY - minY;
+  // Centre the model on the bed, the way a slicer's auto-arrange would.
+  const dx = (bw - w) / 2 - minX, dy = (bh - h) / 2 - minY;
+  const shift = p => ({ x: p.x + dx, y: p.y + dy });
+
+  for (const part of parts) {
+    ctx.fillStyle = part.hex;
+    ctx.beginPath();
+    for (const ring of part.rings) {
+      for (const loop of [ring.outer, ...ring.holes]) {
+        loop.forEach((raw, i) => { const p = shift(raw); i ? ctx.lineTo(px(p), py(p)) : ctx.moveTo(px(p), py(p)); });
+        ctx.closePath();
+      }
+    }
+    ctx.fill('evenodd');
+  }
+
+  const fits = w <= bw && h <= bh;
+  if (fit) {
+    fit.textContent = `Badge ${w.toFixed(1)} × ${h.toFixed(1)} mm on a ${bw} × ${bh} mm bed`
+      + (fits ? '' : ' — too big for this printer');
+    fit.style.color = fits ? 'var(--muted)' : 'var(--red)';
+  }
+}
+
+function openBedView() {
+  const overlay = document.createElement('div');
+  overlay.className = 'bm-modal-overlay';
+  overlay.innerHTML = `<div class="bm-modal bm-modal-wide">
+    <div class="adv-row"><label>Printer</label>
+      <select class="adv-text-input" id="bedPrinter" style="width:150px">${Object.keys(BAMBU_BEDS).map(n => `<option>${esc(n)}</option>`).join('')}</select>
+    </div>
+    <canvas id="bedCanvas" width="900" height="900"></canvas>
+    <div class="bm-modal-msg" id="bedFit"></div>
+    <div class="bm-modal-btns"><button class="btn sm" id="bedClose">Close</button></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const sel = overlay.querySelector('#bedPrinter');
+  sel.value = localStorage.getItem('bmPrinter') || 'A1';
+  if (!sel.value) sel.value = 'A1';
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  sel.onchange = () => { localStorage.setItem('bmPrinter', sel.value); drawBedCanvas(sel.value); };
+  overlay.querySelector('#bedClose').onclick = close;
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', onKey);
+  drawBedCanvas(sel.value);
+}
