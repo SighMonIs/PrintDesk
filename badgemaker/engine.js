@@ -906,7 +906,10 @@ function exportBadge() {
 }
 
 // ── Print bed preview ────────────────────────────────────────────
-// Printable X × Y in mm. Bambu only — that's what the shop runs.
+// Printable X × Y in mm, then the dual-nozzle X range where fitted. On the
+// H2C the plate is 330 wide but only x 25–325 is reachable by both nozzles —
+// the 25mm strip on the left is left-nozzle-only, so nothing multi-colour
+// can sit there. H2D/H2S have no range here: give me their numbers to add it.
 const BAMBU_BEDS = {
   'A1 mini': [180, 180],
   'A1': [256, 256],
@@ -915,7 +918,7 @@ const BAMBU_BEDS = {
   'X1': [256, 256],
   'X1 Carbon': [256, 256],
   'X1E': [256, 256],
-  'H2C': [350, 320],
+  'H2C': [330, 320, 25, 325],
   'H2D': [350, 320],
   'H2S': [350, 320],
 };
@@ -978,6 +981,31 @@ function drawBedCanvas() {
   ctx.strokeStyle = 'rgba(255,255,255,0.25)';
   ctx.strokeRect(ox, oy, bw * s, bh * s);
 
+  // The canvas is drawn at 900px but displayed ~1/3 that, so anything meant to
+  // be a fixed on-screen size is scaled by canvas pixels per CSS pixel.
+  v.hs = cv.width / (cv.getBoundingClientRect().width || cv.width);
+  const hs = v.hs;
+
+  const [, , dx0, dx1] = BAMBU_BEDS[v.printer] || [];
+  const zoned = dx0 != null;
+  if (zoned) {
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(ox, oy, dx0 * s, bh * s);
+    ctx.fillRect(ox + dx1 * s, oy, (bw - dx1) * s, bh * s);
+    ctx.setLineDash([8 * hs, 6 * hs]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1.5 * hs;
+    for (const zx of [dx0, dx1]) { ctx.beginPath(); ctx.moveTo(ox + zx * s, oy); ctx.lineTo(ox + zx * s, oy + bh * s); ctx.stroke(); }
+    ctx.setLineDash([]);
+    ctx.save();
+    ctx.translate(ox + dx0 * s / 2, oy + bh * s / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = `${11 * hs}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Left nozzle only', 0, 0);
+    ctx.restore();
+  }
+
   const fit = document.getElementById('bedFit');
   if (!v.model.parts.length) { if (fit) fit.textContent = 'Nothing to place — add a layer first.'; return; }
 
@@ -1005,10 +1033,6 @@ function drawBedCanvas() {
   }
 
   const centre = v.toPx(v.place);
-  // The canvas is drawn at 900px but displayed ~1/3 that, so handles are
-  // sized in canvas pixels per CSS pixel — otherwise they're too small to grab.
-  v.hs = cv.width / (cv.getBoundingClientRect().width || cv.width);
-  const hs = v.hs;
   v.knob = null;
   if (v.rotate) {
     const dx = Math.sin(rot), dy = -Math.cos(rot);
@@ -1053,10 +1077,15 @@ function drawBedCanvas() {
 
   const w = maxX - minX, h = maxY - minY;
   const onBed = minX >= 0 && minY >= 0 && maxX <= bw && maxY <= bh;
+  // One extruder per layer, so anything past a single colour needs both nozzles.
+  const multi = new Set(v.model.parts.map(p => p.hex)).size > 1;
+  const zoneOk = !zoned || !multi || (minX >= dx0 && maxX <= dx1);
   if (fit) {
-    fit.textContent = `Badge ${w.toFixed(1)} × ${h.toFixed(1)} mm on a ${bw} × ${bh} mm bed`
-      + (onBed ? '' : (w > bw || h > bh ? ' — too big for this printer' : ' — hanging off the bed'));
-    fit.style.color = onBed ? 'var(--muted)' : 'var(--red)';
+    let note = '';
+    if (!onBed) note = w > bw || h > bh ? ' — too big for this printer' : ' — hanging off the bed';
+    else if (!zoneOk) note = ' — in the left-nozzle-only strip, multi-colour needs the dashed area';
+    fit.textContent = `Badge ${w.toFixed(1)} × ${h.toFixed(1)} mm on a ${bw} × ${bh} mm bed` + note;
+    fit.style.color = note ? 'var(--red)' : 'var(--muted)';
   }
 }
 
@@ -1080,8 +1109,8 @@ function openBedView() {
   sel.value = localStorage.getItem('bmPrinter') || 'A1';
   if (!sel.value) sel.value = 'A1';
   const centreOnBed = () => {
-    const [bw, bh] = BAMBU_BEDS[sel.value] || BAMBU_BEDS['A1'];
-    bedView.place = { x: bw / 2, y: bh / 2, rot: 0 };
+    const [bw, bh, dx0, dx1] = BAMBU_BEDS[sel.value] || BAMBU_BEDS['A1'];
+    bedView.place = { x: dx0 != null ? (dx0 + dx1) / 2 : bw / 2, y: bh / 2, rot: 0 };
   };
   bedView = { printer: sel.value, model: bedModel(), move: false, rotate: false, place: null };
   centreOnBed();
