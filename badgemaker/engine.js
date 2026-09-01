@@ -915,9 +915,13 @@ const BAMBU_BEDS = {
   'X1': [256, 256],
   'X1 Carbon': [256, 256],
   'X1E': [256, 256],
+  'H2C': [350, 320],
   'H2D': [350, 320],
   'H2S': [350, 320],
 };
+
+// Placement while the bed modal is open — reset every time it opens.
+let bedView = null;
 
 // Same slabs the 3D preview and the 3MF export use, flattened to
 // world-space outlines for a top-down view.
@@ -938,14 +942,32 @@ function bedFootprint() {
   });
 }
 
-function drawBedCanvas(printer) {
-  const cv = document.getElementById('bedCanvas');
-  if (!cv) return;
-  const [bw, bh] = BAMBU_BEDS[printer] || BAMBU_BEDS['A1'];
+// Footprint re-centred on its own origin, so placement is just x/y/rot.
+function bedModel() {
+  const parts = bedFootprint();
+  const all = parts.flatMap(p => p.rings.flatMap(r => r.outer));
+  if (!all.length) return { parts: [], w: 0, h: 0 };
+  const xs = all.map(p => p.x), ys = all.map(p => p.y);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const shift = p => ({ x: p.x - cx, y: p.y - cy });
+  return {
+    parts: parts.map(p => ({ hex: p.hex, rings: p.rings.map(r => ({ outer: r.outer.map(shift), holes: r.holes.map(h => h.map(shift)) })) })),
+    w: Math.max(...xs) - Math.min(...xs),
+    h: Math.max(...ys) - Math.min(...ys),
+  };
+}
+
+function drawBedCanvas() {
+  const v = bedView, cv = document.getElementById('bedCanvas');
+  if (!v || !cv) return;
+  const [bw, bh] = BAMBU_BEDS[v.printer] || BAMBU_BEDS['A1'];
   const ctx = cv.getContext('2d');
-  const pad = 24, s = Math.min((cv.width - pad * 2) / bw, (cv.height - pad * 2) / bh);
+  const pad = 24;
+  const s = Math.min((cv.width - pad * 2) / bw, (cv.height - pad * 2) / bh);
   const ox = (cv.width - bw * s) / 2, oy = (cv.height - bh * s) / 2;
-  const px = p => ox + p.x * s, py = p => oy + bh * s - p.y * s; // canvas Y is flipped
+  // mm <-> canvas pixels (canvas Y is flipped)
+  v.toPx = p => ({ x: ox + p.x * s, y: oy + bh * s - p.y * s });
+  v.toMm = p => ({ x: (p.x - ox) / s, y: (oy + bh * s - p.y) / s });
 
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.fillStyle = '#2a2a2e';
@@ -956,34 +978,65 @@ function drawBedCanvas(printer) {
   ctx.strokeStyle = 'rgba(255,255,255,0.25)';
   ctx.strokeRect(ox, oy, bw * s, bh * s);
 
-  const parts = bedFootprint();
-  const all = parts.flatMap(p => p.rings.flatMap(r => r.outer));
   const fit = document.getElementById('bedFit');
-  if (!all.length) { if (fit) fit.textContent = 'Nothing to place — add a layer first.'; return; }
-  const xs = all.map(p => p.x), ys = all.map(p => p.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-  const w = maxX - minX, h = maxY - minY;
-  // Centre the model on the bed, the way a slicer's auto-arrange would.
-  const dx = (bw - w) / 2 - minX, dy = (bh - h) / 2 - minY;
-  const shift = p => ({ x: p.x + dx, y: p.y + dy });
+  if (!v.model.parts.length) { if (fit) fit.textContent = 'Nothing to place — add a layer first.'; return; }
 
-  for (const part of parts) {
+  const { x, y, rot } = v.place, c = Math.cos(rot), sn = Math.sin(rot);
+  const place = p => ({ x: p.x * c - p.y * sn + x, y: p.x * sn + p.y * c + y });
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const part of v.model.parts) {
     ctx.fillStyle = part.hex;
     ctx.beginPath();
     for (const ring of part.rings) {
       for (const loop of [ring.outer, ...ring.holes]) {
-        loop.forEach((raw, i) => { const p = shift(raw); i ? ctx.lineTo(px(p), py(p)) : ctx.moveTo(px(p), py(p)); });
+        const isOuter = loop === ring.outer;
+        loop.forEach((raw, i) => {
+          const m = place(raw), p = v.toPx(m);
+          if (isOuter) {
+            minX = Math.min(minX, m.x); maxX = Math.max(maxX, m.x);
+            minY = Math.min(minY, m.y); maxY = Math.max(maxY, m.y);
+          }
+          i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+        });
         ctx.closePath();
       }
     }
     ctx.fill('evenodd');
   }
 
-  const fits = w <= bw && h <= bh;
+  const centre = v.toPx(v.place);
+  // Handle geometry is in canvas pixels — the hit tests reuse these numbers.
+  v.knob = null;
+  if (v.rotate) {
+    const r = Math.hypot(v.model.w, v.model.h) / 2 * s + 44;
+    v.knob = { x: centre.x + Math.sin(rot) * r, y: centre.y - Math.cos(rot) * r };
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(centre.x, centre.y); ctx.lineTo(v.knob.x, v.knob.y); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(v.knob.x, v.knob.y, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#18181b'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(v.knob.x, v.knob.y, 8, 0.6, 5.4); ctx.stroke();
+  }
+  if (v.move) {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(centre.x, centre.y, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#18181b';
+    for (let i = 0; i < 4; i++) {         // four arrowheads = drag me anywhere
+      const a = i * Math.PI / 2, dx = Math.cos(a), dy = Math.sin(a);
+      ctx.beginPath();
+      ctx.moveTo(centre.x + dx * 13, centre.y + dy * 13);
+      ctx.lineTo(centre.x + dx * 5 - dy * 5, centre.y + dy * 5 + dx * 5);
+      ctx.lineTo(centre.x + dx * 5 + dy * 5, centre.y + dy * 5 - dx * 5);
+      ctx.fill();
+    }
+  }
+
+  const w = maxX - minX, h = maxY - minY;
+  const onBed = minX >= 0 && minY >= 0 && maxX <= bw && maxY <= bh;
   if (fit) {
     fit.textContent = `Badge ${w.toFixed(1)} × ${h.toFixed(1)} mm on a ${bw} × ${bh} mm bed`
-      + (fits ? '' : ' — too big for this printer');
-    fit.style.color = fits ? 'var(--muted)' : 'var(--red)';
+      + (onBed ? '' : (w > bw || h > bh ? ' — too big for this printer' : ' — hanging off the bed'));
+    fit.style.color = onBed ? 'var(--muted)' : 'var(--red)';
   }
 }
 
@@ -994,19 +1047,69 @@ function openBedView() {
     <div class="adv-row"><label>Printer</label>
       <select class="adv-text-input" id="bedPrinter" style="width:150px">${Object.keys(BAMBU_BEDS).map(n => `<option>${esc(n)}</option>`).join('')}</select>
     </div>
+    <div class="adv-row"><label>Move</label><input type="checkbox" id="bedMove" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)"></div>
+    <div class="adv-row"><label>Rotate</label><input type="checkbox" id="bedRotate" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)"></div>
     <canvas id="bedCanvas" width="900" height="900"></canvas>
     <div class="bm-modal-msg" id="bedFit"></div>
     <div class="bm-modal-btns"><button class="btn sm" id="bedClose">Close</button></div>
   </div>`;
   document.body.appendChild(overlay);
+
   const sel = overlay.querySelector('#bedPrinter');
   sel.value = localStorage.getItem('bmPrinter') || 'A1';
   if (!sel.value) sel.value = 'A1';
-  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const centreOnBed = () => {
+    const [bw, bh] = BAMBU_BEDS[sel.value] || BAMBU_BEDS['A1'];
+    bedView.place = { x: bw / 2, y: bh / 2, rot: 0 };
+  };
+  bedView = { printer: sel.value, model: bedModel(), move: false, rotate: false, place: null };
+  centreOnBed();
+
+  const cv = overlay.querySelector('#bedCanvas');
+  const at = e => {
+    const r = cv.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height };
+  };
+  const near = (p, q, r) => !!q && Math.hypot(p.x - q.x, p.y - q.y) < r;
+  let drag = null;
+  cv.onmousedown = e => {
+    const p = at(e);
+    if (bedView.rotate && near(p, bedView.knob, 22)) drag = 'rot';
+    else if (bedView.move && near(p, bedView.toPx(bedView.place), 22)) drag = 'move';
+    if (drag) e.preventDefault();
+  };
+  const onMove = e => {
+    if (!bedView) return;
+    const p = at(e);
+    if (!drag) {
+      const hot = (bedView.rotate && near(p, bedView.knob, 22)) || (bedView.move && near(p, bedView.toPx(bedView.place), 22));
+      cv.style.cursor = hot ? 'grab' : 'default';
+      return;
+    }
+    const m = bedView.toMm(p);
+    if (drag === 'move') { bedView.place.x = m.x; bedView.place.y = m.y; }
+    else bedView.place.rot = Math.atan2(m.y - bedView.place.y, m.x - bedView.place.x) - Math.PI / 2;
+    drawBedCanvas();
+  };
+  const onUp = () => { drag = null; };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+
+  const close = () => {
+    overlay.remove(); bedView = null;
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
   const onKey = e => { if (e.key === 'Escape') close(); };
-  sel.onchange = () => { localStorage.setItem('bmPrinter', sel.value); drawBedCanvas(sel.value); };
+  sel.onchange = () => {
+    localStorage.setItem('bmPrinter', sel.value);
+    bedView.printer = sel.value; centreOnBed(); drawBedCanvas();
+  };
+  overlay.querySelector('#bedMove').onchange = e => { bedView.move = e.target.checked; drawBedCanvas(); };
+  overlay.querySelector('#bedRotate').onchange = e => { bedView.rotate = e.target.checked; drawBedCanvas(); };
   overlay.querySelector('#bedClose').onclick = close;
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', onKey);
-  drawBedCanvas(sel.value);
+  drawBedCanvas();
 }
