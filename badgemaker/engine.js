@@ -1005,31 +1005,51 @@ function drawBedCanvas() {
   }
 
   const centre = v.toPx(v.place);
-  // Handle geometry is in canvas pixels — the hit tests reuse these numbers.
+  // The canvas is drawn at 900px but displayed ~1/3 that, so handles are
+  // sized in canvas pixels per CSS pixel — otherwise they're too small to grab.
+  v.hs = cv.width / (cv.getBoundingClientRect().width || cv.width);
+  const hs = v.hs;
   v.knob = null;
   if (v.rotate) {
-    const r = Math.hypot(v.model.w, v.model.h) / 2 * s + 44;
-    v.knob = { x: centre.x + Math.sin(rot) * r, y: centre.y - Math.cos(rot) * r };
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+    const dx = Math.sin(rot), dy = -Math.cos(rot);
+    // Keep the knob on the canvas: a big badge (or one near an edge) would
+    // otherwise push it out of sight, with nothing left to drag.
+    const edge = Math.min(
+      dx > 0 ? (cv.width - centre.x) / dx : dx < 0 ? -centre.x / dx : Infinity,
+      dy > 0 ? (cv.height - centre.y) / dy : dy < 0 ? -centre.y / dy : Infinity,
+    ) - 22 * hs;
+    const r = Math.max(34 * hs, Math.min(Math.hypot(v.model.w, v.model.h) / 2 * s + 30 * hs, edge));
+    v.knob = { x: centre.x + dx * r, y: centre.y + dy * r };
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * hs;
     ctx.beginPath(); ctx.moveTo(centre.x, centre.y); ctx.lineTo(v.knob.x, v.knob.y); ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(v.knob.x, v.knob.y, 16, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#18181b'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(v.knob.x, v.knob.y, 8, 0.6, 5.4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(v.knob.x, v.knob.y, 14 * hs, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#18181b'; ctx.lineWidth = 2 * hs;   // curved arrow = spin me
+    ctx.beginPath(); ctx.arc(v.knob.x, v.knob.y, 7 * hs, 0.9, 5.6); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(v.knob.x + 10 * hs, v.knob.y - 6 * hs);
+    ctx.lineTo(v.knob.x + 2 * hs, v.knob.y - 6 * hs);
+    ctx.lineTo(v.knob.x + 7 * hs, v.knob.y + 1 * hs);
+    ctx.fill();
   }
   if (v.move) {
     ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(centre.x, centre.y, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(centre.x, centre.y, 14 * hs, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#18181b';
     for (let i = 0; i < 4; i++) {         // four arrowheads = drag me anywhere
       const a = i * Math.PI / 2, dx = Math.cos(a), dy = Math.sin(a);
       ctx.beginPath();
-      ctx.moveTo(centre.x + dx * 13, centre.y + dy * 13);
-      ctx.lineTo(centre.x + dx * 5 - dy * 5, centre.y + dy * 5 + dx * 5);
-      ctx.lineTo(centre.x + dx * 5 + dy * 5, centre.y + dy * 5 - dx * 5);
+      ctx.moveTo(centre.x + dx * 10 * hs, centre.y + dy * 10 * hs);
+      ctx.lineTo(centre.x + (dx * 4 - dy * 4) * hs, centre.y + (dy * 4 + dx * 4) * hs);
+      ctx.lineTo(centre.x + (dx * 4 + dy * 4) * hs, centre.y + (dy * 4 - dx * 4) * hs);
       ctx.fill();
     }
   }
+
+  const hint = document.getElementById('bedHint');
+  if (hint) hint.textContent = v.move && v.rotate ? 'Drag the arrows to move, the knob to rotate.'
+    : v.move ? 'Drag the arrows to move the badge.'
+    : v.rotate ? 'Drag the knob to rotate the badge.' : '';
 
   const w = maxX - minX, h = maxY - minY;
   const onBed = minX >= 0 && minY >= 0 && maxX <= bw && maxY <= bh;
@@ -1051,6 +1071,7 @@ function openBedView() {
     <div class="adv-row"><label>Rotate</label><input type="checkbox" id="bedRotate" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)"></div>
     <canvas id="bedCanvas" width="900" height="900"></canvas>
     <div class="bm-modal-msg" id="bedFit"></div>
+    <div class="bm-modal-msg" id="bedHint" style="font-size:11px;color:var(--muted)"></div>
     <div class="bm-modal-btns"><button class="btn sm" id="bedClose">Close</button></div>
   </div>`;
   document.body.appendChild(overlay);
@@ -1074,15 +1095,15 @@ function openBedView() {
   let drag = null;
   cv.onmousedown = e => {
     const p = at(e);
-    if (bedView.rotate && near(p, bedView.knob, 22)) drag = 'rot';
-    else if (bedView.move && near(p, bedView.toPx(bedView.place), 22)) drag = 'move';
+    if (bedView.rotate && near(p, bedView.knob, 20 * bedView.hs)) drag = 'rot';
+    else if (bedView.move && near(p, bedView.toPx(bedView.place), 20 * bedView.hs)) drag = 'move';
     if (drag) e.preventDefault();
   };
   const onMove = e => {
     if (!bedView) return;
     const p = at(e);
     if (!drag) {
-      const hot = (bedView.rotate && near(p, bedView.knob, 22)) || (bedView.move && near(p, bedView.toPx(bedView.place), 22));
+      const hot = (bedView.rotate && near(p, bedView.knob, 20 * bedView.hs)) || (bedView.move && near(p, bedView.toPx(bedView.place), 20 * bedView.hs));
       cv.style.cursor = hot ? 'grab' : 'default';
       return;
     }
@@ -1112,4 +1133,7 @@ function openBedView() {
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', onKey);
   drawBedCanvas();
+  // Handle sizes need the canvas's laid-out width, which isn't there yet on
+  // the frame the modal is inserted.
+  requestAnimationFrame(() => drawBedCanvas());
 }
