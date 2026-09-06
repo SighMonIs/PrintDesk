@@ -377,9 +377,10 @@ function clipperPathsToShapes(paths){
 }
 
 // ── Bead geometry ──────────────────────────────────────────────
-// The cord runs along +X. Square/round beads are their cross-section
-// extruded along the cord with a round hole down the middle, letter raised
-// on the top (+Z) face so it prints letter-up with no supports.
+// The cord runs along +X. A square bead is its cross-section
+// extruded along the cord with a round hole down the middle; round and
+// outline beads are flat tiles lying face-up. Letters always sit on the
+// +Z face, so everything prints letter-up with no supports.
 function addHole(shape,d){
   if(!(d>0)) return;
   const h=new THREE.Path();
@@ -409,17 +410,23 @@ function edgeRadius(b){
   if(b.hole>0) limits.push((b.size-b.hole)/4);
   return Math.max(0, Math.min(...limits));
 }
-function roundProfile(size,holeD){
-  const s=new THREE.Shape();
-  s.absarc(0,0,size/2,0,TAU,false);
-  addHole(s,holeD);
+// Explicit polygon rather than absarc: flat beads get their middle Z band
+// re-derived through Clipper, and a curve would be resampled at a different
+// resolution there, leaving a visible step against the plain slabs.
+function discProfile(size,n=64){
+  const s=new THREE.Shape(), r=size/2;
+  for(let i=0;i<n;i++){
+    const a=i/n*TAU, x=r*Math.cos(a), y=r*Math.sin(a);
+    if(i) s.lineTo(x,y); else s.moveTo(x,y);
+  }
+  s.closePath();
   return s;
 }
 
-// A letter bead is the glyph itself lying flat, so its cord hole can't be
-// part of the profile — cut it as a slot through the middle Z band instead
-// (2D boolean per band, the same trick BadgeMak3r uses for shallow cutters).
-function letterBeadSlabs(shapes,thickness,holeD){
+// A flat bead lies face-up, so its cord hole can't be part of the profile —
+// cut it as a slot through the middle Z band instead (2D boolean per band,
+// the same trick BadgeMak3r uses for shallow cutters).
+function flatBeadSlabs(shapes,thickness,holeD){
   if(!(holeD>0) || holeD>=thickness) return [{z:0,depth:thickness,shapes}];
   const band=(thickness-holeD)/2;
   const S=_BADGE_SCALE, far=1e8, y=Math.round(holeD/2*S);
@@ -443,15 +450,29 @@ function buildBead(b){
   const ch=(b.char||'').trim().toUpperCase();
   const place=geo=>{ geo.rotateX(roll); return geo; };
 
-  if(b.shape==='text'){
-    const g=glyphShapes(ch,font,b.size,b.border||0,b.fillGaps!==false);
-    if(!g) return {parts,advance:b.width||1};
-    for(const slab of letterBeadSlabs(g.shapes,b.width,b.hole)){
+  // Round and outline beads are flat tiles lying face-up — a disc shows its
+  // circle to the wearer, an outline bead is the glyph grown outward into a
+  // backing plate. Both take the cord as a slot through their middle band,
+  // and both carry the letter raised on the face.
+  if(b.shape!=='square'){
+    const body = b.shape==='round'
+      ? {shapes:[discProfile(b.size)], width:b.size}
+      : glyphShapes(ch,font,b.size,b.border||0,b.fillGaps!==false);
+    if(!body) return {parts,advance:b.size};
+    for(const slab of flatBeadSlabs(body.shapes,b.width,b.hole)){
       const geo=new THREE.ExtrudeGeometry(slab.shapes,{depth:slab.depth,bevelEnabled:false});
       geo.translate(0,0,slab.z-b.width/2);
       parts.push({geo:place(geo),hex:b.hex});
     }
-    return {parts,advance:g.width};
+    // An outline bead's letter has to be the same glyph at the same size as
+    // the plate it sits on, or it won't line up inside its own outline.
+    const lg = ch ? glyphShapes(ch,font, b.shape==='round'?b.letterSize:b.size, 0, b.fillGaps!==false) : null;
+    if(lg){
+      const geo=new THREE.ExtrudeGeometry(lg.shapes,{depth:b.raise,bevelEnabled:false});
+      geo.translate(0,0,b.width/2-0.2);
+      parts.push({geo:place(geo),hex:b.letterHex});
+    }
+    return {parts,advance:body.width};
   }
 
   // A square bead rounds in both directions: `r` rounds the four edges
@@ -459,8 +480,8 @@ function buildBead(b){
   // two end faces as well — a rounded cube, not a rounded rectangle on a
   // stick. The bevel eats `r` off each end, so the extrusion is that much
   // shorter and re-centred.
-  const r = b.shape==='square' ? edgeRadius(b) : 0;
-  const prof = b.shape==='round' ? roundProfile(b.size,b.hole) : squareProfile(b.size,b.hole,r);
+  const r = edgeRadius(b);
+  const prof = squareProfile(b.size,b.hole,r);
   const body = r > 0
     // bevelOffset:-r matters — at the default 0 the bevel bulges the middle
     // outward by r instead of rounding the ends inward, so an 8mm bead came
@@ -473,12 +494,9 @@ function buildBead(b){
 
   const g=ch ? glyphShapes(ch,font,b.letterSize,0,b.fillGaps!==false) : null;
   if(g){
-    // Sit the letter on the bead's top surface; on a round bead that's the
-    // chord height at the letter's own half-height, then sunk 0.2mm to fuse.
-    const r=b.size/2;
-    const top = b.shape==='round' ? Math.sqrt(Math.max(0.01, r*r - Math.min(r,g.height/2)**2)) : r;
+    // Sit the letter on the cube's top face, sunk 0.2mm so it fuses.
     const geo=new THREE.ExtrudeGeometry(g.shapes,{depth:b.raise,bevelEnabled:false});
-    geo.translate(0,0,top-0.2);
+    geo.translate(0,0,b.size/2-0.2);
     parts.push({geo:place(geo),hex:b.letterHex});
   }
   return {parts,advance:b.width};
@@ -554,7 +572,7 @@ function newDesignObject(name){
   return {
     id:String(Date.now()), name, fontId:'',
     shape:'square', size:8, width:8, hole:2.5, gap:0.5,
-    letterSize:5, raise:0.8, radius:1, border:0,
+    letterSize:5, raise:0.8, radius:1, border:1.5,
     hex:'#3b82f6', colourId:null, letterHex:'#ffffff', letterColourId:null,
     beads:[],
   };
@@ -593,7 +611,10 @@ function saveDesign(){
 }
 function openDesign(d){
   design=d;
-  design.beads.forEach(b=>{ b._key=_keySeq++; });
+  design.beads.forEach(b=>{
+    b._key=_keySeq++;
+    if(b.shape==='text') b.shape='outline';   // renamed; saved bracelets predate it
+  });
   selectedBead=design.beads.length?0:-1;
   localStorage.setItem(LS_LAST,design.id);
   document.getElementById('designFont').value=design.fontId||'';
@@ -679,7 +700,7 @@ function buildDefaultsUI(){
 }
 
 // ── Bead list ──────────────────────────────────────────────────
-const SHAPE_ICON={square:'ti-square',round:'ti-circle',text:'ti-letter-case'};
+const SHAPE_ICON={square:'ti-square',round:'ti-circle',outline:'ti-letter-case'};
 function beadLabel(b,i){ return b.char ? b.char.toUpperCase() : `Bead ${i+1} (plain)`; }
 
 let openBeadMenu=null;
@@ -759,7 +780,7 @@ function buildBeadEditorUI(){
   const b=design.beads[selectedBead];
   if(!b){ editor.style.display='none'; return; }
   editor.style.display='flex';
-  const isText=b.shape==='text';
+  const isOutline=b.shape==='outline';
   const set=(id,v)=>{ document.getElementById(id).value=v; };
   set('beadShape',b.shape);
   set('beadChar',b.char||'');
@@ -774,12 +795,13 @@ function buildBeadEditorUI(){
   set('beadRaise',b.raise);
   document.getElementById('beadFillGaps').checked=b.fillGaps!==false;
 
-  document.getElementById('beadSizeLabel').textContent = isText ? 'Letter size (mm)' : 'Bead size (mm)';
-  document.getElementById('beadWidthLabel').textContent = isText ? 'Thickness (mm)' : 'Bead width (mm)';
+  document.getElementById('beadSizeLabel').textContent =
+    b.shape==='round' ? 'Diameter (mm)' : isOutline ? 'Letter size (mm)' : 'Bead size (mm)';
+  document.getElementById('beadWidthLabel').textContent = b.shape==='square' ? 'Bead width (mm)' : 'Thickness (mm)';
   document.getElementById('beadRadiusRow').style.display = b.shape==='square' ? '' : 'none';
-  document.getElementById('beadBorderRow').style.display = isText ? '' : 'none';
-  document.getElementById('letterBlock').style.display = isText ? 'none' : '';
-  document.getElementById('letterColourRow').style.display = isText ? 'none' : '';
+  document.getElementById('beadBorderRow').style.display = isOutline ? '' : 'none';
+  // An outline bead's letter is fixed to the plate's own glyph size.
+  document.getElementById('letterSizeRow').style.display = isOutline ? 'none' : '';
 
   document.getElementById('beadColourSwatch').style.background=b.hex;
   document.getElementById('beadColourLabel').textContent=colourName(b.hex);
