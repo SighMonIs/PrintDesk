@@ -576,6 +576,7 @@ function render3D(){
     const s=box.isEmpty()?null:box.getSize(new THREE.Vector3());
     label.textContent=s ? `${design.beads.length} beads · L ${s.x.toFixed(1)} × W ${s.y.toFixed(1)} × H ${s.z.toFixed(1)} mm` : '';
   }
+  buildBeadStripUI();   // every settings change schedules a render, so hang the strip off it
 }
 
 // ── 3MF export ─────────────────────────────────────────────────
@@ -787,7 +788,7 @@ function onBeadDragOver(e,i){
   else if(dragSrc<selectedBead && i>=selectedBead) selectedBead--;
   else if(dragSrc>selectedBead && i<=selectedBead) selectedBead++;
   dragSrc=i;
-  buildBeadListUI();
+  buildBeadListUI(); buildBeadStripUI();
 }
 function onBeadDragEnd(){
   if(dragSrc===null) return;
@@ -813,7 +814,59 @@ function buildBeadListUI(){
       </div>
     </div>`).join('') || '<div class="status">Type some text to make beads.</div>';
 }
-function selectBead(i){ selectedBead=i; buildBeadListUI(); buildBeadEditorUI(); }
+function selectBead(i){ selectedBead=i; buildBeadListUI(); buildBeadStripUI(); buildBeadEditorUI(); }
+
+// ── Bead strip: flat top-down view of the bracelet over the 3D scene ──
+// Same faces the 3D view shows from above, drawn as SVG straight from the
+// bead shapes, so it stays true to shape, size, colour and letter without a
+// second source of truth. Chips share the list's click and drag handlers —
+// selecting or reordering from either one is the same action.
+const CHIP=54, CHIP_PAD=7;
+
+function shapesToPathData(shapes,scale,cx,cy){
+  let d='';
+  const add=pts=>{
+    pts.forEach((p,i)=>{ d+=(i?'L':'M')+(cx+p.x*scale).toFixed(2)+' '+(cy-p.y*scale).toFixed(2)+' '; });
+    d+='Z ';
+  };
+  for(const s of shapes){ add(s.getPoints(24)); for(const h of s.holes) add(h.getPoints(24)); }
+  return d;
+}
+
+// The bead as seen from +Z — the same face the letter reads from. The cord
+// hole runs along the strip, so it never shows in this view.
+function beadFaceShapes(b){
+  const font=getFont(b.fontId ?? design.fontId);
+  const ch=(b.char||'').trim().toUpperCase();
+  let body;
+  if(b.shape==='round')        body={shapes:[discProfile(b.size)],width:b.size,height:b.size};
+  else if(b.shape==='outline') body=glyphShapes(ch,font,b.size,b.border||0,b.fillGaps!==false);
+  else                         body={shapes:[squareProfile(b.size,0,edgeRadius(b))],width:b.size,height:b.size};
+  if(!body) return null;
+  const letter = ch ? glyphShapes(ch,font, b.shape==='outline'?b.size:b.letterSize, 0, b.fillGaps!==false) : null;
+  return {body, letter, letterHex: letterSlab(0,b.raise,b.size,b.hex,b.letterHex).hex};
+}
+
+function buildBeadStripUI(){
+  const el=document.getElementById('beadStrip');
+  if(!el) return;
+  el.style.display=design.beads.length?'':'none';
+  const faces=design.beads.map(beadFaceShapes);
+  // One scale across the whole strip, so a bigger bead reads as bigger.
+  const maxDim=Math.max(1,...faces.map(f=>f?Math.max(f.body.width,f.body.height):1));
+  const scale=(CHIP-2*CHIP_PAD)/maxDim, c=CHIP/2;
+  el.innerHTML=design.beads.map((b,i)=>{
+    const f=faces[i];
+    const svg=f ? `<svg width="${CHIP}" height="${CHIP}" viewBox="0 0 ${CHIP} ${CHIP}">`
+        +`<path d="${shapesToPathData(f.body.shapes,scale,c,c)}" fill="${esc(b.hex)}" fill-rule="evenodd"/>`
+        +(f.letter?`<path d="${shapesToPathData(f.letter.shapes,scale,c,c)}" fill="${esc(f.letterHex)}" fill-rule="evenodd"/>`:'')
+        +'</svg>' : '';
+    return `<div class="bead-chip${i===selectedBead?' selected':''}" title="${esc(beadLabel(b,i))}"
+      onclick="selectBead(${i})" draggable="true"
+      ondragstart="onBeadDragStart(event,${i})" ondragover="onBeadDragOver(event,${i})"
+      ondrop="event.preventDefault()" ondragend="onBeadDragEnd()">${svg}</div>`;
+  }).join('');
+}
 function addBead(){
   design.beads.splice(selectedBead>=0?selectedBead+1:design.beads.length,0,makeBead(''));
   selectedBead=selectedBead>=0?selectedBead+1:design.beads.length-1;

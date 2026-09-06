@@ -11,6 +11,22 @@
   #loginScreen { display: flex; }
   #appScreen   { display: none; }
   .bead-char-input{width:150px;text-transform:uppercase;text-align:center;font-weight:600;}
+  /* Flat top-down strip of the bracelet, over the 3D view. Kept clear of the
+     preview controls (top:10px right:10px) so it can't sit under them. */
+  .bead-strip{
+    position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    display:flex;gap:5px;padding:5px 6px;z-index:10;
+    background:rgba(0,0,0,0.4);border:1px solid var(--border2);border-radius:10px;
+    max-width:calc(100% - 300px);overflow-x:auto;overflow-y:hidden;
+  }
+  .bead-chip{
+    flex:0 0 auto;width:54px;height:54px;border-radius:8px;cursor:pointer;
+    border:1px solid transparent;background:rgba(255,255,255,0.05);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .bead-chip:hover{border-color:rgba(255,255,255,0.3);}
+  .bead-chip.selected{border-color:var(--accent);background:var(--surface2);}
+  .bead-chip svg{display:block;pointer-events:none;}
 </style>
 <link rel="preload" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.46.0/dist/fonts/tabler-icons.woff2?v3.46.0" as="font" type="font/woff2" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.46.0/dist/tabler-icons.min.css" integrity="sha384-ND+q1IVc0KDElX60dZaqKc7Xl9cdxd2PpU2JfVUHcurCkFVtVLFdt9vJfxtHSL3p" crossorigin="anonymous">
@@ -131,6 +147,7 @@
     <div class="bm-right-col">
       <div class="preview" id="previewPane">
         <canvas id="canvas"></canvas>
+        <div class="bead-strip" id="beadStrip" style="display:none"></div>
         <div class="preview-controls">
           <button class="btn sm" id="toggleGridBtn" onclick="toggleGrid()"><i class="ti ti-grid-dots"></i> Grid</button>
           <button class="btn sm" onclick="toggleCamPanel('camAnglePanel')"><i class="ti ti-camera-cog"></i></button>
@@ -218,7 +235,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" integrity="sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js" integrity="sha384-oV9/r5hoq7qHFHfbghYwt50E2fe8J20vXRW0eIGQl20k40zMEAhSXMCh9ANASVB9" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js" integrity="sha384-3TaxGqyHrMuRIWY5Z5WHNIzgNRqGIUJE+mk6tm+g1wkm9Ux2kUyOLfy9AsNWXA6u" crossorigin="anonymous"></script>
-<script src="../shared/3mf.js?v=1.0.4"></script>
-<script src="app.js?v=1.0.4"></script>
+<script src="../shared/3mf.js?v=1.0.5"></script>
+<script src="app.js?v=1.0.5"></script>
 </body>
 </html>
