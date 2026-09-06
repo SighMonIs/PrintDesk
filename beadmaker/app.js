@@ -406,7 +406,7 @@ function squareProfile(size,holeD,radius){
 // bevel flares the cord hole outward by r as well, so it also has to stay
 // clear of the hole.
 function edgeRadius(b){
-  const limits=[b.radius||0, b.width/2-0.05, b.size/2-0.05];
+  const limits=[b.radius||0, b.size/2-0.05];
   if(b.hole>0) limits.push((b.size-b.hole)/4);
   return Math.max(0, Math.min(...limits));
 }
@@ -497,16 +497,16 @@ function buildBead(b){
       ? {shapes:[discProfile(b.size)], width:b.size}
       : glyphShapes(ch,font,b.size,b.border||0,b.fillGaps!==false);
     if(!body) return {parts,advance:b.size};
-    for(const slab of flatBeadSlabs(body.shapes,b.width,b.hole)){
+    for(const slab of flatBeadSlabs(body.shapes,b.size,b.hole)){
       const geo=new THREE.ExtrudeGeometry(slab.shapes,{depth:slab.depth,bevelEnabled:false});
-      geo.translate(0,0,slab.z-b.width/2);
+      geo.translate(0,0,slab.z-b.size/2);
       parts.push({geo:place(geo),hex:b.hex});
     }
     // An outline bead's letter has to be the same glyph at the same size as
     // the plate it sits on, or it won't line up inside its own outline.
     const lg = ch ? glyphShapes(ch,font, b.shape==='round'?b.letterSize:b.size, 0, b.fillGaps!==false) : null;
     if(lg){
-      const p=letterPart(lg.shapes, letterSlab(b.width/2,b.raise,b.width,b.hex,b.letterHex));
+      const p=letterPart(lg.shapes, letterSlab(b.size/2,b.raise,b.size,b.hex,b.letterHex));
       place(p.geo); parts.push(p);
     }
     return {parts,advance:body.width};
@@ -523,9 +523,9 @@ function buildBead(b){
     // bevelOffset:-r matters — at the default 0 the bevel bulges the middle
     // outward by r instead of rounding the ends inward, so an 8mm bead came
     // out 10.75mm wide.
-    ? new THREE.ExtrudeGeometry(prof,{depth:b.width-2*r,bevelEnabled:true,bevelThickness:r,bevelSize:r,bevelOffset:-r,bevelSegments:6})
-    : new THREE.ExtrudeGeometry(prof,{depth:b.width,bevelEnabled:false});
-  body.translate(0,0, r>0 ? r-b.width/2 : -b.width/2);
+    ? new THREE.ExtrudeGeometry(prof,{depth:b.size-2*r,bevelEnabled:true,bevelThickness:r,bevelSize:r,bevelOffset:-r,bevelSegments:6})
+    : new THREE.ExtrudeGeometry(prof,{depth:b.size,bevelEnabled:false});
+  body.translate(0,0, r>0 ? r-b.size/2 : -b.size/2);
   body.rotateY(Math.PI/2);                 // extrusion axis -> the cord (+X)
   parts.push({geo:place(body),hex:b.hex});
 
@@ -534,7 +534,7 @@ function buildBead(b){
     const p=letterPart(g.shapes, letterSlab(b.size/2,b.raise,b.size,b.hex,b.letterHex));
     place(p.geo); parts.push(p);
   }
-  return {parts,advance:b.width};
+  return {parts,advance:b.size};
 }
 
 // Lays every bead out along the cord, centred on the origin.
@@ -633,7 +633,7 @@ function newDesignObject(name){
 function makeBead(char){
   return {
     _key:_keySeq++, char:char||'',
-    shape:design.shape, size:design.size, width:design.width, hole:design.hole,
+    shape:design.shape, size:design.size, hole:design.hole,
     gap:design.gap, radius:design.radius, border:design.border,
     letterSize:design.letterSize, raise:design.raise, fillGaps:false,
     hex:design.hex, colourId:design.colourId,
@@ -729,7 +729,7 @@ function onDesignFieldChange(field,value){
 }
 
 // ── Defaults ───────────────────────────────────────────────────
-const DEFAULT_FIELDS=['shape','size','width','hole','gap','letterSize','raise'];
+const DEFAULT_FIELDS=['shape','size','hole','gap','letterSize','raise'];
 function onDefaultChange(field,value){ design[field]=value; }
 function applyDefaultsToAll(){
   for(const b of design.beads){
@@ -745,7 +745,6 @@ function applyDefaultsToAll(){
 function buildDefaultsUI(){
   document.getElementById('defShape').value=design.shape;
   document.getElementById('defSize').value=design.size;
-  document.getElementById('defWidth').value=design.width;
   document.getElementById('defHole').value=design.hole;
   document.getElementById('defGap').value=design.gap;
   document.getElementById('defLetterSize').value=design.letterSize;
@@ -842,7 +841,6 @@ function buildBeadEditorUI(){
   set('beadShape',b.shape);
   set('beadChar',b.char||'');
   set('beadSize',b.size);
-  set('beadWidth',b.width);
   set('beadHole',b.hole);
   set('beadRadius',b.radius??0);
   set('beadBorder',b.border??0);
@@ -854,7 +852,6 @@ function buildBeadEditorUI(){
 
   document.getElementById('beadSizeLabel').textContent =
     b.shape==='round' ? 'Diameter (mm)' : isOutline ? 'Letter size (mm)' : 'Bead size (mm)';
-  document.getElementById('beadWidthLabel').textContent = b.shape==='square' ? 'Bead width (mm)' : 'Thickness (mm)';
   document.getElementById('beadRadiusRow').style.display = b.shape==='square' ? '' : 'none';
   document.getElementById('beadBorderRow').style.display = isOutline ? '' : 'none';
   // An outline bead's letter is fixed to the plate's own glyph size.
