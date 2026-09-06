@@ -503,18 +503,23 @@ function verticalTextCommands(font, text, size, letterSpacing = 0, wordSpacing =
   return cmds;
 }
 
-// Multi-line text: one baseline per newline-separated line, each centred on
-// its own advance width, then shifted sideways per the layer's alignment.
-// lineSpacing is the extra gap on top of the em size between baselines. Only
-// the offsets *between* lines matter — cmdsToCenteredShapes recentres the
-// whole block on its bbox afterwards.
+// Multi-line text: one baseline per newline-separated line, each aligned on
+// the ink it actually draws rather than on its advance width. Advance width
+// includes the side bearings, and a heavy italic display face carries enough
+// of those — plus ink that overhangs the advance entirely — to throw a line
+// visibly off the one above it. Ink is also what the block itself is centred
+// on afterwards (cmdsToCenteredShapes), so lines and block now agree.
+// lineSpacing is the extra gap on top of the em size between baselines; only
+// the offsets *between* lines matter here.
 function multilineTextCommands(font, text, size, letterSpacing, wordSpacing, lineSpacing, align = 'center') {
   const lines = text.split('\n');
   if (lines.length === 1) return _badgeGetTextCommands(font, text, size, letterSpacing, wordSpacing);
-  const opts = letterSpacing ? { letterSpacing: letterSpacing / size } : {};
   return lines.flatMap((line, i) => {
-    const w = font.getAdvanceWidth(line, size, opts) + wordSpacing * (line.split(' ').length - 1);
-    const x = align === 'left' ? 0 : align === 'right' ? -w : -w / 2;
+    const probe = _badgeGetTextCommands(font, line, size, letterSpacing, wordSpacing);
+    if (!probe.length) return [];                      // blank line, still advances y
+    const path = new opentype.Path(); path.commands = probe;
+    const { x1, x2 } = path.getBoundingBox();          // curve-accurate, unlike raw command points
+    const x = align === 'left' ? -x1 : align === 'right' ? -x2 : -(x1 + x2) / 2;
     return _badgeGetTextCommands(font, line, size, letterSpacing, wordSpacing, x, i * (size + lineSpacing));
   });
 }
