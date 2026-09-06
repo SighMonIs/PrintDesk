@@ -137,6 +137,13 @@
 .bm-modal-wide{max-width:560px;}
 #bedCanvas{width:100%;height:auto;border-radius:var(--radius);background:var(--surface2);}
 
+/* Right-panel sections collapse with native <details> — the browser keeps the
+   open/closed state, so there's nothing to store or restore. */
+.layer-setting-block summary.section-title{display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;list-style:none;user-select:none;}
+.layer-setting-block summary.section-title::-webkit-details-marker{display:none;}
+.layer-setting-block summary.section-title i{font-size:12px;transition:transform 0.15s;}
+.layer-setting-block details:not([open]) > summary.section-title i{transform:rotate(-90deg);}
+
 /* Unsaved-changes indicator */
 #saveBtn.dirty{background:var(--red);border-color:var(--red);color:#fff;}
 

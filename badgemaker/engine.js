@@ -511,7 +511,10 @@ function verticalTextCommands(font, text, size, letterSpacing = 0, wordSpacing =
 // on afterwards (cmdsToCenteredShapes), so lines and block now agree.
 // lineSpacing is the extra gap on top of the em size between baselines; only
 // the offsets *between* lines matter here.
-function multilineTextCommands(font, text, size, letterSpacing, wordSpacing, lineSpacing, align = 'center') {
+// lineOffsets nudges individual lines sideways on top of that. Only the
+// differences between them show: the block is recentred on its ink after, so
+// shifting every line by the same amount moves nothing.
+function multilineTextCommands(font, text, size, letterSpacing, wordSpacing, lineSpacing, align = 'center', lineOffsets = []) {
   const lines = text.split('\n');
   if (lines.length === 1) return _badgeGetTextCommands(font, text, size, letterSpacing, wordSpacing);
   return lines.flatMap((line, i) => {
@@ -519,7 +522,8 @@ function multilineTextCommands(font, text, size, letterSpacing, wordSpacing, lin
     if (!probe.length) return [];                      // blank line, still advances y
     const path = new opentype.Path(); path.commands = probe;
     const { x1, x2 } = path.getBoundingBox();          // curve-accurate, unlike raw command points
-    const x = align === 'left' ? -x1 : align === 'right' ? -x2 : -(x1 + x2) / 2;
+    const aligned = align === 'left' ? -x1 : align === 'right' ? -x2 : -(x1 + x2) / 2;
+    const x = aligned + (+lineOffsets[i] || 0);
     return _badgeGetTextCommands(font, line, size, letterSpacing, wordSpacing, x, i * (size + lineSpacing));
   });
 }
@@ -659,7 +663,7 @@ function getLayerShapes(layer) {
   const size = layer.fontSize || 20;
   const ls = layer.letterSpacing || 0, ws = layer.wordSpacing || 0, lsp = layer.lineSpacing || 0;
   const cmds = layer.vertical ? verticalTextCommands(font, text, size, ls, ws, lsp)
-                              : multilineTextCommands(font, text, size, ls, ws, lsp, layer.align);
+                              : multilineTextCommands(font, text, size, ls, ws, lsp, layer.align, layer.lineOffsets || []);
   if (!cmds.length) return null;
   const centered = cmdsToCenteredShapes(cmds, layer.fillGaps);
   if (!centered) return null;

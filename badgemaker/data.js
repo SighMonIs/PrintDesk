@@ -211,7 +211,7 @@ function makeDefaultLayer(order){
     _key:_layerKeySeq++, id:null, order, type:'text', shapeType:'rectangle', negative:false, negAboveOnly:false, fillGaps:false, fitToShape:false, vertical:false, name:nextLayerName(), visible:true,
     content:'TEXT', inputId:null, hex: colours[0]?.code || '#e8e8e6', colourId: colours[0]?.id || null,
     fontId:null, fontObj: getCachedFont(null),
-    fontSize:20, height:20, border:0, depth:1, repeatThreshold:0, letterSpacing:0, wordSpacing:0, lineSpacing:0, align:'center',
+    fontSize:20, height:20, border:0, depth:1, repeatThreshold:0, letterSpacing:0, wordSpacing:0, lineSpacing:0, align:'center', lineOffsets:[],
     offsetX:0, offsetY:0, offsetZ:0, rotation:0,
   };
 }
@@ -434,6 +434,7 @@ async function loadModel(id){
       fontSize:r.font_size, height:r.height_mm||20, border:r.border_mm, depth:r.thickness_mm,
       repeatThreshold:r.repeat_threshold_mm||0,
       letterSpacing:r.letter_spacing_mm||0, wordSpacing:r.word_spacing_mm||0, lineSpacing:r.line_spacing_mm||0, align:r.text_align||'center',
+      lineOffsets: Array.isArray(r.line_offsets_mm) ? r.line_offsets_mm.map(Number) : [],
       offsetX:r.offset_x, offsetY:r.offset_y, offsetZ:r.offset_z, rotation:r.rotation,
     };
   });
@@ -494,6 +495,9 @@ async function saveModel(){
         font_id: l.fontId||null, font_size: l.fontSize, height_mm: l.height||20,
         repeat_threshold_mm: l.repeatThreshold||0,
         letter_spacing_mm: l.letterSpacing||0, word_spacing_mm: l.wordSpacing||0, line_spacing_mm: l.lineSpacing||0, text_align: l.align||'center',
+        // Only sent when actually used, so models that never touch it still
+        // save on a database that hasn't had the column added yet.
+        ...(l.lineOffsets&&l.lineOffsets.length ? {line_offsets_mm: l.lineOffsets} : {}),
         border_mm: l.border, thickness_mm: l.depth,
         offset_x: l.offsetX, offset_y: l.offsetY, offset_z: l.offsetZ, rotation: l.rotation,
       };
@@ -737,6 +741,7 @@ function buildLayerEditorUI(){
   // vertical text stacks single characters and has nothing to align.
   document.getElementById('layAlign').value = l.align || 'center';
   document.getElementById('alignRow').style.display = (isText && !l.vertical) ? '' : 'none';
+  syncLineOffsetRows();
   // In vertical mode letter spacing is the gap between stacked characters.
   document.getElementById('letterSpacingLabel').textContent =
     l.vertical ? 'Character spacing (mm)' : 'Letter spacing (mm)';
@@ -807,6 +812,29 @@ function onFreeMoveDrag(l){
   markDirty(l._key);
 }
 
+// One X nudge per line, shown only when there's more than one line to nudge.
+// Vertical text stacks characters, so there are no lines to offset.
+function syncLineOffsetRows(){
+  const wrap = document.getElementById('lineOffsetRows');
+  if(!wrap) return;
+  const l = layerConfig[selectedLayerIndex];
+  const lines = (l && l.type==='text' && !l.vertical) ? resolveLayerText(l).split('\n') : [];
+  wrap.innerHTML = lines.length > 1 ? lines.map((t,i)=>
+    `<div class="adv-row"><label title="${esc(t)}">Line ${i+1} X (mm)</label>`
+    + `<input type="number" class="adv-input" step="0.5" value="${(l.lineOffsets&&l.lineOffsets[i])||0}" onchange="onLineOffsetChange(${i}, +this.value)"></div>`).join('') : '';
+  wrapSpinners(wrap);
+}
+
+function onLineOffsetChange(i, value){
+  const l = layerConfig[selectedLayerIndex];
+  if(!l) return;
+  // Copied, not mutated — duplicated layers share the array until one changes.
+  const arr = Array.isArray(l.lineOffsets) ? l.lineOffsets.slice() : [];
+  while(arr.length <= i) arr.push(0);
+  arr[i] = value || 0;
+  onLayerFieldChange('lineOffsets', arr);
+}
+
 function onLayerFieldChange(field, value){
   const l = layerConfig[selectedLayerIndex];
   if(!l) return;
@@ -821,6 +849,9 @@ function onLayerFieldChange(field, value){
   markDirty(l._key);
   if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly') buildLayerListUI();
   if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly'||field==='repeatThreshold'||field==='vertical') buildLayerEditorUI();
+  // Typing a newline changes how many lines there are, but rebuilding the whole
+  // editor mid-keystroke would steal focus from the textarea — just the rows.
+  else if(field==='content') syncLineOffsetRows();
   scheduleRender();
 }
 
