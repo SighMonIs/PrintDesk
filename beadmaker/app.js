@@ -800,7 +800,7 @@ function onBeadDragOver(e,i){
   else if(dragSrc<selectedBead && i>=selectedBead) selectedBead--;
   else if(dragSrc>selectedBead && i<=selectedBead) selectedBead++;
   dragSrc=i;
-  buildBeadListUI(); buildBeadStripUI();
+  buildBeadListUI();
 }
 function onBeadDragEnd(){
   if(dragSrc===null) return;
@@ -825,8 +825,9 @@ function buildBeadListUI(){
         </div>
       </div>
     </div>`).join('') || '<div class="status">Type some text to make beads.</div>';
+  buildBeadStripUI();
 }
-function selectBead(i){ selectedBead=i; buildBeadListUI(); buildBeadStripUI(); buildBeadEditorUI(); }
+function selectBead(i){ selectedBead=i; buildBeadListUI(); buildBeadEditorUI(); }
 
 // ── Bead strip: flat top-down view of the bracelet over the 3D scene ──
 // Same faces the 3D view shows from above, drawn as SVG straight from the
