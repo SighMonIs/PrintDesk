@@ -410,6 +410,78 @@ function edgeRadius(b){
   if(b.hole>0) limits.push((b.size-b.hole)/4);
   return Math.max(0, Math.min(...limits));
 }
+// ── Shape primitives ──────────────────────────────────
+function roundedRect(w,h,r,cx=0,cy=0){
+  const s=new THREE.Shape(), hw=w/2, hh=h/2;
+  r=Math.max(0,Math.min(r,hw,hh));
+  if(r<=0){ s.moveTo(cx-hw,cy-hh); s.lineTo(cx+hw,cy-hh); s.lineTo(cx+hw,cy+hh); s.lineTo(cx-hw,cy+hh); s.closePath(); return s; }
+  s.moveTo(cx-hw+r,cy-hh);
+  s.lineTo(cx+hw-r,cy-hh); s.absarc(cx+hw-r,cy-hh+r,r,-Math.PI/2,0,false);
+  s.lineTo(cx+hw,cy+hh-r); s.absarc(cx+hw-r,cy+hh-r,r,0,Math.PI/2,false);
+  s.lineTo(cx-hw+r,cy+hh); s.absarc(cx-hw+r,cy+hh-r,r,Math.PI/2,Math.PI,false);
+  s.lineTo(cx-hw,cy-hh+r); s.absarc(cx-hw+r,cy-hh+r,r,Math.PI,Math.PI*1.5,false);
+  s.closePath(); return s;
+}
+function circleShape(r,cx=0,cy=0,n=40){
+  const s=new THREE.Shape();
+  for(let i=0;i<n;i++){ const a=i/n*TAU, x=cx+r*Math.cos(a), y=cy+r*Math.sin(a); i?s.lineTo(x,y):s.moveTo(x,y); }
+  s.closePath(); return s;
+}
+// Crescent between two concentric arcs — the smile.
+function arcBand(cx,cy,rOut,rIn,a0,a1,n=28){
+  const s=new THREE.Shape(), pts=[];
+  for(let i=0;i<=n;i++){ const a=a0+(a1-a0)*i/n; pts.push([cx+rOut*Math.cos(a),cy+rOut*Math.sin(a)]); }
+  for(let i=n;i>=0;i--){ const a=a0+(a1-a0)*i/n; pts.push([cx+rIn*Math.cos(a),cy+rIn*Math.sin(a)]); }
+  pts.forEach(([x,y],i)=>i?s.lineTo(x,y):s.moveTo(x,y));
+  s.closePath(); return s;
+}
+
+// ── Studded shapes (no letter) ─────────────────────────
+// Front elevations, proportioned off the real brick (9.6mm tall, 8mm per
+// stud module) and normalised so `size` is the total height including studs.
+// Drawn as overlapping solids rather than one welded outline — they fuse in
+// the print, Clipper unions them for the cord bore, and the strip draws one
+// <path> per shape so the overlap can't cancel into a hole.
+function legoBrick(size){
+  const k=size, bodyW=1.40*k;
+  return {shapes:[
+    roundedRect(bodyW,0.84*k,0.05*k,0,-0.08*k),         // body,  -0.50 .. 0.34
+    roundedRect(0.42*k,0.20*k,0.07*k,-bodyW/4,0.40*k),  // studs,  0.30 .. 0.50
+    roundedRect(0.42*k,0.20*k,0.07*k, bodyW/4,0.40*k),
+  ], width:bodyW, height:k};
+}
+function legoHead(size){
+  const k=size, w=0.86*k;
+  return {
+    body:{shapes:[
+      roundedRect(w,0.86*k,0.16*k,0,-0.07*k),            // head, -0.50 .. 0.36
+      roundedRect(0.40*k,0.20*k,0.07*k,0,0.40*k),        // stud
+    ], width:w, height:k},
+    face:{shapes:[
+      circleShape(0.055*k,-0.19*k,0.02*k),
+      circleShape(0.055*k, 0.19*k,0.02*k),
+      arcBand(0,-0.02*k,0.30*k,0.245*k,Math.PI*1.14,Math.PI*1.86),
+    ]},
+  };
+}
+const LETTERLESS=new Set(['brick','head']);
+
+// Body and face detail for every non-square shape. Brick and head carry no
+// letter — their detail is moulded on, so it takes the letter colour but
+// ignores the character.
+function flatBeadShapes(b,font,ch){
+  if(b.shape==='round') return {
+    body:{shapes:[discProfile(b.size)],width:b.size,height:b.size},
+    detail: ch?glyphShapes(ch,font,b.letterSize,0,b.fillGaps!==false):null,
+  };
+  if(b.shape==='brick') return {body:legoBrick(b.size), detail:null};
+  if(b.shape==='head'){ const h=legoHead(b.size); return {body:h.body, detail:h.face}; }
+  // Outline: the letter must be the same glyph at the same size as the plate
+  // it sits on, or it won't line up inside its own outline.
+  const g=glyphShapes(ch,font,b.size,b.border||0,b.fillGaps!==false);
+  return {body:g, detail: g&&ch ? glyphShapes(ch,font,b.size,0,b.fillGaps!==false) : null};
+}
+
 // Explicit polygon rather than absarc: flat beads get their middle Z band
 // re-derived through Clipper, and a curve would be resampled at a different
 // resolution there, leaving a visible step against the plain slabs.
@@ -493,20 +565,15 @@ function buildBead(b){
   // backing plate. Both take the cord as a slot through their middle band,
   // and both carry the letter raised on the face.
   if(b.shape!=='square'){
-    const body = b.shape==='round'
-      ? {shapes:[discProfile(b.size)], width:b.size}
-      : glyphShapes(ch,font,b.size,b.border||0,b.fillGaps!==false);
+    const {body,detail}=flatBeadShapes(b,font,ch);
     if(!body) return {parts,advance:b.size};
     for(const slab of flatBeadSlabs(body.shapes,b.size,b.hole)){
       const geo=new THREE.ExtrudeGeometry(slab.shapes,{depth:slab.depth,bevelEnabled:false});
       geo.translate(0,0,slab.z-b.size/2);
       parts.push({geo:place(geo),hex:b.hex});
     }
-    // An outline bead's letter has to be the same glyph at the same size as
-    // the plate it sits on, or it won't line up inside its own outline.
-    const lg = ch ? glyphShapes(ch,font, b.shape==='round'?b.letterSize:b.size, 0, b.fillGaps!==false) : null;
-    if(lg){
-      const p=letterPart(lg.shapes, letterSlab(b.size/2,b.raise,b.size,b.hex,b.letterHex));
+    if(detail){
+      const p=letterPart(detail.shapes, letterSlab(b.size/2,b.raise,b.size,b.hex,b.letterHex));
       place(p.geo); parts.push(p);
     }
     return {parts,advance:body.width};
@@ -769,8 +836,9 @@ function buildDefaultsUI(){
 }
 
 // ── Bead list ──────────────────────────────────────────────────
-const SHAPE_ICON={square:'ti-square',round:'ti-circle',outline:'ti-letter-case'};
-function beadLabel(b,i){ return b.char ? b.char.toUpperCase() : `Bead ${i+1} (plain)`; }
+const SHAPE_ICON={square:'ti-square',round:'ti-circle',outline:'ti-letter-case',brick:'ti-wall',head:'ti-mood-smile'};
+const SHAPE_LABEL={brick:'Brick',head:'Head'};
+function beadLabel(b,i){ return SHAPE_LABEL[b.shape] || (b.char ? b.char.toUpperCase() : `Bead ${i+1} (plain)`); }
 
 let openBeadMenu=null;
 function toggleBeadMenu(i){ openBeadMenu = openBeadMenu===i ? null : i; buildBeadListUI(); }
@@ -808,7 +876,14 @@ function onBeadDragEnd(){
   syncTextBox(); buildBeadEditorUI(); scheduleRender();
 }
 
+// Keep a bead selected whenever there is one, so the editor panel doesn't
+// come and go and shift the layout under the cursor.
+function clampSelection(){
+  const n=design.beads.length;
+  selectedBead = n ? Math.min(Math.max(selectedBead,0), n-1) : -1;
+}
 function buildBeadListUI(){
+  clampSelection();
   const el=document.getElementById('beadList');
   el.innerHTML=design.beads.map((b,i)=>`
     <div class="layer-row${i===selectedBead?' selected':''}" onclick="selectBead(${i})" draggable="true"
@@ -836,14 +911,19 @@ function selectBead(i){ selectedBead=i; buildBeadListUI(); buildBeadEditorUI(); 
 // selecting or reordering from either one is the same action.
 const CHIP=54, CHIP_PAD=7;
 
-function shapesToPathData(shapes,scale,cx,cy){
-  let d='';
-  const add=pts=>{
-    pts.forEach((p,i)=>{ d+=(i?'L':'M')+(cx+p.x*scale).toFixed(2)+' '+(cy-p.y*scale).toFixed(2)+' '; });
-    d+='Z ';
-  };
-  for(const s of shapes){ add(s.getPoints(24)); for(const h of s.holes) add(h.getPoints(24)); }
-  return d;
+// One <path> per shape, not one merged path: the studded shapes overlap, and
+// under a single evenodd path the overlap would cancel out into a hole.
+function shapesToPaths(shapes,scale,cx,cy,fill){
+  return shapes.map(s=>{
+    let d='';
+    const add=pts=>{
+      pts.forEach((p,i)=>{ d+=(i?'L':'M')+(cx+p.x*scale).toFixed(2)+' '+(cy-p.y*scale).toFixed(2)+' '; });
+      d+='Z ';
+    };
+    add(s.getPoints(24));
+    for(const h of s.holes) add(h.getPoints(24));
+    return `<path d="${d}" fill="${esc(fill)}" fill-rule="evenodd"/>`;
+  }).join('');
 }
 
 // The bead as seen from +Z — the same face the letter reads from. The cord
@@ -851,13 +931,12 @@ function shapesToPathData(shapes,scale,cx,cy){
 function beadFaceShapes(b){
   const font=getFont(b.fontId ?? design.fontId);
   const ch=(b.char||'').trim().toUpperCase();
-  let body;
-  if(b.shape==='round')        body={shapes:[discProfile(b.size)],width:b.size,height:b.size};
-  else if(b.shape==='outline') body=glyphShapes(ch,font,b.size,b.border||0,b.fillGaps!==false);
-  else                         body={shapes:[squareProfile(b.size,0,edgeRadius(b))],width:b.size,height:b.size};
-  if(!body) return null;
-  const letter = ch ? glyphShapes(ch,font, b.shape==='outline'?b.size:b.letterSize, 0, b.fillGaps!==false) : null;
-  return {body, letter, letterHex: letterSlab(0,b.raise,b.size,b.hex,b.letterHex).hex};
+  const parts = b.shape==='square'
+    ? {body:{shapes:[squareProfile(b.size,0,edgeRadius(b))],width:b.size,height:b.size},
+       detail: ch?glyphShapes(ch,font,b.letterSize,0,b.fillGaps!==false):null}
+    : flatBeadShapes(b,font,ch);
+  if(!parts.body) return null;
+  return {...parts, detailHex: letterSlab(0,b.raise,b.size,b.hex,b.letterHex).hex};
 }
 
 function buildBeadStripUI(){
@@ -871,8 +950,8 @@ function buildBeadStripUI(){
   el.innerHTML=design.beads.map((b,i)=>{
     const f=faces[i];
     const svg=f ? `<svg width="${CHIP}" height="${CHIP}" viewBox="0 0 ${CHIP} ${CHIP}">`
-        +`<path d="${shapesToPathData(f.body.shapes,scale,c,c)}" fill="${esc(b.hex)}" fill-rule="evenodd"/>`
-        +(f.letter?`<path d="${shapesToPathData(f.letter.shapes,scale,c,c)}" fill="${esc(f.letterHex)}" fill-rule="evenodd"/>`:'')
+        +shapesToPaths(f.body.shapes,scale,c,c,b.hex)
+        +(f.detail?shapesToPaths(f.detail.shapes,scale,c,c,f.detailHex):'')
         +'</svg>' : '';
     return `<div class="bead-chip${i===selectedBead?' selected':''}" title="${esc(beadLabel(b,i))}"
       onclick="selectBead(${i})" draggable="true"
@@ -916,12 +995,25 @@ function buildBeadEditorUI(){
   set('beadRaise',b.raise);
   document.getElementById('beadFillGaps').checked=b.fillGaps!==false;
 
+  const letterless=LETTERLESS.has(b.shape);
   document.getElementById('beadSizeLabel').textContent =
-    b.shape==='round' ? 'Diameter (mm)' : isOutline ? 'Letter size (mm)' : 'Bead size (mm)';
+    b.shape==='round' ? 'Diameter (mm)'
+    : b.shape==='brick' ? 'Brick height (mm)'
+    : b.shape==='head' ? 'Head height (mm)'
+    : isOutline ? 'Letter size (mm)' : 'Bead size (mm)';
+  document.getElementById('beadCharRow').style.display = letterless ? 'none' : '';
   document.getElementById('beadRadiusRow').style.display = b.shape==='square' ? '' : 'none';
   document.getElementById('beadBorderRow').style.display = isOutline ? '' : 'none';
-  // An outline bead's letter is fixed to the plate's own glyph size.
-  document.getElementById('letterSizeRow').style.display = isOutline ? 'none' : '';
+  // An outline bead's letter is fixed to the plate's own glyph size; a head's
+  // face and a brick have no glyph at all.
+  document.getElementById('letterSizeRow').style.display = isOutline||letterless ? 'none' : '';
+  document.getElementById('fillGapsRow').style.display = letterless ? 'none' : '';
+  // A brick has nothing moulded on it, so it drops the whole letter section.
+  document.getElementById('letterBlock').style.display = b.shape==='brick' ? 'none' : '';
+  document.getElementById('letterColourRow').style.display = b.shape==='brick' ? 'none' : '';
+  const faceWording = b.shape==='head' ? 'Face' : 'Letter';
+  document.getElementById('letterBlockTitle').textContent = faceWording;
+  document.getElementById('letterColourLabelText').textContent = faceWording;
 
   document.getElementById('beadColourSwatch').style.background=b.hex;
   document.getElementById('beadColourLabel').textContent=colourName(b.hex);

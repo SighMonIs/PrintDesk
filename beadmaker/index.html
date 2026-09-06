@@ -111,6 +111,8 @@
             <option value="square">Square</option>
             <option value="round">Round</option>
             <option value="outline">Outline</option>
+            <option value="brick">Brick (no letter)</option>
+            <option value="head">Head (no letter)</option>
           </select>
         </div>
         <div class="adv-row"><label>Bead size (mm)</label><input type="number" class="adv-input" id="defSize" min="2" max="60" step="0.5" onchange="onDefaultChange('size',+this.value)"></div>
@@ -194,9 +196,11 @@
             <option value="square">Square</option>
             <option value="round">Round</option>
             <option value="outline">Outline</option>
+            <option value="brick">Brick (no letter)</option>
+            <option value="head">Head (no letter)</option>
           </select>
         </div>
-        <div class="adv-row"><label>Character</label><input type="text" class="adv-text-input bead-char-input" id="beadChar" maxlength="3" oninput="onBeadFieldChange('char',this.value)"></div>
+        <div class="adv-row" id="beadCharRow"><label>Character</label><input type="text" class="adv-text-input bead-char-input" id="beadChar" maxlength="3" oninput="onBeadFieldChange('char',this.value)"></div>
         <div class="adv-row"><label id="beadSizeLabel">Bead size (mm)</label><input type="number" class="adv-input" id="beadSize" min="2" max="60" step="0.5" onchange="onBeadFieldChange('size',+this.value)"></div>
         <div class="adv-row"><label>Hole &empty; (mm)</label><input type="number" class="adv-input" id="beadHole" min="0" max="20" step="0.1" onchange="onBeadFieldChange('hole',+this.value)"></div>
         <div class="adv-row" id="beadRadiusRow"><label>Corner radius (mm)</label><input type="number" class="adv-input" id="beadRadius" min="0" max="20" step="0.25" onchange="onBeadFieldChange('radius',+this.value)"></div>
@@ -217,7 +221,7 @@
             <div class="colour-picker-list" id="beadColourList" style="display:none"></div>
           </div>
         </div>
-        <div class="adv-row" id="letterColourRow"><label>Letter</label>
+        <div class="adv-row" id="letterColourRow"><label id="letterColourLabelText">Letter</label>
           <div class="colour-picker-wrap" id="letterColourWrap" style="width:150px">
             <div class="colour-picker-btn" onclick="toggleColourPicker('letter')">
               <div class="cp-swatch" id="letterColourSwatch"></div>
@@ -230,10 +234,10 @@
       </div>
 
       <div class="layer-setting-block" id="letterBlock">
-        <div class="section-title" style="margin:0 0 6px">Letter</div>
+        <div class="section-title" style="margin:0 0 6px" id="letterBlockTitle">Letter</div>
         <div class="adv-row" id="letterSizeRow"><label>Size (mm)</label><input type="number" class="adv-input" id="beadLetterSize" min="1" max="40" step="0.5" onchange="onBeadFieldChange('letterSize',+this.value)"></div>
         <div class="adv-row"><label title="Negative indents the letter into the bead; 0 sits it flush with the surface">Raise / indent (mm)</label><input type="number" class="adv-input" id="beadRaise" min="-5" max="10" step="0.1" onchange="onBeadFieldChange('raise',+this.value)"></div>
-        <div class="adv-row"><label>Fill letter gaps</label><input type="checkbox" id="beadFillGaps" onchange="onBeadFieldChange('fillGaps',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)"></div>
+        <div class="adv-row" id="fillGapsRow"><label>Fill letter gaps</label><input type="checkbox" id="beadFillGaps" onchange="onBeadFieldChange('fillGaps',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)"></div>
       </div>
     </div>
   </div>
@@ -243,7 +247,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" integrity="sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js" integrity="sha384-oV9/r5hoq7qHFHfbghYwt50E2fe8J20vXRW0eIGQl20k40zMEAhSXMCh9ANASVB9" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js" integrity="sha384-3TaxGqyHrMuRIWY5Z5WHNIzgNRqGIUJE+mk6tm+g1wkm9Ux2kUyOLfy9AsNWXA6u" crossorigin="anonymous"></script>
-<script src="../shared/3mf.js?v=1.0.7"></script>
-<script src="app.js?v=1.0.7"></script>
+<script src="../shared/3mf.js?v=1.0.8"></script>
+<script src="app.js?v=1.0.8"></script>
 </body>
 </html>
