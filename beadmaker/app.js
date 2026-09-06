@@ -426,20 +426,58 @@ function discProfile(size,n=64){
 // A flat bead lies face-up, so its cord hole can't be part of the profile —
 // cut it as a slot through the middle Z band instead (2D boolean per band,
 // the same trick BadgeMak3r uses for shallow cutters).
+// The bore is round, matching the square bead's: it's stepped into BORE_BANDS
+// layers whose width follows the circle, since a 2D boolean per band is all
+// this construction can do. The slicer quantises a horizontal hole into
+// layers anyway, so the steps cost nothing in the print.
+const BORE_BANDS=8;
 function flatBeadSlabs(shapes,thickness,holeD){
   if(!(holeD>0) || holeD>=thickness) return [{z:0,depth:thickness,shapes}];
-  const band=(thickness-holeD)/2;
-  const S=_BADGE_SCALE, far=1e8, y=Math.round(holeD/2*S);
-  const cut=clipperDifference(
-    shapes.flatMap(shapeToClipperPaths),
-    [[{X:-far,Y:-y},{X:far,Y:-y},{X:far,Y:y},{X:-far,Y:y}]],
-  );
-  const mid=cut.length?clipperPathsToShapes(cut):[];
-  return [
-    {z:0,depth:band,shapes},
-    ...(mid.length?[{z:band,depth:holeD,shapes:mid}]:[]),
-    {z:band+holeD,depth:band,shapes},
-  ];
+  const r=holeD/2, wall=(thickness-holeD)/2, step=holeD/BORE_BANDS;
+  const subject=shapes.flatMap(shapeToClipperPaths);
+  const far=1e8;
+  const slabs=[{z:0,depth:wall,shapes}];
+  for(let i=0;i<BORE_BANDS;i++){
+    const zMid=-r+(i+0.5)*step;                             // height within the bore
+    const hw=Math.sqrt(Math.max(0,r*r-zMid*zMid));          // half-width of the bore there
+    let banded=shapes;
+    if(hw>0.01){
+      const y=Math.round(hw*_BADGE_SCALE);
+      const cut=clipperDifference(subject,[[{X:-far,Y:-y},{X:far,Y:-y},{X:far,Y:y},{X:-far,Y:y}]]);
+      banded=cut.length?clipperPathsToShapes(cut):[];
+    }
+    if(banded.length) slabs.push({z:wall+i*step,depth:step,shapes:banded});
+  }
+  slabs.push({z:wall+holeD,depth:wall,shapes});
+  return slabs;
+}
+
+// Where the letter sits relative to the bead surface at `topZ`:
+//   raise > 0  raised, its own colour, sunk 0.2mm so it fuses to the bead
+//   raise = 0  flush inlay — a thin slab whose top face is the surface
+//   raise < 0  indented — the same slab becomes a 3MF negative part, so the
+//              slicer carves the recess.
+// ponytail: the indent is a negative part, not a hole cut into the body —
+// three.js has no CSG and the square bead extrudes along the cord, so its
+// top face can't be pocketed by the 2D booleans everything else here uses.
+// The preview draws the recess in a darkened bead colour, which reads as an
+// engraving; make it a real cut only if the preview has to be exact.
+const INLAY_T=0.6;
+function letterSlab(topZ,raise,thickness,beadHex,letterHex){
+  const r=Math.max(raise, -(thickness/2 - 0.4));   // can't cut deeper than the bead
+  if(r>0)   return {z0:topZ-0.2, z1:topZ+r, hex:letterHex};
+  if(r===0) return {z0:topZ-INLAY_T, z1:topZ, hex:letterHex, offset:true};
+  return {z0:topZ+r, z1:topZ+0.1, hex:darken(beadHex), offset:true, negative:true};
+}
+function darken(hex){
+  const n=parseInt((hex||'#888888').replace('#',''),16);
+  const c=v=>Math.round(v*0.5).toString(16).padStart(2,'0');
+  return '#'+c((n>>16)&255)+c((n>>8)&255)+c(n&255);
+}
+function letterPart(shapes,slab){
+  const geo=new THREE.ExtrudeGeometry(shapes,{depth:slab.z1-slab.z0,bevelEnabled:false});
+  geo.translate(0,0,slab.z0);
+  return {geo,hex:slab.hex,offset:slab.offset,negative:slab.negative};
 }
 
 // Builds one bead centred on the origin. Returns its parts (each already a
@@ -468,9 +506,8 @@ function buildBead(b){
     // the plate it sits on, or it won't line up inside its own outline.
     const lg = ch ? glyphShapes(ch,font, b.shape==='round'?b.letterSize:b.size, 0, b.fillGaps!==false) : null;
     if(lg){
-      const geo=new THREE.ExtrudeGeometry(lg.shapes,{depth:b.raise,bevelEnabled:false});
-      geo.translate(0,0,b.width/2-0.2);
-      parts.push({geo:place(geo),hex:b.letterHex});
+      const p=letterPart(lg.shapes, letterSlab(b.width/2,b.raise,b.width,b.hex,b.letterHex));
+      place(p.geo); parts.push(p);
     }
     return {parts,advance:body.width};
   }
@@ -494,10 +531,8 @@ function buildBead(b){
 
   const g=ch ? glyphShapes(ch,font,b.letterSize,0,b.fillGaps!==false) : null;
   if(g){
-    // Sit the letter on the cube's top face, sunk 0.2mm so it fuses.
-    const geo=new THREE.ExtrudeGeometry(g.shapes,{depth:b.raise,bevelEnabled:false});
-    geo.translate(0,0,b.size/2-0.2);
-    parts.push({geo:place(geo),hex:b.letterHex});
+    const p=letterPart(g.shapes, letterSlab(b.size/2,b.raise,b.size,b.hex,b.letterHex));
+    place(p.geo); parts.push(p);
   }
   return {parts,advance:b.width};
 }
@@ -524,7 +559,12 @@ function render3D(){
   const {parts,length}=buildBracelet();
   const box=new THREE.Box3();
   for(const p of parts){
-    const mat=new THREE.MeshPhongMaterial({color:parseInt((p.hex||'#888888').replace('#',''),16),shininess:40});
+    // Flush and indented letters share their top face with the bead surface,
+    // so they need to win the depth test against it.
+    const mat=new THREE.MeshPhongMaterial({
+      color:parseInt((p.hex||'#888888').replace('#',''),16), shininess:40,
+      polygonOffset:!!p.offset, polygonOffsetFactor:-2, polygonOffsetUnits:-2,
+    });
     const mesh=new THREE.Mesh(p.geo,mat);
     braceletGroup.add(mesh);
     p.geo.computeBoundingBox();
@@ -546,15 +586,28 @@ function exportBracelet(){
   const {parts}=buildBracelet();
   if(!parts.length){ setStatus('Nothing to export — type some text first','err'); return; }
   // One extruder slot per distinct colour, not per part — a 20-bead bracelet
-  // is still a 2- or 3-filament print.
-  const slots=[...new Set(parts.map(p=>p.hex||'#888888'))];
-  const objects=parts.map((p,i)=>({
-    geo:_badgeMergeVerticesForExport(p.geo),
-    name:`part${i+1}`,
-    colour:p.hex||'#888888',
-    extruder:slots.indexOf(p.hex||'#888888')+1,
-    id:i+1,
-  }));
+  // is still a 2- or 3-filament print. Negative parts (indented letters) are
+  // voids, so they claim no slot.
+  const slots=[...new Set(parts.filter(p=>!p.negative).map(p=>p.hex||'#888888'))];
+  // _badgeBuild3MF fills filament_colour from one object per slot, so every
+  // part after the first of a given colour has to opt out — otherwise the
+  // palette gets one entry per part and extruder 2 lands on the wrong
+  // filament (letters printing in the bead's colour).
+  const claimed=new Set();
+  const objects=parts.map((p,i)=>{
+    const hex=p.hex||'#888888';
+    const claimsSlot=!p.negative && !claimed.has(hex);
+    if(claimsSlot) claimed.add(hex);
+    return {
+      geo:_badgeMergeVerticesForExport(p.geo),
+      name:`part${i+1}`,
+      colour:hex,
+      extruder:p.negative ? 1 : slots.indexOf(hex)+1,
+      negative:!!p.negative,
+      skipFilamentSlot:!claimsSlot,
+      id:i+1,
+    };
+  });
   const name=(design.name||'bracelet').replace(/[^a-z0-9_\- ]/gi,'').trim()||'bracelet';
   const zip=_badgeBuildZip(_badgeBuild3MF(objects,name,projectSettingsTemplate));
   const b=new Blob([zip],{type:'application/vnd.ms-package.3dmanufacturing-3dmodel+xml'});
@@ -697,6 +750,10 @@ function buildDefaultsUI(){
   document.getElementById('defGap').value=design.gap;
   document.getElementById('defLetterSize').value=design.letterSize;
   document.getElementById('defRaise').value=design.raise;
+  document.getElementById('defBeadColourSwatch').style.background=design.hex;
+  document.getElementById('defBeadColourLabel').textContent=colourName(design.hex);
+  document.getElementById('defLetterColourSwatch').style.background=design.letterHex;
+  document.getElementById('defLetterColourLabel').textContent=colourName(design.letterHex);
 }
 
 // ── Bead list ──────────────────────────────────────────────────
@@ -820,28 +877,47 @@ function onBeadFieldChange(field,value){
 }
 
 // ── Colour pickers ─────────────────────────────────────────────
+// Four pickers, same widget: the selected bead's two colours and the two
+// defaults. `.colour-picker-list` is position:fixed (it has to be — both
+// panels scroll and clip their overflow), so each one is anchored to its own
+// button here.
+const PICKERS=['bead','letter','defBead','defLetter'];
 let openPicker=null;
 function toggleColourPicker(which){
-  const list=document.getElementById(which==='bead'?'beadColourList':'letterColourList');
   if(openPicker===which){ closeColourPickers(); return; }
   closeColourPickers();
+  const list=document.getElementById(which+'ColourList');
+  const rect=document.getElementById(which+'ColourWrap').getBoundingClientRect();
   list.innerHTML=colours.map(c=>`<div class="cp-option" onclick="selectColour('${which}','${escJsAttr(c.code)}','${escJsAttr(c.id)}')"><div class="cp-swatch" style="background:${esc(c.code)}"></div><span>${esc(c.name)}</span></div>`).join('')
     || '<div class="cp-option"><span>No colours loaded</span></div>';
   list.style.display='';
+  list.style.width=rect.width+'px';
+  list.style.left=rect.left+'px';
+  // Flip above the button when there isn't room below it.
+  const below=window.innerHeight-rect.bottom;
+  if(below<list.offsetHeight+8 && rect.top>below){
+    list.style.top=''; list.style.bottom=(window.innerHeight-rect.top+4)+'px';
+  }else{
+    list.style.bottom=''; list.style.top=(rect.bottom+4)+'px';
+  }
   openPicker=which;
 }
 function closeColourPickers(){
-  document.getElementById('beadColourList').style.display='none';
-  document.getElementById('letterColourList').style.display='none';
+  PICKERS.forEach(p=>{ document.getElementById(p+'ColourList').style.display='none'; });
   openPicker=null;
 }
 function selectColour(which,hex,colId){
   const b=design.beads[selectedBead];
-  if(!b) return;
-  if(which==='bead'){ b.hex=hex; b.colourId=colId; design.hex=hex; design.colourId=colId; }
-  else { b.letterHex=hex; b.letterColourId=colId; design.letterHex=hex; design.letterColourId=colId; }
+  // The bead pickers also move the default, so the next bead you add matches.
+  if(which==='bead'||which==='defBead'){
+    design.hex=hex; design.colourId=colId;
+    if(which==='bead'&&b){ b.hex=hex; b.colourId=colId; }
+  }else{
+    design.letterHex=hex; design.letterColourId=colId;
+    if(which==='letter'&&b){ b.letterHex=hex; b.letterColourId=colId; }
+  }
   closeColourPickers();
-  buildBeadListUI(); buildBeadEditorUI(); scheduleRender();
+  buildDefaultsUI(); buildBeadListUI(); buildBeadEditorUI(); scheduleRender();
 }
 
 // ── Header menus ───────────────────────────────────────────────
