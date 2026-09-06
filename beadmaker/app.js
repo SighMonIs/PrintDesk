@@ -401,6 +401,14 @@ function squareProfile(size,holeD,radius){
   addHole(s,holeD);
   return s;
 }
+// How far a square bead can round off before it eats itself. The end-face
+// bevel flares the cord hole outward by r as well, so it also has to stay
+// clear of the hole.
+function edgeRadius(b){
+  const limits=[b.radius||0, b.width/2-0.05, b.size/2-0.05];
+  if(b.hole>0) limits.push((b.size-b.hole)/4);
+  return Math.max(0, Math.min(...limits));
+}
 function roundProfile(size,holeD){
   const s=new THREE.Shape();
   s.absarc(0,0,size/2,0,TAU,false);
@@ -446,9 +454,20 @@ function buildBead(b){
     return {parts,advance:g.width};
   }
 
-  const prof = b.shape==='round' ? roundProfile(b.size,b.hole) : squareProfile(b.size,b.hole,b.radius);
-  const body=new THREE.ExtrudeGeometry(prof,{depth:b.width,bevelEnabled:false});
-  body.translate(0,0,-b.width/2);
+  // A square bead rounds in both directions: `r` rounds the four edges
+  // running along the cord (in the profile) and, as an extrude bevel, the
+  // two end faces as well — a rounded cube, not a rounded rectangle on a
+  // stick. The bevel eats `r` off each end, so the extrusion is that much
+  // shorter and re-centred.
+  const r = b.shape==='square' ? edgeRadius(b) : 0;
+  const prof = b.shape==='round' ? roundProfile(b.size,b.hole) : squareProfile(b.size,b.hole,r);
+  const body = r > 0
+    // bevelOffset:-r matters — at the default 0 the bevel bulges the middle
+    // outward by r instead of rounding the ends inward, so an 8mm bead came
+    // out 10.75mm wide.
+    ? new THREE.ExtrudeGeometry(prof,{depth:b.width-2*r,bevelEnabled:true,bevelThickness:r,bevelSize:r,bevelOffset:-r,bevelSegments:6})
+    : new THREE.ExtrudeGeometry(prof,{depth:b.width,bevelEnabled:false});
+  body.translate(0,0, r>0 ? r-b.width/2 : -b.width/2);
   body.rotateY(Math.PI/2);                 // extrusion axis -> the cord (+X)
   parts.push({geo:place(body),hex:b.hex});
 
