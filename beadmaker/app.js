@@ -622,14 +622,26 @@ const LS_DESIGNS='beadmaker_designs', LS_LAST='beadmaker_lastId';
 let design=newDesignObject('Bracelet');
 let selectedBead=-1, _keySeq=1;
 
+// Bracelets start white bead, black letter. Matched against the filament
+// list by name so the bead carries a real colour id, with plain hex as the
+// fallback for when colours haven't loaded (or don't include those two).
+// (Literals, not consts — the boot design is built a few lines below, before
+// a const declared here would be out of its temporal dead zone.)
+function applyDefaultPalette(d){
+  const pick=(re,fallback)=>colours.find(c=>re.test(c.name||'')) || {code:fallback,id:null};
+  const bead=pick(/white/i,'#ffffff'), letter=pick(/black/i,'#000000');
+  d.hex=bead.code; d.colourId=bead.id;
+  d.letterHex=letter.code; d.letterColourId=letter.id;
+  return d;
+}
+
 function newDesignObject(name){
-  return {
+  return applyDefaultPalette({
     id:String(Date.now()), name, fontId:'',
-    shape:'square', size:8, width:8, hole:2.5, gap:0.5,
+    shape:'square', size:8, hole:2.5, gap:0.5,
     letterSize:5, raise:0.8, radius:1, border:1.5,
-    hex:'#3b82f6', colourId:null, letterHex:'#ffffff', letterColourId:null,
     beads:[],
-  };
+  });
 }
 function makeBead(char){
   return {
@@ -997,11 +1009,9 @@ async function showApp(){
   try{ await loadBuiltinFont(); }catch(e){ setStatus('Could not load built-in font','err'); }
   await loadColours();
   await loadFonts();
-  if(colours.length && !loadDesigns()[design.id]){
-    design.hex=colours[0].code; design.colourId=colours[0].id;
-    const light=colours.find(c=>/white/i.test(c.name));
-    if(light){ design.letterHex=light.code; design.letterColourId=light.id; }
-  }
+  // The boot design was built before the filament list arrived — redo its
+  // palette now that names can be matched.
+  if(!loadDesigns()[design.id]) applyDefaultPalette(design);
   const all=loadDesigns();
   const last=all[localStorage.getItem(LS_LAST)]||Object.values(all)[0];
   if(last) openDesign(last);
