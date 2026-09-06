@@ -1767,7 +1767,34 @@ function closeMobileMenu() {
 }
 document.addEventListener('click', function(e) {
   if (!e.target.closest('#topbarMenuPanel') && !e.target.closest('#topbarHamburger')) closeMobileMenu();
+  if (!e.target.closest('#makersPanel') && !e.target.closest('#makersBtn')) closeMakersMenu();
 });
+
+// Makers dropdown (Badges / BadgeMak3r / BeadMak3r). Fixed-position panel
+// anchored under its button, same pattern as the sort/filter panels — so it
+// works from the desktop topbar and from inside the mobile hamburger panel.
+function toggleMakersMenu(e) {
+  e.stopPropagation();
+  const panel = document.getElementById('makersPanel');
+  const btn   = document.getElementById('makersBtn');
+  if (!panel || !btn) return;
+  if (panel.style.display !== 'none') { closeMakersMenu(); return; }
+  const rect = btn.getBoundingClientRect();
+  panel.style.top  = (rect.bottom + 6) + 'px';
+  panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 190)) + 'px';
+  panel.style.display = '';
+  btn.classList.add('active');
+}
+function closeMakersMenu() {
+  const panel = document.getElementById('makersPanel');
+  if (panel) panel.style.display = 'none';
+  document.getElementById('makersBtn')?.classList.remove('active');
+}
+function openMaker(path) {
+  window.open(path, '_blank');
+  closeMakersMenu();
+  closeMobileMenu();
+}
 
 // Mobile: slide the detail column over the list column.
 // Drives the slide via inline style (not just the CSS class) because the

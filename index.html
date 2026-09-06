@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js" integrity="sha384-DgmC6Xe2bSN2WjTDXzWYbUbxyhNP+NNkGDR/g78pCXV7E7rcVTGxVg0uIVCUUcBc" crossorigin="anonymous"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBETfOa0gAqNtoTnQ5BodrAi6bk2HCD_8c&libraries=places&loading=async" async defer></script>
 <script src="config.js" onerror="console.warn('config.js not found — using defaults')"></script>
-<link rel="stylesheet" href="styles.css?v=1.7.51">
+<link rel="stylesheet" href="styles.css?v=1.7.52">
 
 <script>
 // Fallback if config.js missing
@@ -98,14 +98,8 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
         <button class="topbar-item ti-e" data-view="inventory" onclick="setSidebarView('inventory')" title="Inventory">
           <i class="ti ti-package"></i><span class="nav-label">Inventory</span>
         </button>
-        <button class="topbar-item ti-e" onclick="window.open('badge/','_blank');closeMobileMenu()" title="Badges (opens in new tab)">
-          <i class="ti ti-badge"></i><span class="nav-label">Badges</span><i class="ti ti-external-link external-link-icon"></i>
-        </button>
-        <button class="topbar-item ti-e" onclick="window.open('badgemaker/','_blank');closeMobileMenu()" title="BadgeMak3r (opens in new tab)">
-          <i class="ti ti-stars"></i><span class="nav-label">BadgeMak3r</span><i class="ti ti-external-link external-link-icon"></i>
-        </button>
-        <button class="topbar-item ti-e" onclick="window.open('beadmaker/','_blank');closeMobileMenu()" title="BeadMak3r (opens in new tab)">
-          <i class="ti ti-circles"></i><span class="nav-label">BeadMak3r</span><i class="ti ti-external-link external-link-icon"></i>
+        <button class="topbar-item ti-e" id="makersBtn" onclick="toggleMakersMenu(event)" title="Makers">
+          <i class="ti ti-wand"></i><span class="nav-label">Makers</span><i class="ti ti-chevron-down external-link-icon"></i>
         </button>
         <button class="topbar-item ti-e" data-view="calculator" onclick="setSidebarView('calculator')" title="Print Cost Calculator">
           <i class="ti ti-calculator"></i><span class="nav-label">Calculator</span>
@@ -124,6 +118,14 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <i class="ti ti-menu-2"></i>
     </button>
   </nav>
+
+  <!-- Makers dropdown — sibling of the topbar so its z-index isn't trapped
+       inside the topbar's stacking context. Positioned by toggleMakersMenu(). -->
+  <div class="sort-panel" id="makersPanel" style="display:none">
+    <div class="sort-option" onclick="openMaker('badge/')"><i class="ti ti-badge"></i> Badges<i class="ti ti-external-link external-link-icon"></i></div>
+    <div class="sort-option" onclick="openMaker('badgemaker/')"><i class="ti ti-stars"></i> BadgeMak3r<i class="ti ti-external-link external-link-icon"></i></div>
+    <div class="sort-option" onclick="openMaker('beadmaker/')"><i class="ti ti-circles"></i> BeadMak3r<i class="ti ti-external-link external-link-icon"></i></div>
+  </div>
 
 <div class="inbox-layout" id="mainContent">
 
@@ -177,7 +179,7 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
       <div class="inbox-empty-state"><i class="ti ti-loader-2"></i> Loading&hellip;</div>
     </div>
     <div class="inbox-list-footer">
-      <span id="footerVersion">v1.7.51</span>
+      <span id="footerVersion">v1.7.52</span>
       <span class="footer-dot-sep">&middot;</span>
       <span id="statusMsg" class="footer-status">Loading&hellip;</span>
     </div>
@@ -268,8 +270,8 @@ window.CONFIG = window.CONFIG || { SUPABASE_URL: '', SUPABASE_KEY: '' };
   <button class="btn sm" onclick="_undoToastAction()">Undo</button>
 </div>
 
-<script src="api.js?v=1.7.51"></script>
-<script src="ui.js?v=1.7.51"></script>
-<script src="app.js?v=1.7.51"></script>
+<script src="api.js?v=1.7.52"></script>
+<script src="ui.js?v=1.7.52"></script>
+<script src="app.js?v=1.7.52"></script>
 </body>
 </html>
