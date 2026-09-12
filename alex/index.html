@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALEX Brick Tray Planner</title>
+<style>
+  :root {
+    --bg: #f4f2ee; --panel: #ffffff; --ink: #1d1c1a; --muted: #6b6862; --line: #e2dfd8;
+    --accent: #c8102e; --accent-ink: #fff; --ok: #2e7d32; --warn: #b26a00; --bad: #c62828;
+    --grid: #f9f7f3; --cell: #e9e6df; --insert: #ffd83d; --insert-ink: #3a3000; --tray: #cfd8dc;
+    --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #18181a; --panel: #222225; --ink: #ecebe8; --muted: #9a9892; --line: #35353a;
+      --grid: #2a2a2e; --cell: #3a3a40; --tray: #44505a; --shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
+  h1 { font-size: 18px; } h2 { font-size: 15px; } h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .muted { color: var(--muted); }
+  .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; }
+
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5; }
+  header .brand { display: flex; align-items: center; gap: 10px; }
+  header .brand .dot { width: 14px; height: 14px; background: var(--accent); border-radius: 3px; }
+  header .spacer { flex: 1; }
+  header .progress { display: flex; align-items: center; gap: 10px; min-width: 220px; }
+  .bar { flex: 1; height: 8px; background: var(--cell); border-radius: 99px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--ok); width: 0; transition: width .3s; }
+
+  .layout { display: grid; grid-template-columns: 310px 1fr; min-height: calc(100vh - 53px); }
+  aside { border-right: 1px solid var(--line); background: var(--panel); padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+  main { padding: 18px 22px; min-width: 0; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 2px 0; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row.tight { gap: 4px; }
+  input[type=number], input[type=text], select {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%;
+  }
+  input[type=number] { width: 84px; }
+  .btn { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.small { padding: 3px 8px; font-size: 12px; }
+  .btn.icon { padding: 3px 9px; font-weight: 700; line-height: 1; }
+  .btn.danger { color: var(--bad); }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  .units { display: flex; flex-direction: column; gap: 4px; }
+  .units button { display: flex; align-items: center; gap: 8px; text-align: left; padding: 7px 9px; border-radius: 7px; border: 1px solid transparent; background: none; width: 100%; }
+  .units button:hover { background: var(--bg); }
+  .units button.on { background: var(--bg); border-color: var(--line); }
+  .units button .n { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .units button .s { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .units button .p { width: 34px; height: 5px; background: var(--cell); border-radius: 99px; overflow: hidden; }
+  .units button .p i { display: block; height: 100%; background: var(--ok); }
+
+  .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .choice button { text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); }
+  .choice button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .choice button b { display: block; font-size: 13px; }
+  .choice button span { display: block; font-size: 11.5px; color: var(--muted); }
+
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; background: var(--bg); padding: 6px 12px; }
+  .seg button.on { background: var(--ink); color: var(--bg); }
+
+  .tabs { display: flex; gap: 2px; margin-left: 12px; }
+  .tabs button { border: 0; background: none; padding: 6px 12px; color: var(--muted); border-radius: 6px; font-weight: 500; }
+  .tabs button:hover { color: var(--ink); background: var(--bg); }
+  .tabs button.on { color: var(--ink); background: var(--bg); box-shadow: inset 0 -2px 0 var(--accent); }
+  .pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.ok { color: var(--ok); border-color: var(--ok); } .pill.warn { color: var(--warn); border-color: var(--warn); } .pill.bad { color: var(--bad); border-color: var(--bad); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; box-shadow: var(--shadow); }
+  .drawer-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .drawer-tabs button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 10px; }
+  .drawer-tabs button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .drawer-tabs button i { font-style: normal; color: var(--muted); font-size: 11px; margin-left: 4px; }
+  .drawer-tabs button.on i { color: inherit; opacity: .7; }
+
+  .stage { position: relative; margin: 0 auto; }
+  .stage .dim { position: absolute; font-size: 11px; color: var(--muted); }
+  .canvas { position: absolute; background: var(--bg); border: 2px solid var(--muted); border-radius: 4px; box-sizing: content-box; }
+  .tray { position: absolute; background: var(--tray); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
+  .tray.overflow { box-shadow: inset 0 0 0 2px var(--bad); }
+  .tray .grid { position: absolute; display: grid; gap: 1px; touch-action: none; user-select: none; }
+  .grid .c { background: var(--cell); border-radius: 2px; }
+  .grid .c.hl { background: var(--insert); opacity: .5; }
+  .grid .c.bad { background: var(--bad); opacity: .5; }
+  .grid .ins { position: absolute; background: var(--insert); color: var(--insert-ink); border-radius: 3px; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); cursor: pointer; }
+  .grid .ins:hover { filter: brightness(.92); }
+  .grid .ins:hover::after { content: "×"; position: absolute; top: 1px; right: 5px; font-size: 13px; }
+  .tray .lbl { position: absolute; left: 6px; bottom: 3px; font-size: 11px; font-weight: 600; color: var(--ink); opacity: .8; pointer-events: none; z-index: 2;
+    background: var(--panel); padding: 0 5px; border-radius: 3px; }
+  .tray .lbl.custom { color: var(--warn); }
+  .tray .tools { position: absolute; right: 4px; bottom: 3px; display: none; gap: 2px; z-index: 3; white-space: nowrap; }
+  .tray:hover .tools { display: flex; }
+  .tray:hover .lbl { display: none; }
+  .tray .tools button { padding: 2px 5px; font-size: 11px; line-height: 1.3; white-space: nowrap; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.done td { opacity: .55; }
+  tfoot td { font-weight: 650; border-top: 2px solid var(--line); }
+  .counter { display: inline-flex; align-items: center; gap: 4px; }
+  .counter input { width: 52px; text-align: center; padding: 3px; }
+  .minibar { width: 90px; height: 6px; background: var(--cell); border-radius: 99px; overflow: hidden; display: inline-block; vertical-align: middle; }
+  .minibar i { display: block; height: 100%; background: var(--ok); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 20px; font-weight: 650; letter-spacing: -.02em; }
+  .stat span { font-size: 11.5px; color: var(--muted); }
+  .note { font-size: 12px; color: var(--muted); }
+  .warnbox { border-left: 3px solid var(--warn); padding: 6px 10px; background: var(--panel); border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .hidden { display: none !important; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  .byunit { font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><div class="dot"></div><h1>ALEX Brick Tray Planner</h1></div>
+  <nav class="tabs">
+    <button data-tab="plan" class="on">Plan drawers</button>
+    <button data-tab="bom">Bill of materials</button>
+    <button data-tab="track">Print tracker</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="progress"><span class="muted" id="hdr-progress">0 / 0 printed</span><div class="bar"><i id="hdr-bar"></i></div></div>
+  <button class="btn small" id="btn-export">Export JSON</button>
+  <button class="btn small" id="btn-import">Import</button>
+  <input type="file" id="file-import" accept="application/json" class="hidden">
+</header>
+
+<div class="layout">
+<aside>
+  <div>
+    <div class="row" style="justify-content:space-between;margin-bottom:6px"><h3>Units</h3>
+      <span class="row tight"><button class="btn small" id="btn-add-wide">+ 67×66</button><button class="btn small" id="btn-add-narrow">+ 36×70</button></span></div>
+    <div class="units" id="unit-list"></div>
+    <p class="note" id="hdr-summary" style="margin:8px 0 0"></p>
+  </div>
+
+  <hr>
+
+  <div id="unit-settings">
+    <div class="field" style="margin-bottom:12px">
+      <label>Unit name</label>
+      <input type="text" id="in-name" maxlength="40">
+    </div>
+    <div class="choice" style="margin-bottom:12px">
+      <button data-unit="wide"><b>ALEX 67×66</b><span>on castors · wide</span></button>
+      <button data-unit="narrow"><b>ALEX 36×70</b><span>narrow</span></button>
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label><input type="checkbox" id="in-lids"> Add a lid for every tray in this unit</label>
+    </div>
+    <div class="row tight">
+      <button class="btn small" id="btn-dup-unit" title="Add a new unit with the same settings and layouts">Duplicate unit</button>
+      <button class="btn small danger" id="btn-del-unit">Remove unit</button>
+    </div>
+  </div>
+
+  <hr>
+
+  <details>
+    <summary>About the parts</summary>
+    <p class="note">Grid unit = <b>34.25 mm</b>. Inserts are a single open cavity of W×L units, 64 mm tall. Trays hold a W×L grid of inserts: inner = ⌈34.5·n⌉, outer = inner + 3 mm, 66.5 mm tall. Lids sit over a tray with 3.5 mm margin, 22 mm tall. Everything is the standard height so parts can move between drawers and units freely.</p>
+    <p class="note">ALEX 67×66: 6 drawers, ~600 × 420 mm inside → 4 × 6×6 + 2 × 5×6 trays. ALEX 36×70: 6 drawers, ~295 × 522 mm inside → 4 × 4×7 trays.</p>
+    <p class="note">Stock STLs in the MakerWorld print profile: inserts 1×1…6×6, trays 6×6 and 5×6, lids 6×6 and 5×6. Anything else is generated with the customizer — the BOM shows the values to enter.</p>
+    <p class="note">Filament and time estimates use solid 2-wall geometry × 1.24 g/cm³ PLA and 66–88 s/g by part type, from the profile's plate stats (0.2 mm, 2 walls, 15 %). Treat both as ±20 %.</p>
+  </details>
+</aside>
+
+<main>
+
+  <section id="tab-plan">
+    <div class="drawer-tabs" id="drawer-tabs"></div>
+    <div class="row" style="margin-bottom:10px">
+      <h2 id="drawer-title">Drawer</h2>
+      <span class="muted" id="drawer-cells"></span>
+      <span id="drawer-fit"></span>
+      <div class="spacer" style="flex:1"></div>
+      <span class="muted" style="font-size:12px">Add tray:</span>
+      <input type="number" id="add-w" value="6" min="1" max="12" style="width:58px"> <span class="muted">×</span>
+      <input type="number" id="add-l" value="6" min="1" max="12" style="width:58px">
+      <button class="btn small" id="btn-add-tray">Add</button>
+      <button class="btn small" id="btn-copy-drawer" title="Replace every other drawer in this unit with this layout">Copy to all drawers in unit</button>
+      <button class="btn small" id="btn-copy-drawer-all" title="Replace every drawer in every unit of the same type with this layout">…in all units</button>
+    </div>
+    <p class="note" style="margin:0 0 10px">To scale. Drag across empty cells to place an insert; click an insert to remove it. Hover a tray for its tools. A 2×3 and a 3×2 are the same STL.</p>
+    <div class="card" id="drawer-view"></div>
+  </section>
+
+  <section id="tab-bom" class="hidden">
+    <div class="row" style="margin-bottom:12px">
+      <label class="muted" style="font-size:12px">Show</label>
+      <select id="bom-filter" style="width:auto"></select>
+    </div>
+    <div class="stats" id="bom-stats"></div>
+    <div class="card"><table id="bom-table"></table></div>
+  </section>
+
+  <section id="tab-track" class="hidden">
+    <div class="stats" id="track-stats"></div>
+    <div class="row" style="margin-bottom:10px">
+      <label><input type="checkbox" id="track-hide-done"> Hide finished parts</label>
+      <div style="flex:1"></div>
+      <span class="note">Counts are across all units — parts are interchangeable. Type the count you've printed, or use ± after each plate.</span>
+    </div>
+    <div class="card"><table id="track-table"></table></div>
+  </section>
+</main>
+</div>
+
+<script>
+/* ---------- geometry from ikea_brick_trays.scad ---------- */
+const G = {
+  insert: { inner: 32.25, h: 62.0, wall: 1.0, bottom: 2.0 },
+  tray:   { pitch: 34.5, h: 64.5, wall: 1.5, bottom: 2.0 },
+  lid:    { pitch: 34.5, h: 20.0, wall: 2.0, bottom: 2.0, margin: 3.5 },
+  density: 1.24, secPerGram: { tray: 66, insert: 88, lid: 65 }, // s/g from the profile's plate stats
+};
+const UNIT = G.insert.inner + 2 * G.insert.wall; // 34.25
+
+function partDims(type, w, l) {
+  if (type === 'insert') {
+    return { ow: w * UNIT, ol: l * UNIT, oh: G.insert.h + G.insert.bottom,
+             iw: G.insert.inner + (w - 1) * UNIT, il: G.insert.inner + (l - 1) * UNIT, ih: G.insert.h,
+             wall: G.insert.wall, bottom: G.insert.bottom };
+  }
+  if (type === 'tray') {
+    const iw = Math.ceil(G.tray.pitch * w), il = Math.ceil(G.tray.pitch * l);
+    return { ow: iw + 2 * G.tray.wall, ol: il + 2 * G.tray.wall, oh: G.tray.h + G.tray.bottom,
+             iw, il, ih: G.tray.h, wall: G.tray.wall, bottom: G.tray.bottom };
+  }
+  const iw = Math.ceil(G.lid.pitch * w) + G.lid.margin, il = Math.ceil(G.lid.pitch * l) + G.lid.margin;
+  return { ow: iw + 2 * G.lid.wall, ol: il + 2 * G.lid.wall, oh: G.lid.h + G.lid.bottom,
+           iw, il, ih: G.lid.h, wall: G.lid.wall, bottom: G.lid.bottom };
+}
+function partGrams(d) {
+  const walls = 2 * (d.ow + d.ol) * d.oh * d.wall;      // mm³, treats thin walls as solid
+  const base  = d.ow * d.ol * d.bottom;
+  return (walls + base) / 1000 * G.density;
+}
+const isStock = (type, w, l) =>
+  type === 'insert' ? (w <= 6 && l <= 6) : ((w === 6 && l === 6) || (w === 5 && l === 6));
+const norm = (w, l) => w <= l ? [w, l] : [l, w];
+const partId = (type, w, l) => { const [a, b] = norm(w, l); return `${type}_${a}x${b}`; };
+
+/* ---------- presets ---------- */
+const PRESETS = {
+  wide:   { name: 'ALEX 67×66', long: 'ALEX 67×66 (wide, on castors)', dw: 600, dd: 420, drawers: 6, trays: [[6,6],[6,6],[5,6],[6,6],[6,6],[5,6]] },
+  narrow: { name: 'ALEX 36×70', long: 'ALEX 36×70 (narrow)',            dw: 295, dd: 522, drawers: 6, trays: [[4,7],[4,7],[4,7],[4,7]] },
+};
+
+/* ---------- state ---------- */
+const KEY = 'alex-brick-planner-v3';
+let seq = Date.now();
+const uid = () => (seq++).toString(36);
+let S = load() || migrate() || fresh();
+let ui = { tab: 'plan', unit: 0, drawer: 0, hideDone: false, bomFilter: 'all' };
+
+function fresh() { return { units: [newUnit('wide', 'Unit 1')], printed: {} }; }
+function newUnit(type, name) {
+  const p = PRESETS[type];
+  const u = { id: uid(), name, type, lids: false, drawers: [] };
+  for (let i = 0; i < p.drawers; i++) u.drawers.push(newDrawer(type));
+  return u;
+}
+function newDrawer(type) { return { trays: PRESETS[type].trays.map(([w, l]) => newTray(w, l)) }; }
+function newTray(w, l) { return { id: uid(), w, l, inserts: [] }; }
+const clone = o => JSON.parse(JSON.stringify(o));
+function cloneDrawer(d) { return { trays: d.trays.map(t => ({ ...newTray(t.w, t.l), inserts: clone(t.inserts) })) }; }
+function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } }
+function migrate() {   // older saves: v2 had per-unit sizes/deep, v1 had a single unit at the top level
+  try {
+    const v2 = JSON.parse(localStorage.getItem('alex-brick-planner-v2'));
+    if (v2 && v2.units) return normalize(v2);
+    const o = JSON.parse(localStorage.getItem('alex-brick-planner-v1')); if (!o || !o.drawers) return null;
+    return normalize({ units: [{ id: uid(), name: 'Unit 1', type: o.unit, lids: o.lids, drawers: o.drawers }], printed: o.printed || {} });
+  } catch { return null; }
+}
+function normalize(j) {   // keep only what this version uses; deep part ids collapse onto the standard ones
+  const printed = {};
+  for (const [k, v] of Object.entries(j.printed || {})) { const id = k.replace('_deep', ''); printed[id] = (printed[id] | 0) + (v | 0); }
+  return { units: j.units.map(u => ({ id: u.id || uid(), name: u.name, type: PRESETS[u.type] ? u.type : 'wide', lids: !!u.lids, drawers: u.drawers })), printed };
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
+const cur = () => S.units[ui.unit];
+
+/* ---------- derived: bill of materials ---------- */
+function bom(units = S.units) {
+  const map = new Map();
+  const add = (u, type, w, l, n) => {
+    const id = partId(type, w, l);
+    if (!map.has(id)) {
+      const [a, b] = norm(w, l), d = partDims(type, a, b), g = partGrams(d);
+      map.set(id, { id, type, w: a, l: b, dims: d, grams: g, secs: g * G.secPerGram[type],
+                    stock: isStock(type, a, b), need: 0, byUnit: new Map() });
+    }
+    const p = map.get(id); p.need += n; p.byUnit.set(u.name, (p.byUnit.get(u.name) || 0) + n);
+  };
+  for (const u of units) for (const dr of u.drawers) for (const t of dr.trays) {
+    add(u, 'tray', t.w, t.l, 1);
+    if (u.lids) add(u, 'lid', t.w, t.l, 1);
+    for (const ins of t.inserts) add(u, 'insert', ins.w, ins.h, 1);
+  }
+  const order = { tray: 0, lid: 1, insert: 2 };
+  return [...map.values()].sort((a, b) => order[a.type] - order[b.type] || a.w - b.w || a.l - b.l);
+}
+const printedOf = id => Math.max(0, S.printed[id] | 0);
+
+/* ---------- drawer packing (shelf) ---------- */
+function packDrawer(u, dr) {
+  const { dw, dd } = PRESETS[u.type];
+  const placed = []; let x = 0, y = 0, rowH = 0;
+  for (const t of dr.trays) {
+    const d = partDims('tray', t.w, t.l);
+    let w = d.ow, l = d.ol, rot = false;
+    if (x + w > dw && x + l <= dw && w !== l) { [w, l] = [l, w]; rot = true; }
+    if (x + w > dw && x > 0) { x = 0; y += rowH; rowH = 0; }
+    if (x + w > dw && x === 0 && l < w) { [w, l] = [l, w]; rot = !rot; }
+    placed.push({ t, x, y, w, l, rot, overflow: x + w > dw + 0.01 || y + l > dd + 0.01 });
+    x += w; rowH = Math.max(rowH, l);
+  }
+  return placed;
+}
+
+/* ---------- rendering ---------- */
+const $ = s => document.querySelector(s);
+const fmt = n => Number.isInteger(n) ? String(n) : (+n.toFixed(2)).toString();
+const hrs = s => (s / 3600).toFixed(1) + ' h';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function render() {
+  save();
+  if (ui.unit >= S.units.length) ui.unit = Math.max(0, S.units.length - 1);
+  renderSidebar(); renderHeader();
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
+  for (const t of ['plan', 'bom', 'track']) $(`#tab-${t}`).classList.toggle('hidden', ui.tab !== t);
+  if (ui.tab === 'plan') renderPlan();
+  if (ui.tab === 'bom') renderBom();
+  if (ui.tab === 'track') renderTrack();
+}
+
+function renderSidebar() {
+  const list = $('#unit-list'); list.innerHTML = '';
+  S.units.forEach((u, i) => {
+    const bt = document.createElement('button'); bt.classList.toggle('on', i === ui.unit);
+    const ub = bom([u]), need = ub.reduce((a, p) => a + p.need, 0);
+    const done = ub.reduce((a, p) => a + Math.min(p.need, printedOf(p.id)), 0);   // printed pool is shared, so this is "could be fully served"
+    bt.innerHTML = `<span class="n">${esc(u.name)}</span><span class="s">${PRESETS[u.type].name}</span><span class="p" title="${done}/${need} parts"><i style="width:${need ? done / need * 100 : 0}%"></i></span>`;
+    bt.onclick = () => { ui.unit = i; ui.drawer = 0; render(); };
+    list.appendChild(bt);
+  });
+  const u = cur(); $('#unit-settings').classList.toggle('hidden', !u);
+  if (u) {
+    $('#in-name').value = u.name;
+    document.querySelectorAll('[data-unit]').forEach(b => b.classList.toggle('on', b.dataset.unit === u.type));
+    $('#in-lids').checked = u.lids;
+    $('#btn-del-unit').disabled = S.units.length <= 1;
+  }
+}
+
+function renderHeader() {
+  const b = bom();
+  const need = b.reduce((a, p) => a + p.need, 0), done = b.reduce((a, p) => a + Math.min(p.need, printedOf(p.id)), 0);
+  $('#hdr-progress').textContent = `${done} / ${need} parts printed`;
+  $('#hdr-bar').style.width = (need ? done / need * 100 : 0) + '%';
+  const drawers = S.units.reduce((a, u) => a + u.drawers.length, 0), trays = S.units.reduce((a, u) => a + u.drawers.reduce((x, d) => x + d.trays.length, 0), 0);
+  $('#hdr-summary').textContent = `${S.units.length} unit${S.units.length === 1 ? '' : 's'} · ${drawers} drawers · ${trays} trays`;
+}
+
+/* --- plan tab --- */
+function renderPlan() {
+  const u = cur(); if (!u) return;
+  if (ui.drawer >= u.drawers.length) ui.drawer = Math.max(0, u.drawers.length - 1);
+  const tabs = $('#drawer-tabs'); tabs.innerHTML = `<span class="muted" style="margin-right:6px"><b style="color:var(--ink)">${esc(u.name)}</b> · ${PRESETS[u.type].long}</span>`;
+  u.drawers.forEach((dr, i) => {
+    const b = document.createElement('button');
+    const cells = dr.trays.reduce((a, t) => a + t.w * t.l, 0), used = dr.trays.reduce((a, t) => a + t.inserts.reduce((x, s) => x + s.w * s.h, 0), 0);
+    b.innerHTML = `Drawer ${i + 1}<i>${used}/${cells}</i>`;
+    b.classList.toggle('on', i === ui.drawer);
+    b.onclick = () => { ui.drawer = i; render(); };
+    tabs.appendChild(b);
+  });
+  const dr = u.drawers[ui.drawer]; if (!dr) return;
+  $('#drawer-title').textContent = `Drawer ${ui.drawer + 1}`;
+  const cells = dr.trays.reduce((a, t) => a + t.w * t.l, 0), used = dr.trays.reduce((a, t) => a + t.inserts.reduce((x, s) => x + s.w * s.h, 0), 0);
+  $('#drawer-cells').textContent = `${used} of ${cells} cells planned`;
+  renderDrawerCanvas(u, dr);
+}
+
+function renderDrawerCanvas(u, dr) {
+  const view = $('#drawer-view'); view.innerHTML = '';
+  const { dw: W, dd: D } = PRESETS[u.type];
+  const pad = 26, availW = Math.max(300, view.clientWidth - 28 - pad * 2);
+  const sc = Math.min(availW / W, 760 / D);                     // px per mm
+  const placed = packDrawer(u, dr);
+  const stage = document.createElement('div'); stage.className = 'stage';
+  stage.style.width = (W * sc + pad * 2) + 'px'; stage.style.height = (D * sc + pad * 2) + 'px';
+  stage.innerHTML = `<span class="dim" style="left:${pad}px;right:${pad}px;top:${pad - 18}px;text-align:center">${W} mm</span>
+    <span class="dim" style="left:${pad - 12}px;top:${pad + D * sc / 2}px;transform:rotate(-90deg) translate(-50%,-100%);transform-origin:0 0;white-space:nowrap">${D} mm</span>`;
+  const canvas = document.createElement('div'); canvas.className = 'canvas';
+  canvas.style.left = (pad - 2) + 'px'; canvas.style.top = (pad - 2) + 'px'; canvas.style.width = (W * sc) + 'px'; canvas.style.height = (D * sc) + 'px';
+  stage.appendChild(canvas); view.appendChild(stage);
+
+  placed.forEach((p, idx) => canvas.appendChild(trayBox(u, dr, p, idx, sc)));
+
+  const overflow = placed.some(p => p.overflow);
+  const usedW = placed.length ? Math.max(...placed.map(p => p.x + p.w)) : 0, usedD = placed.length ? Math.max(...placed.map(p => p.y + p.l)) : 0;
+  $('#drawer-fit').innerHTML = `<span class="pill ${overflow ? 'bad' : 'ok'}">${overflow ? 'Trays overflow the drawer' : 'Fits'}</span> <span class="muted" style="font-size:12px">slack ${fmt(W - usedW)} × ${fmt(D - usedD)} mm</span>`;
+}
+
+function trayBox(u, dr, p, idx, sc) {
+  const t = p.t, d = partDims('tray', t.w, t.l);
+  const box = document.createElement('div'); box.className = 'tray' + (p.overflow ? ' overflow' : '');
+  box.style.left = (p.x * sc) + 'px'; box.style.top = (p.y * sc) + 'px'; box.style.width = (p.w * sc) + 'px'; box.style.height = (p.l * sc) + 'px';
+  const wall = G.tray.wall * sc, cols = p.rot ? t.l : t.w, rows = p.rot ? t.w : t.l;
+  const grid = document.createElement('div'); grid.className = 'grid';
+  grid.style.left = wall + 'px'; grid.style.top = wall + 'px'; grid.style.width = (p.w * sc - 2 * wall) + 'px'; grid.style.height = (p.l * sc - 2 * wall) + 'px';
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`; grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  grid._cells = [];                                               // indexed by logical y * t.w + x
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const x = p.rot ? r : c, y = p.rot ? c : r;                    // logical (unrotated) coords
+    const el = document.createElement('div'); el.className = 'c'; el.dataset.x = x; el.dataset.y = y;
+    grid.appendChild(el); grid._cells[y * t.w + x] = el;
+  }
+  box.appendChild(grid);
+  requestAnimationFrame(() => layoutInserts(grid, t));
+  bindGridDrag(grid, t);
+
+  const used = t.inserts.reduce((a, s) => a + s.w * s.h, 0), cells = t.w * t.l, stock = isStock('tray', t.w, t.l);
+  const lbl = document.createElement('span'); lbl.className = 'lbl' + (stock ? '' : ' custom');
+  lbl.textContent = `${t.w}×${t.l} · ${used}/${cells}${stock ? '' : ' · custom'}`; box.appendChild(lbl);
+  const tools = document.createElement('div'); tools.className = 'tools';
+  tools.innerHTML = `<button class="btn" data-a="fill" title="Fill empty cells with 1×1 inserts">Fill</button><button class="btn" data-a="clear" title="Remove all inserts">Clear</button>
+    <button class="btn" data-a="same" title="Copy this insert layout to every ${t.w}×${t.l} tray in every unit">→ all</button>
+    <button class="btn" data-a="left" title="Move earlier">‹</button><button class="btn" data-a="right" title="Move later">›</button><button class="btn" data-a="del" title="Remove tray">×</button>`;
+  tools.querySelectorAll('[data-a]').forEach(b => b.onclick = ev => {
+    ev.stopPropagation(); const a = b.dataset.a;
+    if (a === 'del') dr.trays.splice(idx, 1);
+    if (a === 'left' && idx > 0) [dr.trays[idx - 1], dr.trays[idx]] = [dr.trays[idx], dr.trays[idx - 1]];
+    if (a === 'right' && idx < dr.trays.length - 1) [dr.trays[idx + 1], dr.trays[idx]] = [dr.trays[idx], dr.trays[idx + 1]];
+    if (a === 'clear') t.inserts = [];
+    if (a === 'fill') { const occ = occupancy(t); for (let y = 0; y < t.l; y++) for (let x = 0; x < t.w; x++) if (!occ[y][x]) t.inserts.push({ x, y, w: 1, h: 1 }); }
+    if (a === 'same') for (const u2 of S.units) for (const d2 of u2.drawers) for (const t2 of d2.trays) if (t2 !== t && t2.w === t.w && t2.l === t.l) t2.inserts = clone(t.inserts);
+    render();
+  });
+  box.appendChild(tools);
+  box.title = `Tray ${t.w}×${t.l} · ${fmt(d.ow)} × ${fmt(d.ol)} × ${fmt(d.oh)} mm`;
+  return box;
+}
+
+function occupancy(t) {
+  const occ = Array.from({ length: t.l }, () => Array(t.w).fill(null));
+  t.inserts.forEach((ins, i) => { for (let y = ins.y; y < ins.y + ins.h; y++) for (let x = ins.x; x < ins.x + ins.w; x++) occ[y][x] = i; });
+  return occ;
+}
+function layoutInserts(grid, t) {
+  grid.querySelectorAll('.ins').forEach(e => e.remove());
+  const cells = grid._cells; if (!cells || !cells.length) return;
+  const r0 = grid.getBoundingClientRect();
+  t.inserts.forEach((ins, i) => {
+    const a = cells[ins.y * t.w + ins.x].getBoundingClientRect(), b = cells[(ins.y + ins.h - 1) * t.w + ins.x + ins.w - 1].getBoundingClientRect();
+    const e = document.createElement('div'); e.className = 'ins';
+    e.style.left = (a.left - r0.left) + 'px'; e.style.top = (a.top - r0.top) + 'px';
+    e.style.width = (b.right - a.left) + 'px'; e.style.height = (b.bottom - a.top) + 'px';
+    const [nw, nl] = norm(ins.w, ins.h); e.textContent = `${nw}×${nl}`;
+    e.title = 'Click to remove';
+    e.onclick = ev => { ev.stopPropagation(); t.inserts.splice(i, 1); render(); };
+    grid.appendChild(e);
+  });
+}
+function bindGridDrag(grid, t) {
+  let start = null;
+  const cellAt = (ev) => { const el = document.elementFromPoint(ev.clientX, ev.clientY); return el && el.classList.contains('c') && grid.contains(el) ? el : null; };
+  const rect = (a, b) => ({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x) + 1, h: Math.abs(a.y - b.y) + 1 });
+  const free = (r, occ) => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (occ[y][x] !== null) return false; return true; };
+  const paint = (r, ok) => { grid.querySelectorAll('.c').forEach(c => { const x = +c.dataset.x, y = +c.dataset.y; const inR = x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h; c.classList.toggle('hl', inR && ok); c.classList.toggle('bad', inR && !ok); }); };
+  grid.addEventListener('pointerdown', ev => {
+    const c = cellAt(ev); if (!c) return;
+    start = { x: +c.dataset.x, y: +c.dataset.y }; try { grid.setPointerCapture(ev.pointerId); } catch {}
+    paint(rect(start, start), free(rect(start, start), occupancy(t)));
+  });
+  grid.addEventListener('pointermove', ev => {
+    if (!start) return; const c = cellAt(ev); if (!c) return;
+    const r = rect(start, { x: +c.dataset.x, y: +c.dataset.y }); paint(r, free(r, occupancy(t)));
+  });
+  const finish = ev => {
+    if (!start) return;
+    const c = cellAt(ev); const end = c ? { x: +c.dataset.x, y: +c.dataset.y } : start;
+    const r = rect(start, end); start = null;
+    if (free(r, occupancy(t))) { t.inserts.push(r); render(); } else paint({ x: 0, y: 0, w: 0, h: 0 }, true);
+  };
+  grid.addEventListener('pointerup', finish);
+  window.addEventListener('pointerup', finish);
+  grid.addEventListener('pointercancel', () => { start = null; paint({ x: 0, y: 0, w: 0, h: 0 }, true); });
+}
+
+/* --- BOM tab --- */
+function customizerHint(p) {
+  return `box type = <b>${p.type}</b>, deep = <b>false</b>, width = <b>${p.w}</b>, length = <b>${p.l}</b>`;
+}
+const byUnitCell = p => `<td class="byunit">${[...p.byUnit].map(([n, c]) => `${esc(n)} ${c}`).join(' · ')}</td>`;
+function renderBom() {
+  const sel = $('#bom-filter');
+  sel.innerHTML = `<option value="all">All units</option>` + S.units.map(u => `<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('');
+  if (![...sel.options].some(o => o.value === ui.bomFilter)) ui.bomFilter = 'all';
+  sel.value = ui.bomFilter;
+  const units = ui.bomFilter === 'all' ? S.units : S.units.filter(u => u.id === ui.bomFilter);
+  const b = bom(units);
+  const parts = b.reduce((a, p) => a + p.need, 0), grams = b.reduce((a, p) => a + p.need * p.grams, 0), secs = b.reduce((a, p) => a + p.need * p.secs, 0);
+  const custom = b.filter(p => !p.stock).reduce((a, p) => a + p.need, 0);
+  $('#bom-stats').innerHTML = `
+    <div class="stat"><b>${parts}</b><span>parts to print</span></div>
+    <div class="stat"><b>${(grams / 1000).toFixed(2)} kg</b><span>filament (est.)</span></div>
+    <div class="stat"><b>${hrs(secs)}</b><span>print time (est.)</span></div>
+    <div class="stat"><b>${custom}</b><span>parts need the customizer</span></div>`;
+  const multi = units.length > 1;
+  let h = `<thead><tr><th>Part</th><th>Outer W×L×H (mm)</th><th>Inner cavity (mm)</th><th>Source</th><th class="num">Qty</th>${multi ? '<th>By unit</th>' : ''}<th class="num">g each</th><th class="num">Total g</th><th class="num">Total time</th></tr></thead><tbody>`;
+  for (const p of b) {
+    const d = p.dims;
+    h += `<tr><td><b>${esc(p.id)}</b></td><td class="mono">${fmt(d.ow)} × ${fmt(d.ol)} × ${fmt(d.oh)}</td><td class="mono">${fmt(d.iw)} × ${fmt(d.il)} × ${fmt(d.ih)}</td>
+      <td>${p.stock ? '<span class="pill ok">stock STL</span>' : `<span class="pill warn">customizer</span> <span class="note">${customizerHint(p)}</span>`}</td>
+      <td class="num">${p.need}</td>${multi ? byUnitCell(p) : ''}
+      <td class="num">${p.grams.toFixed(0)}</td><td class="num">${(p.need * p.grams).toFixed(0)}</td><td class="num">${hrs(p.need * p.secs)}</td></tr>`;
+  }
+  h += `</tbody><tfoot><tr><td colspan="4">Total</td><td class="num">${parts}</td>${multi ? '<td></td>' : ''}<td></td><td class="num">${grams.toFixed(0)}</td><td class="num">${hrs(secs)}</td></tr></tfoot>`;
+  $('#bom-table').innerHTML = h;
+}
+
+/* --- tracker tab --- */
+function renderTrack() {
+  const b = bom();
+  const need = b.reduce((a, p) => a + p.need, 0), done = b.reduce((a, p) => a + Math.min(p.need, printedOf(p.id)), 0);
+  const gLeft = b.reduce((a, p) => a + Math.max(0, p.need - printedOf(p.id)) * p.grams, 0), sLeft = b.reduce((a, p) => a + Math.max(0, p.need - printedOf(p.id)) * p.secs, 0);
+  $('#track-stats').innerHTML = `
+    <div class="stat"><b>${done} / ${need}</b><span>parts printed</span></div>
+    <div class="stat"><b>${need ? Math.round(done / need * 100) : 0}%</b><span>complete</span></div>
+    <div class="stat"><b>${(gLeft / 1000).toFixed(2)} kg</b><span>filament remaining</span></div>
+    <div class="stat"><b>${hrs(sLeft)}</b><span>print time remaining</span></div>
+    <div class="stat"><b>${b.filter(p => printedOf(p.id) >= p.need).length} / ${b.length}</b><span>part types finished</span></div>`;
+  $('#track-hide-done').checked = ui.hideDone;
+  const multi = S.units.length > 1;
+  let h = `<thead><tr><th>Part</th><th>Size</th><th class="num">Needed</th>${multi ? '<th>By unit</th>' : ''}<th>Printed</th><th>Progress</th><th class="num">Left</th><th>Status</th></tr></thead><tbody>`;
+  for (const p of b) {
+    const pr = printedOf(p.id), left = Math.max(0, p.need - pr), pct = Math.min(100, p.need ? pr / p.need * 100 : 0), isDone = left === 0;
+    if (ui.hideDone && isDone) continue;
+    h += `<tr class="${isDone ? 'done' : ''}"><td><b>${esc(p.id)}</b>${p.stock ? '' : ' <span class="pill warn">customizer</span>'}</td>
+      <td class="mono muted">${fmt(p.dims.ow)} × ${fmt(p.dims.ol)} × ${fmt(p.dims.oh)}</td><td class="num">${p.need}</td>${multi ? byUnitCell(p) : ''}
+      <td><span class="counter"><button class="btn small icon" data-id="${esc(p.id)}" data-d="-1">−</button><input type="number" min="0" value="${pr}" data-id="${esc(p.id)}"><button class="btn small icon" data-id="${esc(p.id)}" data-d="1">+</button></span></td>
+      <td><span class="minibar"><i style="width:${pct}%"></i></span> <span class="muted" style="font-size:12px">${Math.round(pct)}%</span></td>
+      <td class="num">${left}</td>
+      <td>${isDone ? '<span class="pill ok">done</span>' : pr > 0 ? '<span class="pill">in progress</span>' : '<span class="pill" style="opacity:.6">queued</span>'}</td></tr>`;
+  }
+  h += '</tbody>';
+  const tb = $('#track-table'); tb.innerHTML = h;
+  tb.querySelectorAll('button[data-d]').forEach(bt => bt.onclick = () => { S.printed[bt.dataset.id] = Math.max(0, printedOf(bt.dataset.id) + +bt.dataset.d); render(); });
+  tb.querySelectorAll('input[data-id]').forEach(inp => inp.onchange = () => { S.printed[inp.dataset.id] = Math.max(0, +inp.value | 0); render(); });
+}
+
+/* ---------- wiring ---------- */
+const nextName = () => `Unit ${S.units.length + 1}`;
+$('#btn-add-wide').onclick = () => { S.units.push(newUnit('wide', nextName())); ui.unit = S.units.length - 1; ui.drawer = 0; render(); };
+$('#btn-add-narrow').onclick = () => { S.units.push(newUnit('narrow', nextName())); ui.unit = S.units.length - 1; ui.drawer = 0; render(); };
+$('#btn-dup-unit').onclick = () => { const u = cur(); const c = { ...clone(u), id: uid(), name: u.name + ' copy', drawers: u.drawers.map(cloneDrawer) }; S.units.splice(ui.unit + 1, 0, c); ui.unit++; ui.drawer = 0; render(); };
+$('#btn-del-unit').onclick = () => { if (S.units.length > 1 && confirm(`Remove "${cur().name}" and all its drawer layouts?`)) { S.units.splice(ui.unit, 1); ui.drawer = 0; render(); } };
+$('#in-name').onchange = e => { cur().name = e.target.value.trim() || cur().name; render(); };
+document.querySelectorAll('[data-unit]').forEach(b => b.onclick = () => {
+  const u = cur(); if (b.dataset.unit === u.type) return;
+  const hasWork = u.drawers.some(d => d.trays.some(t => t.inserts.length));
+  if (hasWork && !confirm('Changing the unit type resets this unit\'s drawer and tray layouts. Continue?')) return;
+  u.type = b.dataset.unit;
+  u.drawers = Array.from({ length: PRESETS[u.type].drawers }, () => newDrawer(u.type)); ui.drawer = 0; render();
+});
+$('#in-lids').onchange = e => { cur().lids = e.target.checked; render(); };
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { ui.tab = b.dataset.tab; render(); });
+$('#bom-filter').onchange = e => { ui.bomFilter = e.target.value; render(); };
+$('#btn-add-tray').onclick = () => { const w = Math.max(1, +$('#add-w').value | 0), l = Math.max(1, +$('#add-l').value | 0); cur().drawers[ui.drawer].trays.push(newTray(w, l)); render(); };
+$('#btn-copy-drawer').onclick = () => {
+  const u = cur(); if (!confirm(`Replace every other drawer in "${u.name}" with a copy of this drawer's trays and inserts?`)) return;
+  const src = u.drawers[ui.drawer]; u.drawers = u.drawers.map((d, i) => i === ui.drawer ? d : cloneDrawer(src)); render();
+};
+$('#btn-copy-drawer-all').onclick = () => {
+  const u = cur(), src = u.drawers[ui.drawer];
+  const targets = S.units.filter(x => x.type === u.type);
+  if (!confirm(`Replace every drawer in all ${targets.length} ${PRESETS[u.type].name} unit(s) with a copy of this drawer?`)) return;
+  for (const x of targets) x.drawers = x.drawers.map(d => d === src ? d : cloneDrawer(src));
+  render();
+};
+$('#track-hide-done').onchange = e => { ui.hideDone = e.target.checked; render(); };
+$('#btn-export').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }));
+  a.download = `alex-brick-plan-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+};
+$('#btn-import').onclick = () => $('#file-import').click();
+$('#file-import').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (j.units) S = normalize(j);
+    else if (j.drawers && PRESETS[j.unit]) S = normalize({ units: [{ id: uid(), name: 'Unit 1', type: j.unit, lids: j.lids, drawers: j.drawers }], printed: j.printed || {} });
+    else throw 0;
+    ui.unit = 0; ui.drawer = 0; render();
+  } catch { alert('That file is not a planner export.'); }
+  e.target.value = '';
+};
+let lastW = 0;   // re-render the canvas when the pane changes width so the scale follows
+new ResizeObserver(() => { const w = $('#drawer-view').clientWidth; if (w && w !== lastW) { lastW = w; if (ui.tab === 'plan') renderPlan(); } }).observe($('#drawer-view'));
+render();
+</script>
+</body>
+</html>
