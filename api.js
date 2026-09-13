@@ -281,6 +281,7 @@ let inventoryItems       = [];   // [{id,name,notes,archived}]
 let inventoryReceipts    = [];   // [{id,itemId,qty,cost,date}] — dated log of stock received
 let inventoryConsumption = [];   // [{id,itemId,orderId,qty,date}] — dated log of stock used by completed orders
 let showArchivedCats = false;
+let reorderCats = false;   // Settings > Categories: collapse blocks and drag to reorder
 let editOId   = null;
 let sortKey   = 'orderId';  // default: order # descending
 let sortDir   = -1;
@@ -551,7 +552,7 @@ async function loadAll(){
   try{
     const [ordersRaw, catsRaw, optsRaw, coloursRaw, customersRaw, invItemsRaw, invReceiptsRaw, invConsumptionRaw, deliveryRaw, paymentRaw] = await Promise.all([
       sbGet('orders', '?deleted=eq.false&order=order_id.asc&limit=10000'),
-      sbGet('categories', '?order=id.asc'),
+      sbGet('categories', '?order=sort_order.asc,id.asc'),
       sbGet('options', '?order=sort_order.asc,id.asc'),
       sbGet('colours', '?order=id.asc'),
       sbGet('customers', '?order=name.asc'),

@@ -52,7 +52,7 @@ function modelTypeIdFor(catName, backingVal) {
 
 async function boot() {
   await Promise.all([loadColours(), loadModelsList()]);
-  categories = await sbGet('categories', '?archived=eq.false&shop_visible=eq.true&order=id.asc');
+  categories = await sbGet('categories', '?archived=eq.false&shop_visible=eq.true&order=sort_order.asc,id.asc');
   renderStyleQuickPicks();
   if (categories.length) {
     const initial = categories.find(c => c.name === 'Name Badge') || categories[0];

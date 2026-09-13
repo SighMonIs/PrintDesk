@@ -562,7 +562,7 @@ input[type=number]{-moz-appearance:textfield;}
 
 /* ── Combined category + options modal ── */
 .cat-block{background:#131313;border:1px solid var(--border2);border-radius:var(--radius-lg);margin-bottom:12px;overflow:visible;}.cat-block:last-child{margin-bottom:0;}
-.cat-block-hdr{display:grid;grid-template-columns:20px 1fr 90px 32px;gap:8px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-lg);align-items:center;cursor:pointer;}
+.cat-block-hdr{display:grid;grid-template-columns:20px 1fr 90px 32px;gap:8px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-lg) var(--radius-lg) 0 0;align-items:center;cursor:pointer;}
 .cat-chevron{font-size:14px;color:var(--muted);flex-shrink:0;transition:transform 0.15s;}
 .opt-item input.opt-checkbox-sm{width:13px;height:13px;padding:0;flex-shrink:0;accent-color:var(--accent);cursor:pointer;margin:0;}
 .icon-11{font-size:11px;}
@@ -603,7 +603,7 @@ input[type=number]{-moz-appearance:textfield;}
 .cat-price-wrap span{font-size:12px;color:var(--muted);font-weight:500;}
 .cat-price-wrap input{width:70px;height:30px;padding:0 8px;font-size:12px;font-family:ui-monospace,'Cascadia Code','Fira Code','Consolas',monospace;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);outline:none;}
 .cat-price-wrap input:focus{border-color:var(--accent2);}
-.cat-shop-visible-toggle{display:flex;align-items:center;gap:5px;padding:0 12px 8px 12px;font-size:11px;color:var(--muted);cursor:pointer;background:var(--surface2);}
+.cat-shop-visible-toggle{display:flex;align-items:center;gap:5px;padding:0 12px 8px 12px;font-size:11px;color:var(--muted);cursor:pointer;background:var(--surface2);border-radius:0 0 var(--radius-lg) var(--radius-lg);}
 .cat-shop-visible-toggle input{cursor:pointer;}
 .cat-opts-area{padding:8px 12px 10px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;}
 .cat-opts-area-empty{font-size:12px;color:var(--muted);font-style:italic;padding:4px 0;}
@@ -612,6 +612,9 @@ input[type=number]{-moz-appearance:textfield;}
 .sortable-chosen{border-color:var(--accent2);}
 .opt-drag{color:var(--muted);font-size:14px;cursor:grab;display:flex;align-items:center;}
 .opt-drag:active{cursor:grabbing;}
+.cats-reordering .cat-block{margin-bottom:6px;}
+.cats-reordering .cat-block-hdr{cursor:default;border-radius:var(--radius-lg);}
+.cats-reordering .cat-shop-visible-toggle{display:none;}
 .opt-item input,.opt-item select{height:28px;padding:0 6px;font-size:12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;width:100%;}
 .opt-item input:focus,.opt-item select:focus{border-color:var(--accent2);}
 .opt-item select option{background:var(--surface2);}
@@ -729,8 +732,7 @@ input[type=number]{-moz-appearance:textfield;}
   border-radius:var(--radius);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;
 }
 
-.cat-block-hdr{border-radius:var(--radius-lg);}
-.cat-block:has(.cat-opts-area:not(.collapsed)) .cat-block-hdr{border-radius:var(--radius-lg) var(--radius-lg) 0 0;}
+.cat-block:has(.cat-opts-area:not(.collapsed)) .cat-shop-visible-toggle{border-radius:0;}
 
 /* Collapsed opts area */
 .cat-opts-area.collapsed{display:none;}

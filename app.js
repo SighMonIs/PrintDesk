@@ -73,15 +73,20 @@ function renderCatBlocks(){
 
   const visibleCats = showArchivedCats ? cats : cats.filter(c=>!c.archived);
 
+  // Reorder mode: every block collapsed, chevron swapped for a drag handle,
+  // header click does nothing so a grab never toggles the options area.
+  list.classList.toggle('cats-reordering', reorderCats);
   list.innerHTML=visibleCats.map((c,ci)=>{
     const realCi=cats.indexOf(c);
     const catOpts=getCatOpts_byCatId(c.id).filter(o=>showArchivedCats||!o.archived);
-    const isExpanded=expanded[realCi]||false;
+    const isExpanded=!reorderCats&&(expanded[realCi]||false);
     const isUsed=usedCatIds.has(c.id);
     const canDelete=!isUsed&&!c.archived;
     return `<div class="cat-block${c.archived?' cat-archived':''}" data-ci="${realCi}">
-      <div class="cat-block-hdr" onclick="toggleCatBlock(${realCi})">
-        <i class="ti ti-chevron-right cat-chevron${isExpanded?' expanded':''}"></i>
+      <div class="cat-block-hdr" ${reorderCats?'':`onclick="toggleCatBlock(${realCi})"`}>
+        ${reorderCats
+          ? '<span class="opt-drag cat-drag" title="Drag to reorder"><i class="ti ti-grip-vertical"></i></span>'
+          : `<i class="ti ti-chevron-right cat-chevron${isExpanded?' expanded':''}"></i>`}
         <input type="text" value="${esc(c.name)}" placeholder="Category name" oninput="cats[${realCi}].name=this.value" onclick="event.stopPropagation()" ${c.archived?'disabled':''}>
         <div class="cat-price-wrap">
           <span>$</span>
@@ -157,6 +162,20 @@ function renderCatBlocks(){
     </div>`;
   }).join('');
 
+  if(reorderCats){
+    new Sortable(list, {
+      animation: 150,
+      handle: '.cat-drag',
+      draggable: '.cat-block',
+      onEnd(evt) {
+        const visible = showArchivedCats ? cats.slice() : cats.filter(c=>!c.archived);
+        _reorderFilteredArray(cats, visible, evt.oldIndex, evt.newIndex);
+        _markSettingsDirty();
+        renderCatBlocks();
+      }
+    });
+  }
+
   list.querySelectorAll('.cat-opts-area').forEach(area => {
     new Sortable(area, {
       animation: 150,
@@ -180,6 +199,7 @@ function toggleCatShopVisible(ci){ cats[ci].shopVisible=!(cats[ci].shopVisible!=
 function archiveOpt(i){ opts[i].archived=true; _markSettingsDirty(); renderCatBlocks(); }
 function unarchiveOpt(i){ opts[i].archived=false; _markSettingsDirty(); renderCatBlocks(); }
 function toggleShowArchived(cb){ showArchivedCats=cb.checked; renderCatBlocks(); }
+function toggleReorderCats(cb){ reorderCats=cb.checked; renderCatBlocks(); }
 
 function toggleCatBlock(ci){
   const block  = document.querySelector(`.cat-block[data-ci="${ci}"]`);
@@ -203,7 +223,7 @@ function addOptToCat(catId){
 async function saveCatsAndOpts(){
   setStatus('spin','Saving…');populateCatFilter();
   try{
-    await sbReplace('categories', cats.map(c=>({id:c.id,name:c.name,price:c.price,archived:c.archived||false,shop_visible:c.shopVisible!==false})));
+    await sbReplace('categories', cats.map((c,i)=>({id:c.id,name:c.name,price:c.price,archived:c.archived||false,shop_visible:c.shopVisible!==false,sort_order:i})));
     await sbReplace('options', opts.map((o,i)=>({id:o.id,cat_id:o.catId,name:o.name,display:o.display,options:o.options,sort_order:i,num_colours:o.num_colours||4,force_caps:o.force_caps||false,multi_item:o.multi_item||false,sortable:o.sortable||false,archived:o.archived||false,default_colours:o.default_colours||''})));
     _settingsDirty = false;
     setStatus('ok','Saved');setTimeout(loadAll,500);
