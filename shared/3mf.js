@@ -154,6 +154,24 @@ function _badgeMakeRoundCutoutGeo(x, diameter, depth) {
   return geo;
 }
 
+// Concatenate already-welded indexed geometries into one mesh, keeping each
+// input as its own closed shell (no cross-shell welding → stays manifold).
+function _badgeConcatGeometries(geos) {
+  if (geos.length === 1) return geos[0];
+  const pos = [], idx = [];
+  let base = 0;
+  for (const g of geos) {
+    const p = g.attributes.position, ix = g.index;
+    for (let i = 0; i < p.count; i++) pos.push(p.getX(i), p.getY(i), p.getZ(i));
+    for (let i = 0; i < ix.count; i++) idx.push(ix.getX(i) + base);
+    base += p.count;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+  out.setIndex(new THREE.BufferAttribute(new Uint32Array(idx), 1));
+  return out;
+}
+
 // ── 3MF file builders ──────────────────────────────────────────
 const _badgeXmlAttr = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

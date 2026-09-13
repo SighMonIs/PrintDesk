@@ -883,20 +883,26 @@ function buildBadge() {
 function buildExportObjects() {
   invalidateModelWidth();
   const objects = [];
+  const filamentHexes = []; // one filament slot per distinct colour, in sidebar order
   for (let i = 0; i < layerConfig.length; i++) {
     const layer = layerConfig[i];
     if (isCutter(layer) || layer.visible === false) continue;
-    // One 3MF object per Z band (see buildLayerSlabs) — same colour/extruder.
-    const slabs = buildLayerSlabs(layer);
-    slabs.forEach((slab, s) => {
-      let geo = new THREE.ExtrudeGeometry(slab.result.shapes, { depth: slab.depth, bevelEnabled: false });
+    // Cutters can split a layer into several Z bands (see buildLayerSlabs);
+    // export them as one mesh so the part is named exactly like the sidebar.
+    const geos = buildLayerSlabs(layer).map(slab => {
+      const geo = new THREE.ExtrudeGeometry(slab.result.shapes, { depth: slab.depth, bevelEnabled: false });
       geo.applyMatrix4(new THREE.Matrix4().makeRotationZ((layer.rotation || 0) * Math.PI / 180));
       geo.applyMatrix4(new THREE.Matrix4().makeTranslation(layer.offsetX || 0, layer.offsetY || 0, slab.zStart));
-      geo = _badgeMergeVerticesForExport(geo);
-      // Part name matches the sidebar label exactly; split layers get " (n)".
-      const base = layerLabel(layer) || `Layer ${i+1}`;
-      const label = slabs.length > 1 ? `${base} (${s+1})` : base;
-      objects.push({ geo, name: label, colour: layer.hex, extruder: i + 1, id: objects.length + 1 });
+      return _badgeMergeVerticesForExport(geo);
+    });
+    if (!geos.length) continue;
+    const hex = (layer.hex || '#888888').toLowerCase();
+    let slot = filamentHexes.indexOf(hex);
+    const newSlot = slot < 0;
+    if (newSlot) slot = filamentHexes.push(hex) - 1;
+    objects.push({
+      geo: _badgeConcatGeometries(geos), name: layerLabel(layer) || `Layer ${i+1}`,
+      colour: hex, extruder: slot + 1, id: objects.length + 1, skipFilamentSlot: !newSlot,
     });
   }
   return objects;
