@@ -155,9 +155,13 @@ function _badgeMakeRoundCutoutGeo(x, diameter, depth) {
 }
 
 // ── 3MF file builders ──────────────────────────────────────────
+const _badgeXmlAttr = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 function _badgeBuild3MF(objects, name, projectSettingsTemplate) {
+  name = _badgeXmlAttr(name);
   let objXml = '', comps = '';
   objects.forEach(obj => {
+    obj.name = _badgeXmlAttr(obj.name);
     const pos = obj.geo.attributes.position, idx = obj.geo.index;
     let verts = '', tris = '';
     for (let i = 0; i < pos.count; i++) verts += `   <vertex x="${pos.getX(i).toFixed(4)}" y="${pos.getY(i).toFixed(4)}" z="${pos.getZ(i).toFixed(4)}"/>\n`;

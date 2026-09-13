@@ -893,9 +893,10 @@ function buildExportObjects() {
       geo.applyMatrix4(new THREE.Matrix4().makeRotationZ((layer.rotation || 0) * Math.PI / 180));
       geo.applyMatrix4(new THREE.Matrix4().makeTranslation(layer.offsetX || 0, layer.offsetY || 0, slab.zStart));
       geo = _badgeMergeVerticesForExport(geo);
-      const base = layerLabel(layer) || `layer${i+1}`;
-      const label = slabs.length > 1 ? `${base}_${s+1}` : base;
-      objects.push({ geo, name: label.slice(0, 30) || `layer${i+1}`, colour: layer.hex, extruder: i + 1, id: objects.length + 1 });
+      // Part name matches the sidebar label exactly; split layers get " (n)".
+      const base = layerLabel(layer) || `Layer ${i+1}`;
+      const label = slabs.length > 1 ? `${base} (${s+1})` : base;
+      objects.push({ geo, name: label, colour: layer.hex, extruder: i + 1, id: objects.length + 1 });
     });
   }
   return objects;
