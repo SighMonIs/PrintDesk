@@ -1541,11 +1541,14 @@ const BADGE_CATEGORY_BACKING = {keychain:'Keychain', 'dog tag':'Magnet', plaque:
 // Whether a row's category can generate a 3D badge, and what backing value to send:
 // true either when the category has an explicit "Backing" option (user picks one,
 // e.g. Name Badge) or when the category name itself implies a single badge model.
-function _badgeEligibility(catName, catOpts, parsedOpts) {
+// A category linked to a BadgeMak3r model is always eligible — the model
+// is the whole design, so no Backing option is needed.
+function _badgeEligibility(catName, catOpts, parsedOpts, catId) {
   const hasBackingOpt = catOpts.some(o => o.name.trim().toLowerCase().includes('backing'));
   const impliedBacking = BADGE_CATEGORY_BACKING[(catName||'').trim().toLowerCase()];
+  const hasTemplate = bmModels.some(m => String(m.category_id) === String(catId));
   return {
-    isBadge: hasBackingOpt || !!impliedBacking,
+    isBadge: hasBackingOpt || !!impliedBacking || hasTemplate,
     backing: (parsedOpts && parsedOpts['Backing']) || impliedBacking || ''
   };
 }
@@ -1611,8 +1614,8 @@ function _buildDetailItemsHtml(rows) {
         + '</div>';
     }).filter(Boolean).join('');
 
-    const badgeElig = _badgeEligibility(cat?.name, catOpts, parsedOpts);
-    const badgeParams = new URLSearchParams({name:parsedOpts['Text']||'',backing:badgeElig.backing,colours:parsedOpts['Colours']||''});
+    const badgeElig = _badgeEligibility(cat?.name, catOpts, parsedOpts, row.catId);
+    const badgeParams = new URLSearchParams({name:parsedOpts['Text']||'',backing:badgeElig.backing,colours:parsedOpts['Colours']||'',cat:row.catId||''});
     const badgeBtn = badgeElig.isBadge
       ? '<button class="sort-btn-main" title="Generate Badge" onclick="generateBadge(\'/badge/?' + badgeParams + '\')"><i class="ti ti-badge"></i> Download</button>'
       : '';
@@ -1656,9 +1659,9 @@ function _buildDetailActionButtons(orderId, rows, first) {
     const rowCatOpts = opts.filter(o => String(o.catId) === String(r.catId));
     const p = {};
     if (r.options) r.options.split('||').forEach(s => { const i = s.indexOf(':'); if (i >= 0) p[s.slice(0,i).trim()] = s.slice(i+1).trim(); });
-    return {parsed: p, ..._badgeEligibility(rowCat?.name, rowCatOpts, p)};
+    return {parsed: p, catId: r.catId, ..._badgeEligibility(rowCat?.name, rowCatOpts, p, r.catId)};
   }).filter(x => x.isBadge);
-  const batchItems = badgeEligibleRows.map(x => ({name: x.parsed['Text']||'', backing: x.backing, colours: x.parsed['Colours']||''}));
+  const batchItems = badgeEligibleRows.map(x => ({name: x.parsed['Text']||'', backing: x.backing, colours: x.parsed['Colours']||'', catId: x.catId||''}));
   const bulkBadgeBtn = badgeEligibleRows.length
     ? '<button class="sort-btn-main ml-auto" onclick="openBadgeBatchModal(' + esc(JSON.stringify(batchItems)) + ',\'' + escJsAttr(first.customer) + '\')"><i class="ti ti-badges"></i> Download All</button>'
     : '';

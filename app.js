@@ -1121,24 +1121,92 @@ async function badgeWidthCheck(idx) {
 
 // ── Badge generation (inline — uses shared/3mf.js) ──────────────
 
+const _loadScript = src => new Promise((res, rej) => {
+  const s = document.createElement('script'); _loadScriptSrc(s, src);
+  s.onload = res; s.onerror = () => rej(new Error('Failed to load script: ' + src)); document.head.appendChild(s);
+});
+
 async function _loadBadge3mfDeps() {
   if (_badge3mfReady) return;
-  const load = src => new Promise((res, rej) => {
-    const s = document.createElement('script'); _loadScriptSrc(s, src);
-    s.onload = res; s.onerror = () => rej(new Error('Failed to load script: ' + src)); document.head.appendChild(s);
-  });
-  await load('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
-  await load('https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js');
-  await load('https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
-  await load('shared/3mf.js');
+  await _loadScript('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
+  await _loadScript('https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js');
+  await _loadScript('https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
+  await _loadScript('shared/3mf.js?v=1.7.53');
   _badge3mfReady = true;
+}
+
+// ── BadgeMak3r templates ─────────────────────────────────────────
+// A category can be linked to a model designed in /badgemaker (bmModels,
+// loaded with the reference data). Orders in that category are built by the
+// BadgeMak3r geometry engine instead of the fixed-layer generator above.
+let _bmDepsReady = false;
+const _bmTemplateCache = new Map();   // model id -> { model, layerRows, inputRows }
+let _projSettingsTmpl;                // cached promise of badge/project_settings_template.json
+
+function _loadProjectSettingsTemplate() {
+  return _projSettingsTmpl ??= fetch('badge/project_settings_template.json').then(r => r.json()).catch(() => null);
+}
+
+// Batch runs only need the legacy generator (its badge_models row + font)
+// when at least one item's category has no BadgeMak3r template.
+async function _loadAssetsForItems(items) {
+  if (items.some(it => !_bmModelForCategory(it.catId))) {
+    const assets = await _loadBadgeAssets();
+    await _ensureBadgeDeps(assets);
+    return assets;
+  }
+  return { projectSettingsTemplate: await _loadProjectSettingsTemplate() };
+}
+
+function _bmModelForCategory(catId) {
+  return catId ? bmModels.find(m => String(m.category_id) === String(catId)) || null : null;
+}
+
+async function _loadBadgemakerDeps() {
+  if (_bmDepsReady) return;
+  await _loadBadge3mfDeps();
+  await _loadScript('badgemaker/geometry.js?v=1.7.53');
+  await loadBuiltinFont('badge/LEGO.TTF');
+  _bmDepsReady = true;
+}
+
+async function _loadBadgemakerTemplate(model) {
+  if (_bmTemplateCache.has(model.id)) return _bmTemplateCache.get(model.id);
+  await _loadBadgemakerDeps();
+  const [layerRows, inputRows] = await Promise.all([
+    sbGet('badgemaker_layers', `?model_id=eq.${model.id}&order=layer_order`),
+    sbGet('badgemaker_inputs', `?model_id=eq.${model.id}&order=input_order`),
+  ]);
+  // Custom fonts have to be parsed before modelFromRows resolves fontObj.
+  const fontIds = [...new Set(layerRows.map(r => r.font_id).filter(id => id != null && !getCachedFont(id)))];
+  if (fontIds.length) {
+    const fontRows = await sbGet('badgemaker_fonts', `?id=in.(${fontIds.join(',')})&select=id,data_base64`);
+    for (const f of fontRows) parseAndCacheFont(f.id, f.data_base64);
+  }
+  const tmpl = { model, layerRows, inputRows };
+  _bmTemplateCache.set(model.id, tmpl);
+  return tmpl;
+}
+
+// Builds one badge from a template: the order text goes into the input named
+// "Name" (or the first input, or the first text layer if there are none).
+// geometry.js builds from its own globals `layerConfig` and `inputs`.
+function _bmBuildBadge(tmpl, text, projectSettingsTemplate) {
+  const m = modelFromRows(tmpl.layerRows, tmpl.inputRows);
+  const target = m.inputs.find(i => (i.name || '').trim().toLowerCase() === 'name') || m.inputs[0];
+  if (target) target.defaultValue = text;
+  else { const tl = m.layerConfig.find(l => l.type === 'text'); if (tl) tl.content = text; }
+  inputs = m.inputs; layerConfig = m.layerConfig;
+  const objects = buildExportObjects();
+  if (!objects.length) throw new Error('Template "' + tmpl.model.name + '" produced no geometry');
+  return _badgeBuildZip(_badgeBuild3MF(objects, text, projectSettingsTemplate));
 }
 
 async function _loadBadgeAssets() {
   if (_badgeAssetCache) return _badgeAssetCache;
   const [models, tmpl] = await Promise.all([
     sbGet('badge_models', '?archived=eq.false&order=name&limit=1'),
-    fetch('badge/project_settings_template.json').then(r => r.json()).catch(() => null),
+    _loadProjectSettingsTemplate(),
   ]);
   if (!models || !models.length) throw new Error('No badge model found');
   const model = models[0];
@@ -1289,10 +1357,16 @@ async function _runBadgeLoop(items, assets, onProgress) {
   const needsKeychain = items.some(it => (it.backing || '').toLowerCase().includes('keychain'));
   const kcAssets = needsKeychain ? await _loadKeychainAssets() : null;
   for (let i = 0; i < items.length; i++) {
-    const { name: rawName, backing: backingStr, colours: colourStr } = items[i];
+    const { name: rawName, backing: backingStr, colours: colourStr, catId } = items[i];
     const name = (rawName || 'NAME').toUpperCase();
     onProgress(i, items.length, name);
     await new Promise(r => setTimeout(r, 0));
+    const bmModel = _bmModelForCategory(catId);
+    if (bmModel) {
+      const tmpl = await _loadBadgemakerTemplate(bmModel);
+      entries.push({ name: fnMap.next(rawName, ''), data: _bmBuildBadge(tmpl, name, assets.projectSettingsTemplate) });
+      continue;
+    }
     const backing = _badgeBuildBacking(backingStr, kcAssets);
     const _kc = backing?.type === 'keychain';
     const activeAssets = (_kc && kcAssets) ? kcAssets : assets;
@@ -1334,8 +1408,7 @@ async function generateAllBadgesZip(items) {
   const total = items.length;
   _batchShowProgress(`Generating ${total} badges…`);
   try {
-    const assets = await _loadBadgeAssets();
-    await _ensureBadgeDeps(assets);
+    const assets = await _loadAssetsForItems(items);
     const { entries, skipped } = await _runBadgeLoop(items, assets, (i, n, name) => _batchUpdateProgress(i, n, name));
     _batchUpdateProgress(total, total, 'Building ZIP…');
     await new Promise(r => setTimeout(r, 0));
@@ -1357,8 +1430,7 @@ async function generateAllBadges(items) {
   const total = items.length;
   _batchShowProgress(`Generating ${total} badges…`);
   try {
-    const assets = await _loadBadgeAssets();
-    await _ensureBadgeDeps(assets);
+    const assets = await _loadAssetsForItems(items);
     const { entries, skipped } = await _runBadgeLoop(items, assets, (i, n, name) => _batchUpdateProgress(i, n * 2, name));
     for (let i = 0; i < entries.length; i++) {
       _batchUpdateProgress(total + i, total * 2, `Downloading ${entries[i].name}…`);
@@ -1383,6 +1455,20 @@ async function generateBadge(url) {
     const name       = (params.get('name') || 'NAME').toUpperCase();
     const backingStr = params.get('backing') || 'Magnet';
     const colourStr  = params.get('colours') || '';
+    const catId      = params.get('cat') || '';
+
+    const bmModel = _bmModelForCategory(catId);
+    if (bmModel) {
+      const tmpl = await _loadBadgemakerTemplate(bmModel);
+      const zip = _bmBuildBadge(tmpl, name, await _loadProjectSettingsTemplate());
+      const b = new Blob([zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
+      const u = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.href = u; a.download = name + '.3mf'; a.click();
+      URL.revokeObjectURL(u);
+      setStatus('ok', `Badge downloaded: ${name}.3mf (${bmModel.name})`);
+      return;
+    }
 
     const assets = await _loadBadgeAssets();
     await _ensureBadgeDeps(assets);

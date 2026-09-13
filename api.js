@@ -273,6 +273,7 @@ function sbUrl(table, query){
 // ── State ──────────────────────────────────────────────────
 let orders    = [];
 let cats      = [];   // [{id,name,price}]
+let bmModels  = [];   // BadgeMak3r models linked to a category: [{id,name,category_id}]
 let opts      = [];   // [{id,catId,name,display,options}]
 let colours   = [];   // [{id,name,code,available}]
 let customers  = [];   // [{id,name,email,phone,address,notes}]
@@ -573,6 +574,9 @@ async function loadAll(){
     if(paymentRaw.length) paymentOptions = paymentRaw.map(normalisePayment);
     else await _seedPaymentOptionsIfEmpty();
     if(!cats.length) setStatus('warn','No categories found — add some in Categories');
+    // Non-fatal: the column only exists once the badgemaker_model_category
+    // migration has run; until then every category uses the old generator.
+    bmModels = await sbGet('badgemaker_models', '?archived=eq.false&category_id=not.is.null&select=id,name,category_id').catch(() => []);
     populateCatFilter();
     applyFilterDefault();
     updateFilterCount();

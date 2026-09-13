@@ -184,6 +184,7 @@ async function showApp(){
   try{ await loadBuiltinFont(); } catch(e){ setStatus('Could not load built-in font','err'); }
   await loadColours();
   await loadFonts();
+  await loadCategories();
   await loadModels();
 }
 
@@ -192,8 +193,7 @@ async function showApp(){
 //                        fontSize, border, depth, offsetX, offsetY, offsetZ, rotation}
 // inputs entries: {_key, id, name, defaultValue, order} — inputId on a layer
 // refers to an input's _key (translated to/from the real DB id on load/save).
-let colours=[], fonts=[], models=[], currentModel=null, layerConfig=[], inputs=[], selectedLayerIndex=-1, deletedLayerIds=[], deletedInputIds=[];
-let _layerKeySeq=1, _inputKeySeq=1;
+let colours=[], fonts=[], models=[], currentModel=null, selectedLayerIndex=-1, deletedLayerIds=[], deletedInputIds=[];   // layerConfig/inputs live in geometry.js
 
 // Layers get a plain incrementing name; rename via the row's ⋮ menu.
 // Counts existing "Layer N" names so it doesn't collide after deletes.
@@ -257,6 +257,27 @@ async function revertChanges(){
   setStatus('Reverted','ok'); setTimeout(()=>setStatus(''),1500);
 }
 
+// ── Category link (which PrintDesk category downloads this model) ──
+let categories=[];
+async function loadCategories(){
+  try{ categories = await sbGet('categories','?archived=eq.false&order=name'); }catch(e){ categories=[]; }
+  if(!Array.isArray(categories)) categories=[];
+  const sel=document.getElementById('categorySelect');
+  sel.innerHTML = '<option value="">— None —</option>' + categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  syncCategorySelect();
+}
+function syncCategorySelect(){
+  const sel=document.getElementById('categorySelect');
+  if(sel) sel.value = currentModel?.category_id || '';
+}
+function onCategorySelect(){
+  const val = document.getElementById('categorySelect').value || null;
+  if(!currentModel) currentModel = { id:null, name:null };
+  currentModel.category_id = val;
+  markDirty();
+}
+function categoryName(id){ return categories.find(c=>String(c.id)===String(id))?.name || id; }
+
 function colourName(hex){ const c=colours.find(c=>c.code?.toLowerCase()===(hex||'').toLowerCase()); return c?c.name:hex; }
 
 async function loadColours(){ colours=await sbGet('colours','?available=eq.true&order=id'); }
@@ -315,6 +336,7 @@ function resetToNewModel(name){
   inputs = [];
   selectedLayerIndex = 0;
   document.getElementById('modelSelect').value = '';
+  syncCategorySelect();
   markDirty(layerConfig[0]._key);
   buildInputListUI(); buildLayerListUI(); buildLayerEditorUI();
   document.getElementById('exportBtn').disabled = false;
@@ -359,7 +381,8 @@ async function duplicateModel(){
   const name = await askText('Name for the copy:', `${currentModel.name} copy`);
   if(!name) return;
   setStatus('Duplicating…');
-  currentModel = { id:null, name };
+  currentModel = { id:null, name };   // no category_id — the original keeps the link
+  syncCategorySelect();
   deletedLayerIds = []; deletedInputIds = [];
   // New _keys all round (ids are re-issued on save); layer→input bindings are
   // re-pointed at the copied inputs via old-key → new-key.
@@ -413,31 +436,13 @@ async function loadModel(id){
   localStorage.setItem(LS_LAST_MODEL, currentModel.id);
   // Keep the dropdown in step however we got here (restored on load, etc).
   document.getElementById('modelSelect').value = currentModel.id;
+  syncCategorySelect();
   deletedLayerIds = []; deletedInputIds = [];
   const [rows, inputRows] = await Promise.all([
     sbGet('badgemaker_layers', `?model_id=eq.${currentModel.id}&order=layer_order`),
     sbGet('badgemaker_inputs', `?model_id=eq.${currentModel.id}&order=input_order`),
   ]);
-  inputs = inputRows.map(r=>({ _key:_inputKeySeq++, id:r.id, name:r.name, defaultValue:r.default_value, order:r.input_order }));
-  const inputKeyById = new Map(inputs.map(i=>[String(i.id), i._key]));
-  layerConfig = rows.map(r=>{
-    // 'square'/'circle' are legacy layer_type values from before Type/Shape split
-    const isLegacyShape = r.layer_type==='square' || r.layer_type==='circle';
-    return {
-      _key:_layerKeySeq++, id:r.id, order:r.layer_order,
-      type: isLegacyShape ? 'shape' : (r.layer_type||'text'),
-      shapeType: r.shape_type || (r.layer_type==='circle' ? 'circle' : 'rectangle'),
-      negative:!!r.is_negative, negAboveOnly:!!r.negative_above_only, fillGaps:!!r.fill_gaps, fitToShape:!!r.fit_to_shape, vertical:!!r.vertical, name:r.name||null, visible:r.visible!==false,
-      content:r.content, inputId: r.input_id!=null ? (inputKeyById.get(String(r.input_id))??null) : null,
-      hex:r.colour_hex, colourId:r.colour_id,
-      fontId:r.font_id, fontObj:getCachedFont(r.font_id),
-      fontSize:r.font_size, height:r.height_mm||20, border:r.border_mm, depth:r.thickness_mm,
-      repeatThreshold:r.repeat_threshold_mm||0,
-      letterSpacing:r.letter_spacing_mm||0, wordSpacing:r.word_spacing_mm||0, lineSpacing:r.line_spacing_mm||0, align:r.text_align||'center',
-      lineOffsets: Array.isArray(r.line_offsets_mm) ? r.line_offsets_mm.map(Number) : [],
-      offsetX:r.offset_x, offsetY:r.offset_y, offsetZ:r.offset_z, rotation:r.rotation,
-    };
-  });
+  ({ inputs, layerConfig } = modelFromRows(rows, inputRows));
   if(!layerConfig.length) layerConfig=[makeDefaultLayer(0)];
   selectedLayerIndex = 0;
   clearDirty();
@@ -450,18 +455,34 @@ async function loadModel(id){
 async function saveModel(){
   setStatus('Saving…');
   try{
-    if(!currentModel){
+    if(!currentModel?.name){
       const name = await askText('Model name:');
       if(!name){ setStatus(''); return; }
-      currentModel = {id:null, name};
+      currentModel = {...(currentModel||{}), id:null, name};
+    }
+    // Only sent when set, so models without a category still save on a
+    // database that hasn't had the column added yet.
+    const catId = currentModel.category_id || null;
+    const hadCat = !!models.find(m => String(m.id)===String(currentModel.id||''))?.category_id;
+    const catField = (catId || hadCat) ? {category_id: catId} : {};
+    if(catId){
+      // One model per category: PrintDesk picks whichever model has the link,
+      // so an old link has to be cleared before this one is written.
+      const other = models.find(m => m.category_id && String(m.category_id)===String(catId) && String(m.id)!==String(currentModel.id||''));
+      if(other){
+        const ok = await askConfirm(`"${categoryName(catId)}" is currently linked to "${other.name}". Move it to this model?`, 'Move');
+        if(!ok){ setStatus('Save cancelled — category unchanged'); return; }
+        const res = await sbPatch('badgemaker_models', `?id=eq.${other.id}`, {category_id:null});
+        if(res) throw new Error(res.message||res.error||'Could not unlink the other model');
+      }
     }
     if(!currentModel.id){
-      const created = await sbUpsert('badgemaker_models', {name:currentModel.name});
+      const created = await sbUpsert('badgemaker_models', {name:currentModel.name, ...catField});
       if(created?.code||created?.error) throw new Error(created?.message||created?.error||'Create failed');
       currentModel = created[0];
       localStorage.setItem(LS_LAST_MODEL, currentModel.id);   // newly created models skip loadModel
     } else {
-      const res = await sbPatch('badgemaker_models', `?id=eq.${currentModel.id}`, {name:currentModel.name, updated_at:new Date().toISOString()});
+      const res = await sbPatch('badgemaker_models', `?id=eq.${currentModel.id}`, {name:currentModel.name, ...catField, updated_at:new Date().toISOString()});
       if(res) throw new Error(res.message||res.error||'Save failed');
     }
     const inputKeyToId = new Map();
@@ -562,20 +583,6 @@ function onInputFieldChange(i, field, value){
 }
 
 // ── Layer list UI ────────────────────────────────────────────
-const BACKING_LABELS = {magnet:'Magnet backing', pin:'Pin backing', round:'Round magnet'};
-function layerLabel(l){
-  if(l.name) return l.name;
-  if(l.type==='keychain') return 'Keychain ring';
-  if(l.type==='backing') return BACKING_LABELS[l.shapeType] || 'Backing';
-  if(l.type==='shape') return l.shapeType==='circle' ? 'Circle'
-    : l.shapeType==='roundedrect' ? 'Rounded rectangle' : 'Rectangle';
-  if(l.inputId!=null){
-    const inp = inputs.find(x=>x._key===l.inputId);
-    return inp ? (inp.defaultValue.replace(/\n/g,' ') || `[${inp.name}]`) : '(empty)';
-  }
-  return l.content?.replace(/\n/g,' ') || '(empty)';
-}
-
 let openLayerMenuIndex=null;
 function toggleLayerMenu(i){
   openLayerMenuIndex = openLayerMenuIndex===i ? null : i;
