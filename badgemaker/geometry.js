@@ -491,7 +491,7 @@ function buildLayerSlabs(layer) {
 let _layerKeySeq = 1, _inputKeySeq = 1;
 
 function modelFromRows(layerRows, inputRows) {
-  const inputs = inputRows.map(r => ({ _key: _inputKeySeq++, id: r.id, name: r.name, defaultValue: r.default_value, order: r.input_order }));
+  const inputs = inputRows.map(r => ({ _key: _inputKeySeq++, id: r.id, name: r.name, defaultValue: r.default_value, order: r.input_order, fromOption: r.from_option || null }));
   const inputKeyById = new Map(inputs.map(i => [String(i.id), i._key]));
   const layerConfig = layerRows.map(r => {
     // 'square'/'circle' are legacy layer_type values from before Type/Shape split
@@ -509,9 +509,54 @@ function modelFromRows(layerRows, inputRows) {
       letterSpacing: r.letter_spacing_mm || 0, wordSpacing: r.word_spacing_mm || 0, lineSpacing: r.line_spacing_mm || 0, align: r.text_align || 'center',
       lineOffsets: Array.isArray(r.line_offsets_mm) ? r.line_offsets_mm.map(Number) : [],
       offsetX: r.offset_x, offsetY: r.offset_y, offsetZ: r.offset_z, rotation: r.rotation,
+      showWhenOption: r.show_when_option || null, showWhenValue: r.show_when_value || null,
+      colourFromOption: r.colour_from_option || null, colourFromIndex: r.colour_from_index || null,
     };
   });
   return { inputs, layerConfig };
+}
+
+// ── Order bindings ──────────────────────────────────────────────
+// Applies a PrintDesk order's option values ({ [optionName]: value }) to a
+// model from modelFromRows: bound inputs take the option's text, layers with
+// a "show when" condition are shown only for that dropdown value, and layers
+// with a colour binding take the Nth colour of that colour option.
+// colourHex(name) resolves a colour name to hex (null when unknown).
+// Returns human-readable warnings for anything the order didn't supply.
+function applyOrderBindings(model, orderOpts, colourHex) {
+  const warnings = new Set();
+  const get = name => {
+    const want = (name || '').trim().toLowerCase();
+    const k = Object.keys(orderOpts || {}).find(k => k.trim().toLowerCase() === want);
+    return k ? String(orderOpts[k] ?? '').trim() : '';
+  };
+  if (model.inputs.some(i => i.fromOption)) {
+    for (const inp of model.inputs) if (inp.fromOption) inp.defaultValue = get(inp.fromOption);
+  } else {
+    // Unbound template: the order's Text goes into the input named "Name"
+    // (else the first input, else the first text layer).
+    const text = get('Text') || get('Name');
+    const target = model.inputs.find(i => (i.name || '').trim().toLowerCase() === 'name') || model.inputs[0];
+    if (target) target.defaultValue = text;
+    else { const tl = model.layerConfig.find(l => l.type === 'text'); if (tl) tl.content = text; }
+  }
+  for (const l of model.layerConfig) {
+    if (l.showWhenOption) {
+      const v = get(l.showWhenOption);
+      if (!v) warnings.add(`"${l.showWhenOption}" not set on the order — "${layerLabel(l)}" hidden`);
+      // The binding alone decides visibility: the editor's eye toggle is a
+      // design-time aid for looking at one of several alternative layers.
+      l.visible = !!v && v.toLowerCase() === String(l.showWhenValue || '').trim().toLowerCase();
+    }
+    if (l.colourFromOption) {
+      const idx = l.colourFromIndex || 1;
+      const name = get(l.colourFromOption).split('|').map(x => x.trim())[idx - 1];
+      const hex = name ? colourHex(name) : null;
+      if (hex) l.hex = hex;
+      else warnings.add(`No colour #${idx} for "${l.colourFromOption}" on the order — "${layerLabel(l)}" keeps its template colour`);
+    }
+  }
+  return [...warnings];
 }
 
 // ── Layer labels (sidebar + 3MF part names) ─────────────────────

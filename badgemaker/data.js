@@ -275,8 +275,25 @@ function onCategorySelect(){
   if(!currentModel) currentModel = { id:null, name:null };
   currentModel.category_id = val;
   markDirty();
+  loadCategoryOptions();
 }
 function categoryName(id){ return categories.find(c=>String(c.id)===String(id))?.name || id; }
+
+// The linked category's PrintDesk options — what inputs and layers can bind to.
+let categoryOptions=[];
+async function loadCategoryOptions(){
+  const catId = currentModel?.category_id;
+  categoryOptions = [];
+  if(catId){
+    try{ categoryOptions = await sbGet('options', `?cat_id=eq.${encodeURIComponent(catId)}&archived=eq.false&order=sort_order.asc,id.asc`); }catch(e){}
+    if(!Array.isArray(categoryOptions)) categoryOptions=[];
+  }
+  buildInputListUI(); buildLayerEditorUI();
+}
+const textOptions   = () => categoryOptions.filter(o=>o.display==='text' || o.display==='dropdown');
+const dropdownOptions = () => categoryOptions.filter(o=>o.display==='dropdown');
+const colourOptions = () => categoryOptions.filter(o=>o.display==='colour');
+const optionValues  = name => (categoryOptions.find(o=>o.name===name)?.options||'').split(',').map(v=>v.trim()).filter(Boolean);
 
 function colourName(hex){ const c=colours.find(c=>c.code?.toLowerCase()===(hex||'').toLowerCase()); return c?c.name:hex; }
 
@@ -337,6 +354,7 @@ function resetToNewModel(name){
   selectedLayerIndex = 0;
   document.getElementById('modelSelect').value = '';
   syncCategorySelect();
+  categoryOptions = [];
   markDirty(layerConfig[0]._key);
   buildInputListUI(); buildLayerListUI(); buildLayerEditorUI();
   document.getElementById('exportBtn').disabled = false;
@@ -443,6 +461,7 @@ async function loadModel(id){
     sbGet('badgemaker_inputs', `?model_id=eq.${currentModel.id}&order=input_order`),
   ]);
   ({ inputs, layerConfig } = modelFromRows(rows, inputRows));
+  loadCategoryOptions();   // async; re-renders the binding selects when it lands
   if(!layerConfig.length) layerConfig=[makeDefaultLayer(0)];
   selectedLayerIndex = 0;
   clearDirty();
@@ -492,6 +511,7 @@ async function saveModel(){
         ...(inp.id?{id:inp.id}:{}),
         model_id: currentModel.id, input_order: i,
         name: inp.name||`Field ${i+1}`, default_value: inp.defaultValue||'',
+        from_option: inp.fromOption||null,
       };
       const res = await sbUpsert('badgemaker_inputs', row);
       if(res?.code||res?.error) throw new Error(res.message||res.error||`Input ${i+1} save failed`);
@@ -521,6 +541,8 @@ async function saveModel(){
         ...(l.lineOffsets&&l.lineOffsets.length ? {line_offsets_mm: l.lineOffsets} : {}),
         border_mm: l.border, thickness_mm: l.depth,
         offset_x: l.offsetX, offset_y: l.offsetY, offset_z: l.offsetZ, rotation: l.rotation,
+        show_when_option: l.showWhenOption||null, show_when_value: l.showWhenOption ? (l.showWhenValue||null) : null,
+        colour_from_option: l.colourFromOption||null, colour_from_index: l.colourFromOption ? (l.colourFromIndex||1) : null,
       };
       const res = await sbUpsert('badgemaker_layers', row);
       if(res?.code||res?.error) throw new Error(res.message||res.error||`Layer ${i+1} save failed`);
@@ -544,6 +566,11 @@ function buildInputListUI(){
       <input class="input-name" value="${esc(inp.name)}" placeholder="Field name" oninput="onInputFieldChange(${i},'name',this.value)">
       <textarea class="input-value adv-textarea" rows="1" placeholder="Value" oninput="autoGrow(this);onInputFieldChange(${i},'defaultValue',this.value)">${esc(inp.defaultValue)}</textarea>
       <button class="lr-btn" title="Delete" onclick="removeInput(${i})"><i class="ti ti-trash"></i></button>
+      ${currentModel?.category_id ? `<select class="input-bind" title="Filled from this order option in PrintDesk" onchange="onInputFieldChange(${i},'fromOption',this.value||null)">
+        <option value="">Not filled from order</option>
+        ${textOptions().map(o=>`<option value="${esc(o.name)}"${inp.fromOption===o.name?' selected':''}>From order: ${esc(o.name)}</option>`).join('')}
+        ${inp.fromOption && !textOptions().some(o=>o.name===inp.fromOption) ? `<option value="${esc(inp.fromOption)}" selected>From order: ${esc(inp.fromOption)} (missing)</option>` : ''}
+      </select>` : ''}
     </div>`).join('');
   el.querySelectorAll('textarea').forEach(autoGrow);
 }
@@ -660,6 +687,7 @@ function buildLayerListUI(){
             ? '<i class="ti ti-ban lr-neg-icon" title="Negative — cuts the layers it overlaps"></i>'
             : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
       <span class="lr-label">${esc(layerLabel(l))}</span>
+      ${l.showWhenOption ? `<i class="ti ti-link lr-bind-icon" title="Shown when ${esc(l.showWhenOption)} = ${esc(l.showWhenValue||'')}"></i>` : ''}
       <div class="layer-row-menu-wrap">
         <button class="lr-btn" title="Layer options" onclick="event.stopPropagation();toggleLayerMenu(${i})"><i class="ti ti-dots-vertical"></i></button>
         <div class="layer-row-menu" style="display:${openLayerMenuIndex===i?'flex':'none'}" onclick="event.stopPropagation()">
@@ -797,7 +825,63 @@ function buildLayerEditorUI(){
   document.getElementById('layColourLabel').textContent = colourName(l.hex);
   document.getElementById('layFreeMove').checked = !!l.freeMove;
   setFreeMoveLayer(l.freeMove ? l : null);
+  buildBindingUI(l, isBacking || l.negative);
   wrapSpinners(editor);
+}
+
+// "Order" block: which PrintDesk option shows this layer / recolours it.
+// Selects list the linked category's real options so nothing is free-typed.
+function buildBindingUI(l, isCutter){
+  const hint = document.getElementById('bindHint');
+  const rows = document.getElementById('bindRows');
+  if(!currentModel?.category_id){
+    hint.textContent = 'Link a category (left panel) to bind this layer to order options.';
+    rows.style.display = 'none'; return;
+  }
+  rows.style.display = '';
+  hint.textContent = '';
+  const dd = dropdownOptions();
+  const showSel = document.getElementById('layShowWhenOpt');
+  showSel.innerHTML = '<option value="">Always</option>' + dd.map(o=>`<option value="${esc(o.name)}">${esc(o.name)}</option>`).join('')
+    + (l.showWhenOption && !dd.some(o=>o.name===l.showWhenOption) ? `<option value="${esc(l.showWhenOption)}">${esc(l.showWhenOption)} (missing)</option>` : '');
+  showSel.value = l.showWhenOption || '';
+  const valRow = document.getElementById('showWhenValRow');
+  valRow.style.display = l.showWhenOption ? '' : 'none';
+  if(l.showWhenOption){
+    const vals = optionValues(l.showWhenOption);
+    const valSel = document.getElementById('layShowWhenVal');
+    valSel.innerHTML = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('')
+      + (l.showWhenValue && !vals.includes(l.showWhenValue) ? `<option value="${esc(l.showWhenValue)}">${esc(l.showWhenValue)} (missing)</option>` : '');
+    valSel.value = l.showWhenValue || vals[0] || '';
+  }
+  const colRow = document.getElementById('colourFromRow');
+  colRow.style.display = isCutter ? 'none' : '';
+  const colSel = document.getElementById('layColourFrom');
+  const cur = l.colourFromOption ? `${l.colourFromOption}|${l.colourFromIndex||1}` : '';
+  let opts = '<option value="">Template colour</option>';
+  for(const o of colourOptions()){
+    const n = Math.max(1, o.num_colours||4);
+    for(let k=1;k<=n;k++) opts += `<option value="${esc(o.name)}|${k}">${esc(o.name)} #${k}</option>`;
+  }
+  if(cur && !colourOptions().some(o=>o.name===l.colourFromOption)) opts += `<option value="${esc(cur)}">${esc(l.colourFromOption)} #${l.colourFromIndex||1} (missing)</option>`;
+  colSel.innerHTML = opts;
+  colSel.value = cur;
+}
+function onShowWhenChange(optName){
+  const l = layerConfig[selectedLayerIndex];
+  if(!l) return;
+  l.showWhenOption = optName || null;
+  l.showWhenValue = optName ? (optionValues(optName)[0] || null) : null;
+  markDirty(l._key);
+  buildLayerListUI(); buildLayerEditorUI();
+}
+function onColourFromChange(v){
+  const l = layerConfig[selectedLayerIndex];
+  if(!l) return;
+  const [name, idx] = v ? v.split('|') : [null, null];
+  l.colourFromOption = name || null;
+  l.colourFromIndex = name ? (parseInt(idx)||1) : null;
+  markDirty(l._key);
 }
 
 // Free Move is a client-side editing aid (which axis handles are showing),
@@ -854,7 +938,7 @@ function onLayerFieldChange(field, value){
     l.fontSize=10; l.height=2.5; l.border=3; l.depth=4; l.negative=false;
   }
   markDirty(l._key);
-  if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly') buildLayerListUI();
+  if(field==='content'||field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly'||field==='showWhenValue') buildLayerListUI();
   if(field==='type'||field==='shapeType'||field==='inputId'||field==='negative'||field==='negAboveOnly'||field==='repeatThreshold'||field==='vertical') buildLayerEditorUI();
   // Typing a newline changes how many lines there are, but rebuilding the whole
   // editor mid-keystroke would steal focus from the textarea — just the rows.

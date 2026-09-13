@@ -1594,7 +1594,7 @@ function _buildDetailItemsHtml(rows) {
     }).filter(Boolean).join('');
 
     const badgeBtn = _hasBadgeTemplate(row.catId)
-      ? '<button class="sort-btn-main" title="Generate Badge" onclick="generateBadge(\'' + escJsAttr(parsedOpts['Text']||'') + '\',\'' + escJsAttr(row.catId) + '\')"><i class="ti ti-badge"></i> Download</button>'
+      ? '<button class="sort-btn-main" title="Generate Badge" onclick="generateBadge(' + esc(JSON.stringify({catId: row.catId, opts: parsedOpts})) + ')"><i class="ti ti-badge"></i> Download</button>'
       : '';
 
     const searchText = [cat ? cat.name : '', Object.values(parsedOpts).join(' '), row.notes || ''].join(' ').toLowerCase();
@@ -1634,7 +1634,7 @@ function _buildDetailActionButtons(orderId, rows, first) {
   const batchItems = rows.filter(r => _hasBadgeTemplate(r.catId)).map(r => {
     const p = {};
     if (r.options) r.options.split('||').forEach(s => { const i = s.indexOf(':'); if (i >= 0) p[s.slice(0,i).trim()] = s.slice(i+1).trim(); });
-    return {name: p['Text']||'', catId: r.catId||''};
+    return {catId: r.catId||'', opts: p};
   });
   const bulkBadgeBtn = batchItems.length
     ? '<button class="sort-btn-main ml-auto" onclick="openBadgeBatchModal(' + esc(JSON.stringify(batchItems)) + ',\'' + escJsAttr(first.customer) + '\')"><i class="ti ti-badges"></i> Download All</button>'

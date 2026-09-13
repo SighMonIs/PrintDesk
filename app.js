@@ -1013,7 +1013,7 @@ async function _loadBadge3mfDeps() {
   await _loadScript('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
   await _loadScript('https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js');
   await _loadScript('https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
-  await _loadScript('shared/3mf.js?v=1.7.55');
+  await _loadScript('shared/3mf.js?v=1.7.56');
   _badge3mfReady = true;
 }
 
@@ -1036,7 +1036,7 @@ function _bmModelForCategory(catId) {
 async function _loadBadgemakerDeps() {
   if (_bmDepsReady) return;
   await _loadBadge3mfDeps();
-  await _loadScript('badgemaker/geometry.js?v=1.7.55');
+  await _loadScript('badgemaker/geometry.js?v=1.7.56');
   await loadBuiltinFont('badge/LEGO.TTF');
   _bmDepsReady = true;
 }
@@ -1059,19 +1059,22 @@ async function _loadBadgemakerTemplate(model) {
   return tmpl;
 }
 
-// Builds one badge from a template: the order text goes into the input named
-// "Name" (or the first input, or the first text layer if there are none).
-// geometry.js builds from its own globals `layerConfig` and `inputs`.
-function _bmBuildBadge(tmpl, text, projectSettingsTemplate) {
+// Builds one badge from a template and the order item's option values
+// ({ Text:'BOB', Backing:'Magnet', Colours:'Red|Yellow' }) — see
+// applyOrderBindings in badgemaker/geometry.js for how they map onto the
+// model. geometry.js builds from its own globals `layerConfig` and `inputs`.
+// Returns { zip, warnings }.
+function _bmBuildBadge(tmpl, orderOpts, name, projectSettingsTemplate) {
   const m = modelFromRows(tmpl.layerRows, tmpl.inputRows);
-  const target = m.inputs.find(i => (i.name || '').trim().toLowerCase() === 'name') || m.inputs[0];
-  if (target) target.defaultValue = text;
-  else { const tl = m.layerConfig.find(l => l.type === 'text'); if (tl) tl.content = text; }
+  const warnings = applyOrderBindings(m, orderOpts, n => colours.find(c => c.name.toLowerCase() === n.toLowerCase())?.code || null);
   inputs = m.inputs; layerConfig = m.layerConfig;
   const objects = buildExportObjects();
   if (!objects.length) throw new Error('Template "' + tmpl.model.name + '" produced no geometry');
-  return _badgeBuildZip(_badgeBuild3MF(objects, text, projectSettingsTemplate));
+  return { zip: _badgeBuildZip(_badgeBuild3MF(objects, name, projectSettingsTemplate)), warnings };
 }
+
+// Order items arrive as { catId, opts } where opts is the parsed options map.
+const _itemName = it => ((it.opts && it.opts['Text']) || 'NAME').toUpperCase();
 
 // opentype.js and script-load failures don't always reject with a real Error
 // (sometimes a bare string or Event) — normalise so error UI never shows "undefined".
@@ -1118,11 +1121,11 @@ function _batchUpdateProgress(current, total, sub) {
   document.getElementById('badgeBatchProgressSub').textContent = sub || '';
 }
 
-function _batchShowDone(msg) {
+function _batchShowDone(msg, sub) {
   document.getElementById('badgeBatchProgress').style.display = 'none';
   document.getElementById('badgeBatchDone').style.display = '';
   document.getElementById('badgeBatchDoneMsg').textContent = msg;
-  document.getElementById('badgeBatchDoneSub').textContent = '';
+  document.getElementById('badgeBatchDoneSub').textContent = sub || '';
 }
 
 function _batchShowError(msg) {
@@ -1154,11 +1157,11 @@ function _buildOuterZip(entries) {
 // Duplicate names in one order get " 2", " 3"… so the files don't overwrite.
 function _batchBuildFilenameMap(items) {
   const totals = {}, counters = {};
-  const key = rawName => (rawName || 'NAME').toUpperCase();
-  for (const it of items) totals[key(it.name)] = (totals[key(it.name)] || 0) + 1;
+  const key = n => (n || 'NAME').toUpperCase();
+  for (const it of items) totals[key(_itemName(it))] = (totals[key(_itemName(it))] || 0) + 1;
   return {
-    next(rawName) {
-      const k = key(rawName);
+    next(n) {
+      const k = key(n);
       counters[k] = (counters[k] || 0) + 1;
       return totals[k] > 1 ? `${k} ${counters[k]}.3mf` : `${k}.3mf`;
     }
@@ -1166,17 +1169,18 @@ function _batchBuildFilenameMap(items) {
 }
 
 async function _runBadgeLoop(items, onProgress) {
-  const entries = [], fnMap = _batchBuildFilenameMap(items);
+  const entries = [], warnings = new Set(), fnMap = _batchBuildFilenameMap(items);
   const projTmpl = await _loadProjectSettingsTemplate();
   for (let i = 0; i < items.length; i++) {
-    const { name: rawName, catId } = items[i];
-    const name = (rawName || 'NAME').toUpperCase();
+    const name = _itemName(items[i]);
     onProgress(i, items.length, name);
     await new Promise(r => setTimeout(r, 0));
-    const tmpl = await _loadBadgemakerTemplate(_bmTemplateOrThrow(catId));
-    entries.push({ name: fnMap.next(rawName), data: _bmBuildBadge(tmpl, name, projTmpl) });
+    const tmpl = await _loadBadgemakerTemplate(_bmTemplateOrThrow(items[i].catId));
+    const r = _bmBuildBadge(tmpl, items[i].opts || {}, name, projTmpl);
+    r.warnings.forEach(w => warnings.add(`${name}: ${w}`));
+    entries.push({ name: fnMap.next(name), data: r.zip });
   }
-  return entries;
+  return { entries, warnings: [...warnings] };
 }
 
 async function generateAllBadgesZip(items) {
@@ -1184,7 +1188,7 @@ async function generateAllBadgesZip(items) {
   const total = items.length;
   _batchShowProgress(`Generating ${total} badges…`);
   try {
-    const entries = await _runBadgeLoop(items, (i, n, name) => _batchUpdateProgress(i, n, name));
+    const { entries, warnings } = await _runBadgeLoop(items, (i, n, name) => _batchUpdateProgress(i, n, name));
     _batchUpdateProgress(total, total, 'Building ZIP…');
     await new Promise(r => setTimeout(r, 0));
     const zipData = _buildOuterZip(entries);
@@ -1193,7 +1197,7 @@ async function generateAllBadgesZip(items) {
     const a = document.createElement('a');
     const zipName = (_batchCustomer.replace(/[^a-z0-9 _-]/gi, '').trim() || 'badges') + '.zip';
     a.href = u; a.download = zipName; a.click(); URL.revokeObjectURL(u);
-    _batchShowDone(`${entries.length} badges downloaded as ${zipName}`);
+    _batchShowDone(`${entries.length} badges downloaded as ${zipName}`, warnings.join(' · '));
   } catch(e) {
     console.error('Generate badges ZIP error:', e);
     _batchShowError(_errMsg(e));
@@ -1205,7 +1209,7 @@ async function generateAllBadges(items) {
   const total = items.length;
   _batchShowProgress(`Generating ${total} badges…`);
   try {
-    const entries = await _runBadgeLoop(items, (i, n, name) => _batchUpdateProgress(i, n * 2, name));
+    const { entries, warnings } = await _runBadgeLoop(items, (i, n, name) => _batchUpdateProgress(i, n * 2, name));
     for (let i = 0; i < entries.length; i++) {
       _batchUpdateProgress(total + i, total * 2, `Downloading ${entries[i].name}…`);
       const b = new Blob([entries[i].data], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
@@ -1215,26 +1219,27 @@ async function generateAllBadges(items) {
       URL.revokeObjectURL(u);
       await new Promise(r => setTimeout(r, 250));
     }
-    _batchShowDone(`${entries.length} badges downloaded`);
+    _batchShowDone(`${entries.length} badges downloaded`, warnings.join(' · '));
   } catch(e) {
     console.error('Generate all badges error:', e);
     _batchShowError(_errMsg(e));
   }
 }
 
-async function generateBadge(rawName, catId) {
+async function generateBadge(item) {
   setStatus('spin', 'Generating badge&hellip;');
   try {
-    const name = (rawName || 'NAME').toUpperCase();
-    const model = _bmTemplateOrThrow(catId);
+    const name = _itemName(item);
+    const model = _bmTemplateOrThrow(item.catId);
     const tmpl = await _loadBadgemakerTemplate(model);
-    const zip = _bmBuildBadge(tmpl, name, await _loadProjectSettingsTemplate());
+    const { zip, warnings } = _bmBuildBadge(tmpl, item.opts || {}, name, await _loadProjectSettingsTemplate());
     const b = new Blob([zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
     const u = URL.createObjectURL(b);
     const a = document.createElement('a');
     a.href = u; a.download = name + '.3mf'; a.click();
     URL.revokeObjectURL(u);
-    setStatus('ok', `Badge downloaded: ${name}.3mf (${model.name})`);
+    if (warnings.length) setStatus('warn', `${name}.3mf downloaded — ${warnings.join(' · ')}`);
+    else setStatus('ok', `Badge downloaded: ${name}.3mf (${model.name})`);
   } catch(e) {
     console.error('Badge generation error:', e);
     setStatus('err', 'Badge failed: ' + _errMsg(e));
