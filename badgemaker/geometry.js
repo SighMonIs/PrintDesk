@@ -559,6 +559,14 @@ function applyOrderBindings(model, orderOpts, colourHex) {
   return [...warnings];
 }
 
+// A layer bound to a PrintDesk option belongs to that option's group in the
+// sidebar: every variant of a dropdown, or every slot of a colour selector.
+function layerGroupKey(l) {
+  if (l.showWhenOption) return 'dd:' + l.showWhenOption;
+  if (l.colourFromOption) return 'col:' + l.colourFromOption;
+  return '';
+}
+
 // ── Layer labels (sidebar + 3MF part names) ─────────────────────
 const BACKING_LABELS = {magnet:'Magnet backing', pin:'Pin backing', round:'Round magnet'};
 function layerLabel(l){

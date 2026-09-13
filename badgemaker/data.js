@@ -275,7 +275,99 @@ function onCategorySelect(){
   if(!currentModel) currentModel = { id:null, name:null };
   currentModel.category_id = val;
   markDirty();
-  loadCategoryOptions();
+  loadCategoryOptions().then(()=>{ if(val) scaffoldFromCategory(); });
+}
+async function syncWithCategory(){
+  if(!currentModel?.category_id){ setStatus('Pick a category first.','err'); return; }
+  await loadCategoryOptions();
+  const added = scaffoldFromCategory();
+  setStatus(added ? `Added ${added} from the category's options` : 'Already in sync with the category','ok');
+  setTimeout(()=>setStatus(''),2500);
+}
+
+// ── Template structure from the category's options ─────────────────
+// Text option → a bound input. Dropdown option → one layer per value, shown
+// only for that value (backing presets when the option is a backing).
+// Colour option → one layer per colour slot, pre-coloured from the option's
+// defaults. Only ever adds what's missing; never removes or rebinds.
+function scaffoldFromCategory(){
+  let added = 0;
+  for(const o of categoryOptions){
+    if(o.display==='text' && !inputs.some(i=>i.fromOption===o.name)){
+      const inp = makeDefaultInput(inputs.length);
+      inp.name = o.name; inp.fromOption = o.name; inp.defaultValue = o.name.toUpperCase();
+      inputs.push(inp); markInputDirty(inp._key); added++;
+    }
+  }
+  const firstInput = inputs[0]?._key ?? null;
+  for(const o of categoryOptions){
+    if(o.display==='dropdown'){
+      const isBacking = /backing/i.test(o.name);
+      optionValues(o.name).filter(v=>v.toLowerCase()!=='custom').forEach((v,k)=>{
+        if(layerConfig.some(l=>l.showWhenOption===o.name && l.showWhenValue===v)) return;
+        const l = makeDefaultLayer(layerConfig.length);
+        l.name = v; l.showWhenOption = o.name; l.showWhenValue = v;
+        if(isBacking){
+          l.type = 'backing';
+          applyBackingPreset(l, /round/i.test(v) ? 'round' : /pin/i.test(v) ? 'pin' : 'magnet');
+          l.negative = false;
+        } else if(firstInput!=null){ l.inputId = firstInput; }
+        l.visible = k===0;   // preview the first variant; PrintDesk decides by the order
+        layerConfig.push(l); markDirty(l._key); added++;
+      });
+    } else if(o.display==='colour'){
+      const defaults = (o.default_colours||'').split('|').map(x=>x.trim());
+      const n = Math.max(1, o.num_colours||4);
+      for(let k=1;k<=n;k++){
+        if(layerConfig.some(l=>l.colourFromOption===o.name && l.colourFromIndex===k)) continue;
+        const l = makeDefaultLayer(layerConfig.length);
+        l.name = `${o.name} #${k}`; l.colourFromOption = o.name; l.colourFromIndex = k;
+        if(firstInput!=null) l.inputId = firstInput;
+        const c = colours.find(c=>c.name.toLowerCase()===(defaults[k-1]||'').toLowerCase());
+        if(c){ l.hex = c.code; l.colourId = c.id; }
+        // Sensible stack to start from: #1 is the bordered base, the rest sit on top.
+        l.border = k===1 ? 3 : 0; l.offsetZ = k-1;
+        layerConfig.push(l); markDirty(l._key); added++;
+      }
+    }
+  }
+  if(added){
+    normaliseLayerGroups();
+    if(selectedLayerIndex<0 || selectedLayerIndex>=layerConfig.length) selectedLayerIndex = 0;
+    buildInputListUI(); buildLayerListUI(); buildLayerEditorUI(); scheduleRender();
+  }
+  return added;
+}
+
+// Keeps each option's layers together in the list (group order = first
+// appearance), so a layer whose binding changes snaps into its group.
+function normaliseLayerGroups(){
+  const sel = layerConfig[selectedLayerIndex];
+  const out = [], groups = new Map();
+  for(const l of layerConfig){
+    const key = layerGroupKey(l);
+    if(key && groups.has(key)) groups.get(key).push(l);
+    else { const arr=[l]; if(key) groups.set(key, arr); out.push(arr); }
+  }
+  layerConfig = out.flat();
+  if(sel) selectedLayerIndex = layerConfig.indexOf(sel);
+}
+
+// Which variant of a dropdown group is showing in the editor. Preview only —
+// PrintDesk ignores the eye state of bound layers — so it doesn't dirty.
+function groupPreviewValue(opt){
+  const shown = layerConfig.find(l=>l.showWhenOption===opt && l.visible!==false);
+  return shown ? shown.showWhenValue : (layerConfig.find(l=>l.showWhenOption===opt)?.showWhenValue || '');
+}
+function setGroupPreview(opt, value){
+  for(const l of layerConfig) if(l.showWhenOption===opt) l.visible = (l.showWhenValue===value);
+  buildLayerListUI(); scheduleRender();
+}
+function groupLabel(key){
+  const name = key.slice(key.indexOf(':')+1);
+  const o = categoryOptions.find(o=>o.name===name);
+  if(key.startsWith('col:')) return `${name} — ${o ? (o.num_colours||4) : ''} colour${(o?.num_colours||4)===1?'':'s'} from the order`;
+  return name;
 }
 function categoryName(id){ return categories.find(c=>String(c.id)===String(id))?.name || id; }
 
@@ -660,7 +752,8 @@ function onLayerDragEnd(){
   if(dragSrcIndex!==null){
     dragSrcIndex=null;
     markDirty();
-    buildLayerEditorUI(); scheduleRender();
+    normaliseLayerGroups();
+    buildLayerListUI(); buildLayerEditorUI(); scheduleRender();
   }
 }
 
@@ -674,8 +767,22 @@ function toggleLayerVisible(i){
 
 function buildLayerListUI(){
   const el = document.getElementById('layerList');
-  el.innerHTML = layerConfig.map((l,i)=>`
-    <div class="layer-row${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}${(l.negative&&l.negAboveOnly)?' negative':''}${l.visible===false?' hidden-layer':''}"
+  let prevKey = null;
+  el.innerHTML = layerConfig.map((l,i)=>{
+    const key = layerGroupKey(l);
+    let hdr = '';
+    if(key && key!==prevKey){
+      const opt = key.slice(key.indexOf(':')+1);
+      const preview = key.startsWith('dd:')
+        ? `<select class="lg-preview" title="Which variant to show while designing" onchange="setGroupPreview('${escJsAttr(opt)}',this.value)" onclick="event.stopPropagation()">${
+            [...new Set(layerConfig.filter(x=>x.showWhenOption===opt).map(x=>x.showWhenValue))].map(v=>`<option value="${esc(v)}"${v===groupPreviewValue(opt)?' selected':''}>${esc(v)}</option>`).join('')}</select>`
+        : '';
+      hdr = `<div class="layer-group-hdr" title="${esc(key.startsWith('dd:') ? 'One layer per value of the '+opt+' option — PrintDesk shows the one matching the order' : 'Layers coloured from the order\'s '+opt+' picks')}">
+        <i class="ti ${key.startsWith('dd:')?'ti-list-details':'ti-palette'}"></i><span class="lg-name">${esc(groupLabel(key))}</span>${preview}</div>`;
+    }
+    prevKey = key;
+    return hdr + `
+    <div class="layer-row${key?' in-group':''}${i===selectedLayerIndex?' selected':''}${dirtyLayerKeys.has(l._key)?' dirty':''}${(l.negative&&l.negAboveOnly)?' negative':''}${l.visible===false?' hidden-layer':''}"
       onclick="selectLayer(${i})" draggable="true"
       ondragstart="onLayerDragStart(event,${i})" ondragover="onLayerDragOver(event,${i})" ondrop="onLayerDrop(event)" ondragend="onLayerDragEnd()">
       <button class="lr-btn" title="${l.visible===false?'Show layer':'Hide layer'}" onclick="event.stopPropagation();toggleLayerVisible(${i})"><i class="ti ${l.visible===false?'ti-eye-off':'ti-eye'}"></i></button>
@@ -687,7 +794,8 @@ function buildLayerListUI(){
             ? '<i class="ti ti-ban lr-neg-icon" title="Negative — cuts the layers it overlaps"></i>'
             : `<div class="lr-swatch" style="background:${l.hex}"></div>`}
       <span class="lr-label">${esc(layerLabel(l))}</span>
-      ${l.showWhenOption ? `<i class="ti ti-link lr-bind-icon" title="Shown when ${esc(l.showWhenOption)} = ${esc(l.showWhenValue||'')}"></i>` : ''}
+      ${l.showWhenOption ? `<span class="lr-bind" title="Shown when ${esc(l.showWhenOption)} = ${esc(l.showWhenValue||'')}">${esc(l.showWhenValue||'')}</span>`
+        : l.colourFromOption ? `<span class="lr-bind" title="Colour from the order's ${esc(l.colourFromOption)} #${l.colourFromIndex||1}">#${l.colourFromIndex||1}</span>` : ''}
       <div class="layer-row-menu-wrap">
         <button class="lr-btn" title="Layer options" onclick="event.stopPropagation();toggleLayerMenu(${i})"><i class="ti ti-dots-vertical"></i></button>
         <div class="layer-row-menu" style="display:${openLayerMenuIndex===i?'flex':'none'}" onclick="event.stopPropagation()">
@@ -696,7 +804,8 @@ function buildLayerListUI(){
           <div class="lrm-item danger" onclick="removeLayer(${i});closeLayerMenu()"><i class="ti ti-trash"></i> Delete</div>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // Re-renders because the selected cutter is ghosted in the 3D view.
@@ -873,6 +982,7 @@ function onShowWhenChange(optName){
   l.showWhenOption = optName || null;
   l.showWhenValue = optName ? (optionValues(optName)[0] || null) : null;
   markDirty(l._key);
+  normaliseLayerGroups();
   buildLayerListUI(); buildLayerEditorUI();
 }
 function onColourFromChange(v){
@@ -882,6 +992,8 @@ function onColourFromChange(v){
   l.colourFromOption = name || null;
   l.colourFromIndex = name ? (parseInt(idx)||1) : null;
   markDirty(l._key);
+  normaliseLayerGroups();
+  buildLayerListUI(); buildLayerEditorUI();
 }
 
 // Free Move is a client-side editing aid (which axis handles are showing),
