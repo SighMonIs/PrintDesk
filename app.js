@@ -985,7 +985,6 @@ function revertToCustomerAddress(){
 }
 
 // ── Badge helpers ───────────────────────────────────────────────
-let _badge3mfReady  = false;
 // SRI hashes for the CDN scripts loaded dynamically below — pins them to a
 // known-good file so a compromised/MITM'd CDN response gets blocked instead
 // of executed. Recompute (curl the file | openssl dgst -sha384 -binary | openssl base64 -A)
@@ -1001,145 +1000,8 @@ function _loadScriptSrc(s, src) {
   if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.crossOrigin = 'anonymous'; }
 }
 
-let _badgeAssetCache = null;
-let _badgeFont       = null;
-let _opentypeLoading = null;
-
-// Load opentype.js + font without loading the full Three/Clipper stack
-async function _ensureBadgeFont() {
-  if (_badgeFont) return;
-  if (!_opentypeLoading) {
-    _opentypeLoading = (async () => {
-      if (typeof opentype === 'undefined') {
-        await new Promise((res, rej) => {
-          const s = document.createElement('script');
-          _loadScriptSrc(s, 'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
-          s.onload = res; s.onerror = rej; document.head.appendChild(s);
-        });
-      }
-      const fontPath = _badgeAssetCache?.fontPath || 'badge/LEGO.TTF';
-      _badgeFont = await new Promise((res, rej) =>
-        opentype.load(fontPath, (err, f) => err ? rej(err) : res(f))
-      );
-    })();
-  }
-  await _opentypeLoading;
-}
-
-// Returns the minimum badge width (mm) needed for a given backing name
-function _badgeBackingMinWidth(backingName) {
-  const n = (backingName || '').toLowerCase();
-  if (n.includes('round'))  return _badgeAssetCache?.rndDiam ?? 17.15;
-  if (n.includes('magnet')) return 46;
-  if (n.includes('pin'))    return 32;
-  return 0;
-}
-
-// Build backing config object from a backing name string
-// kcAssets: the Keychain model's own settings (see _loadKeychainAssets) — the
-// default _badgeAssetCache is loaded from an arbitrary other model and must
-// not be used for keychain ring dimensions.
-function _badgeBuildBacking(backingStr, kcAssets) {
-  const n = (backingStr || '').toLowerCase();
-  if (n.includes('round')) return {
-    type: 'round',
-    diameter:  _badgeAssetCache?.rndDiam      ?? 17.15,
-    depth:     _badgeAssetCache?.rndDepth     ?? 2,
-    threshold: _badgeAssetCache?.rndThreshold ?? 60,
-    name: 'round_magnet',
-  };
-  if (n.includes('keychain')) return {
-    type: 'keychain',
-    ringSide:          kcAssets?.ringSide          ?? 'left',
-    keychainDist:      kcAssets?.keychainDist      ?? 1.5,
-    holeDiameter:      kcAssets?.holeDiameter      ?? 10,
-    holeWidth:         kcAssets?.holeWidth         ?? 3,
-    alignKeychainHole: kcAssets?.alignKeychainHole ?? false,
-  };
-  if (n.includes('pin'))    return { w: 32, h: 7,  d: 2, name: 'pin' };
-  if (n.includes('magnet')) return { w: 46, h: 14, d: 2, name: 'magnet' };
-  return null;
-}
-
-// Validate badge name width against available backings — called from order modal
-async function badgeWidthCheck(idx) {
-  const catId = document.getElementById('mc-' + idx)?.value;
-  if (!catId) return;
-  const cat = cats.find(c => String(c.id) === String(catId));
-  if (!cat?.name?.toLowerCase().includes('name badge')) return;
-
-  const catOpts   = opts.filter(o => String(o.catId) === String(catId));
-  const textOpt   = catOpts.find(o => o.display === 'text');
-  const backingOpt = catOpts.find(o => o.name.toLowerCase().includes('backing'));
-  if (!textOpt) return;
-
-  const textEl    = document.getElementById(`ov-${idx}-${textOpt.id}`);
-  const backingEl = backingOpt ? document.getElementById(`ov-${idx}-${backingOpt.id}`) : null;
-  if (!textEl) return;
-
-  const warnEl = document.getElementById(`bww-${idx}`);
-  const rawVal = textEl.value.trim();
-  if (!rawVal) {
-    textEl.style.outline = '';
-    delete textEl.dataset.badgeWidth;
-    if (warnEl) warnEl.style.display = 'none';
-    if (backingEl?.options) Array.from(backingEl.options).forEach(o => { o.disabled = false; o.style.color = ''; });
-    return;
-  }
-
-  try { await _ensureBadgeFont(); } catch(e) { return; }
-
-  const fsize = _badgeAssetCache?.fsize || 49;
-  const isMulti = textOpt.multi_item;
-  const names = isMulti
-    ? rawVal.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
-    : [rawVal.trim().toUpperCase()];
-
-  // Width of widest name (drives backing restrictions)
-  const widths = names.map(n => {
-    const bb = _badgeFont.getPath(n, 0, 0, fsize).getBoundingBox();
-    return { name: n, w: bb.x2 - bb.x1 };
-  });
-  const maxWidth = Math.max(...widths.map(x => x.w));
-  textEl.dataset.badgeWidth = maxWidth.toFixed(4);
-
-  let anyDisabled = false;
-  let currentInvalid = false;
-  const selectedMinW = backingEl ? _badgeBackingMinWidth(backingEl.value) : 0;
-
-  if (backingEl?.options) {
-    Array.from(backingEl.options).forEach(opt => {
-      if (!opt.value) return;
-      const minW = _badgeBackingMinWidth(opt.value);
-      const fits = maxWidth >= minW;
-      opt.disabled = !fits;
-      opt.style.color = fits ? '' : 'var(--muted)';
-      if (!fits) anyDisabled = true;
-      if (opt.selected && !fits) currentInvalid = true;
-    });
-    if (currentInvalid) {
-      const first = Array.from(backingEl.options).find(o => o.value && !o.disabled);
-      if (first) { backingEl.value = first.value; collectOpts(idx); }
-    }
-  }
-
-  if (anyDisabled || (isMulti && widths.some(x => x.w < selectedMinW))) {
-    const tooNarrow = widths.filter(x => x.w < selectedMinW);
-    let msg;
-    if (isMulti && tooNarrow.length) {
-      msg = `Too short for selected backing: ${tooNarrow.map(x => x.name).join(', ')}`;
-    } else {
-      msg = `Name width (${maxWidth.toFixed(1)}mm) — some backing options are not available`;
-    }
-    textEl.style.outline = '2px solid var(--red,#e55)';
-    if (warnEl) { warnEl.textContent = msg; warnEl.style.display = ''; }
-  } else {
-    textEl.style.outline = '';
-    if (warnEl) warnEl.style.display = 'none';
-  }
-}
-
-// ── Badge generation (inline — uses shared/3mf.js) ──────────────
+// ── Badge generation (BadgeMak3r templates, via shared/3mf.js) ───
+let _badge3mfReady = false;
 
 const _loadScript = src => new Promise((res, rej) => {
   const s = document.createElement('script'); _loadScriptSrc(s, src);
@@ -1151,31 +1013,20 @@ async function _loadBadge3mfDeps() {
   await _loadScript('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
   await _loadScript('https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js');
   await _loadScript('https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
-  await _loadScript('shared/3mf.js?v=1.7.53');
+  await _loadScript('shared/3mf.js?v=1.7.55');
   _badge3mfReady = true;
 }
 
 // ── BadgeMak3r templates ─────────────────────────────────────────
-// A category can be linked to a model designed in /badgemaker (bmModels,
-// loaded with the reference data). Orders in that category are built by the
-// BadgeMak3r geometry engine instead of the fixed-layer generator above.
+// Every order badge is built from the model linked to its category in
+// /badgemaker (bmModels, loaded with the reference data). A category with no
+// linked model has no Download button — see _hasBadgeTemplate in ui.js.
 let _bmDepsReady = false;
 const _bmTemplateCache = new Map();   // model id -> { model, layerRows, inputRows }
 let _projSettingsTmpl;                // cached promise of badge/project_settings_template.json
 
 function _loadProjectSettingsTemplate() {
   return _projSettingsTmpl ??= fetch('badge/project_settings_template.json').then(r => r.json()).catch(() => null);
-}
-
-// Batch runs only need the legacy generator (its badge_models row + font)
-// when at least one item's category has no BadgeMak3r template.
-async function _loadAssetsForItems(items) {
-  if (items.some(it => !_bmModelForCategory(it.catId))) {
-    const assets = await _loadBadgeAssets();
-    await _ensureBadgeDeps(assets);
-    return assets;
-  }
-  return { projectSettingsTemplate: await _loadProjectSettingsTemplate() };
 }
 
 function _bmModelForCategory(catId) {
@@ -1185,7 +1036,7 @@ function _bmModelForCategory(catId) {
 async function _loadBadgemakerDeps() {
   if (_bmDepsReady) return;
   await _loadBadge3mfDeps();
-  await _loadScript('badgemaker/geometry.js?v=1.7.53');
+  await _loadScript('badgemaker/geometry.js?v=1.7.55');
   await loadBuiltinFont('badge/LEGO.TTF');
   _bmDepsReady = true;
 }
@@ -1222,70 +1073,17 @@ function _bmBuildBadge(tmpl, text, projectSettingsTemplate) {
   return _badgeBuildZip(_badgeBuild3MF(objects, text, projectSettingsTemplate));
 }
 
-async function _loadBadgeAssets() {
-  if (_badgeAssetCache) return _badgeAssetCache;
-  const [models, tmpl] = await Promise.all([
-    sbGet('badge_models', '?archived=eq.false&order=name&limit=1'),
-    _loadProjectSettingsTemplate(),
-  ]);
-  if (!models || !models.length) throw new Error('No badge model found');
-  const model = models[0];
-  const [layers, settings] = await Promise.all([
-    sbGet('badge_model_layers', `?model_id=eq.${model.id}&order=layer_order`),
-    sbGet('badge_model_settings', `?model_id=eq.${model.id}`),
-  ]);
-  const layerConfig = layers.map((l, i) => ({
-    id: l.id, hex: l.colour_hex, colourId: l.colour_id,
-    border: l.border_mm, depth: l.thickness_mm,
-    hasSlot: i === 0, isText: !l.filled,
-  }));
-  const s = settings[0] || {};
-  _badgeAssetCache = {
-    layerConfig,
-    fsize:     model.font_size || 49,
-    spacing:   s.letter_spacing || 0,
-    wordSpacing: s.word_spacing || 0,
-    fontPath:  model.font_path || 'badge/LEGO.TTF',
-    rndDiam:      s.round_magnet_diameter  ?? 17.15,
-    rndDepth:     s.round_magnet_depth     ?? 2,
-    rndThreshold: s.round_magnet_threshold ?? 60,
-    projectSettingsTemplate: tmpl,
-  };
-  return _badgeAssetCache;
-}
+// opentype.js and script-load failures don't always reject with a real Error
+// (sometimes a bare string or Event) — normalise so error UI never shows "undefined".
+function _errMsg(e) { return (e && e.message) || String(e) || 'Unknown error'; }
 
-// The default asset cache above is loaded from an arbitrary badge model
-// (alphabetically first), not necessarily "Keychain" — its font size and
-// layer borders differ per model, so keychain exports need their own model's
-// settings rather than borrowing whichever one _loadBadgeAssets happened to pick.
-let _keychainAssetCache = null;
-async function _loadKeychainAssets() {
-  if (_keychainAssetCache) return _keychainAssetCache;
-  const models = await sbGet('badge_models', '?archived=eq.false&name=eq.Keychain&limit=1');
-  if (!models || !models.length) return null;
-  const model = models[0];
-  const [layers, settings] = await Promise.all([
-    sbGet('badge_model_layers', `?model_id=eq.${model.id}&order=layer_order`),
-    sbGet('badge_model_settings', `?model_id=eq.${model.id}`),
-  ]);
-  const layerConfig = layers.map((l, i) => ({
-    id: l.id, hex: l.colour_hex, colourId: l.colour_id,
-    border: l.border_mm, depth: l.thickness_mm,
-    hasSlot: i === 0, isText: !l.filled,
-  }));
-  const s = settings[0] || {};
-  _keychainAssetCache = {
-    layerConfig,
-    fsize:      model.font_size || 49,
-    spacing:    s.letter_spacing || 0,
-    wordSpacing: s.word_spacing || 0,
-    ringSide:          s.ring_side           ?? 'left',
-    keychainDist:      s.keychain_dist       ?? 1.5,
-    holeDiameter:      s.hole_diameter       ?? 10,
-    holeWidth:         s.hole_width          ?? 3,
-    alignKeychainHole: s.align_keychain_hole ?? false,
-  };
-  return _keychainAssetCache;
+function _bmTemplateOrThrow(catId) {
+  const model = _bmModelForCategory(catId);
+  if (!model) {
+    const cat = cats.find(c => String(c.id) === String(catId));
+    throw new Error(`No BadgeMak3r model is linked to "${cat?.name || catId}" — set its Category in BadgeMak3r`);
+  }
+  return model;
 }
 
 let _batchItems = null;
@@ -1320,11 +1118,11 @@ function _batchUpdateProgress(current, total, sub) {
   document.getElementById('badgeBatchProgressSub').textContent = sub || '';
 }
 
-function _batchShowDone(msg, skipped) {
+function _batchShowDone(msg) {
   document.getElementById('badgeBatchProgress').style.display = 'none';
   document.getElementById('badgeBatchDone').style.display = '';
   document.getElementById('badgeBatchDoneMsg').textContent = msg;
-  document.getElementById('badgeBatchDoneSub').textContent = skipped.length ? `Skipped (too narrow): ${skipped.join(', ')}` : '';
+  document.getElementById('badgeBatchDoneSub').textContent = '';
 }
 
 function _batchShowError(msg) {
@@ -1353,74 +1151,32 @@ function _buildOuterZip(entries) {
   const all = [...parts,...cd,eocd]; const res = new Uint8Array(all.reduce((s,p)=>s+p.length,0)); let p=0; for(const a of all){res.set(a,p);p+=a.length;} return res;
 }
 
+// Duplicate names in one order get " 2", " 3"… so the files don't overwrite.
 function _batchBuildFilenameMap(items) {
   const totals = {}, counters = {};
-  for (const { name: rawName, backing } of items) {
-    const n = (rawName || 'NAME').toUpperCase();
-    const b = (backing || '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim();
-    const key = b ? `${n} ${b}` : n;
-    totals[key] = (totals[key] || 0) + 1;
-  }
+  const key = rawName => (rawName || 'NAME').toUpperCase();
+  for (const it of items) totals[key(it.name)] = (totals[key(it.name)] || 0) + 1;
   return {
-    next(rawName, backing) {
-      const n = (rawName || 'NAME').toUpperCase();
-      const b = (backing || '').replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim();
-      const key = b ? `${n} ${b}` : n;
-      counters[key] = (counters[key] || 0) + 1;
-      return totals[key] > 1 ? `${key} ${counters[key]}.3mf` : `${key}.3mf`;
+    next(rawName) {
+      const k = key(rawName);
+      counters[k] = (counters[k] || 0) + 1;
+      return totals[k] > 1 ? `${k} ${counters[k]}.3mf` : `${k}.3mf`;
     }
   };
 }
 
-async function _runBadgeLoop(items, assets, onProgress) {
-  const entries = [], skipped = [], fnMap = _batchBuildFilenameMap(items);
-  const needsKeychain = items.some(it => (it.backing || '').toLowerCase().includes('keychain'));
-  const kcAssets = needsKeychain ? await _loadKeychainAssets() : null;
+async function _runBadgeLoop(items, onProgress) {
+  const entries = [], fnMap = _batchBuildFilenameMap(items);
+  const projTmpl = await _loadProjectSettingsTemplate();
   for (let i = 0; i < items.length; i++) {
-    const { name: rawName, backing: backingStr, colours: colourStr, catId } = items[i];
+    const { name: rawName, catId } = items[i];
     const name = (rawName || 'NAME').toUpperCase();
     onProgress(i, items.length, name);
     await new Promise(r => setTimeout(r, 0));
-    const bmModel = _bmModelForCategory(catId);
-    if (bmModel) {
-      const tmpl = await _loadBadgemakerTemplate(bmModel);
-      entries.push({ name: fnMap.next(rawName, ''), data: _bmBuildBadge(tmpl, name, assets.projectSettingsTemplate) });
-      continue;
-    }
-    const backing = _badgeBuildBacking(backingStr, kcAssets);
-    const _kc = backing?.type === 'keychain';
-    const activeAssets = (_kc && kcAssets) ? kcAssets : assets;
-    const layerConfig = activeAssets.layerConfig.map(l => ({ ...l }));
-    if (colourStr) {
-      colourStr.split('|').map(s => s.trim()).forEach((colName, idx) => {
-        if (idx >= layerConfig.length) return;
-        const c = colours.find(c => c.name.toLowerCase() === colName.toLowerCase());
-        if (c) { layerConfig[idx].hex = c.code; layerConfig[idx].colourId = c.id; }
-      });
-    }
-    if (backing) {
-      const bb = _badgeFont.getPath(name, 0, 0, activeAssets.fsize).getBoundingBox();
-      if (bb.x2 - bb.x1 < (backing.type === 'round' ? backing.diameter : (backing.w || 0))) {
-        skipped.push(name); continue;
-      }
-    }
-    const result = generate3MF({ name, layerConfig, backing: _kc ? null : backing, font: _badgeFont, fsize: activeAssets.fsize, spacing: activeAssets.spacing, wordSpacing: activeAssets.wordSpacing, projectSettingsTemplate: assets.projectSettingsTemplate, keychain: _kc, keychainSettings: _kc ? backing : undefined });
-    entries.push({ name: fnMap.next(rawName, backingStr), data: result.zip });
+    const tmpl = await _loadBadgemakerTemplate(_bmTemplateOrThrow(catId));
+    entries.push({ name: fnMap.next(rawName), data: _bmBuildBadge(tmpl, name, projTmpl) });
   }
-  return { entries, skipped };
-}
-
-// opentype.js and script-load failures don't always reject with a real Error
-// (sometimes a bare string or Event) — normalise so error UI never shows "undefined".
-function _errMsg(e) { return (e && e.message) || String(e) || 'Unknown error'; }
-
-async function _ensureBadgeDeps(assets) {
-  await _loadBadge3mfDeps();
-  if (!_badgeFont) {
-    _badgeFont = await new Promise((res, rej) =>
-      opentype.load(assets.fontPath, (err, f) => err ? rej(err) : res(f))
-    );
-  }
+  return entries;
 }
 
 async function generateAllBadgesZip(items) {
@@ -1428,8 +1184,7 @@ async function generateAllBadgesZip(items) {
   const total = items.length;
   _batchShowProgress(`Generating ${total} badges…`);
   try {
-    const assets = await _loadAssetsForItems(items);
-    const { entries, skipped } = await _runBadgeLoop(items, assets, (i, n, name) => _batchUpdateProgress(i, n, name));
+    const entries = await _runBadgeLoop(items, (i, n, name) => _batchUpdateProgress(i, n, name));
     _batchUpdateProgress(total, total, 'Building ZIP…');
     await new Promise(r => setTimeout(r, 0));
     const zipData = _buildOuterZip(entries);
@@ -1438,7 +1193,7 @@ async function generateAllBadgesZip(items) {
     const a = document.createElement('a');
     const zipName = (_batchCustomer.replace(/[^a-z0-9 _-]/gi, '').trim() || 'badges') + '.zip';
     a.href = u; a.download = zipName; a.click(); URL.revokeObjectURL(u);
-    _batchShowDone(`${entries.length} of ${total} badges downloaded as ${zipName}`, skipped);
+    _batchShowDone(`${entries.length} badges downloaded as ${zipName}`);
   } catch(e) {
     console.error('Generate badges ZIP error:', e);
     _batchShowError(_errMsg(e));
@@ -1450,8 +1205,7 @@ async function generateAllBadges(items) {
   const total = items.length;
   _batchShowProgress(`Generating ${total} badges…`);
   try {
-    const assets = await _loadAssetsForItems(items);
-    const { entries, skipped } = await _runBadgeLoop(items, assets, (i, n, name) => _batchUpdateProgress(i, n * 2, name));
+    const entries = await _runBadgeLoop(items, (i, n, name) => _batchUpdateProgress(i, n * 2, name));
     for (let i = 0; i < entries.length; i++) {
       _batchUpdateProgress(total + i, total * 2, `Downloading ${entries[i].name}…`);
       const b = new Blob([entries[i].data], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
@@ -1461,76 +1215,26 @@ async function generateAllBadges(items) {
       URL.revokeObjectURL(u);
       await new Promise(r => setTimeout(r, 250));
     }
-    _batchShowDone(`${entries.length} of ${total} badges downloaded`, skipped);
+    _batchShowDone(`${entries.length} badges downloaded`);
   } catch(e) {
     console.error('Generate all badges error:', e);
     _batchShowError(_errMsg(e));
   }
 }
 
-async function generateBadge(url) {
+async function generateBadge(rawName, catId) {
   setStatus('spin', 'Generating badge&hellip;');
   try {
-    const params     = new URLSearchParams(url.includes('?') ? url.split('?')[1] : url);
-    const name       = (params.get('name') || 'NAME').toUpperCase();
-    const backingStr = params.get('backing') || 'Magnet';
-    const colourStr  = params.get('colours') || '';
-    const catId      = params.get('cat') || '';
-
-    const bmModel = _bmModelForCategory(catId);
-    if (bmModel) {
-      const tmpl = await _loadBadgemakerTemplate(bmModel);
-      const zip = _bmBuildBadge(tmpl, name, await _loadProjectSettingsTemplate());
-      const b = new Blob([zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
-      const u = URL.createObjectURL(b);
-      const a = document.createElement('a');
-      a.href = u; a.download = name + '.3mf'; a.click();
-      URL.revokeObjectURL(u);
-      setStatus('ok', `Badge downloaded: ${name}.3mf (${bmModel.name})`);
-      return;
-    }
-
-    const assets = await _loadBadgeAssets();
-    await _ensureBadgeDeps(assets);
-
-    const kcAssets = backingStr.toLowerCase().includes('keychain') ? await _loadKeychainAssets() : null;
-    const backing = _badgeBuildBacking(backingStr, kcAssets);
-    const _kc3 = backing?.type === 'keychain';
-    const activeAssets = (_kc3 && kcAssets) ? kcAssets : assets;
-
-    const layerConfig = activeAssets.layerConfig.map(l => ({ ...l }));
-    if (colourStr) {
-      colourStr.split('|').map(s => s.trim()).forEach((colName, i) => {
-        if (i >= layerConfig.length) return;
-        const c = colours.find(c => c.name.toLowerCase() === colName.toLowerCase());
-        if (c) { layerConfig[i].hex = c.code; layerConfig[i].colourId = c.id; }
-      });
-    }
-
-    // Validate text width vs backing minimum
-    if (backing) {
-      const bb = _badgeFont.getPath(name, 0, 0, activeAssets.fsize).getBoundingBox();
-      const textWidth = bb.x2 - bb.x1;
-      const minW = backing.type === 'round' ? backing.diameter : (backing.w || 0);
-      if (textWidth < minW) {
-        setStatus('err', `"${name}" is too narrow (${textWidth.toFixed(1)}mm) for ${backingStr} — needs ${minW}mm+`);
-        return;
-      }
-    }
-
-    const result = generate3MF({
-      name, layerConfig, backing: _kc3 ? null : backing, font: _badgeFont,
-      fsize: activeAssets.fsize, spacing: activeAssets.spacing, wordSpacing: activeAssets.wordSpacing,
-      projectSettingsTemplate: assets.projectSettingsTemplate,
-      keychain: _kc3, keychainSettings: _kc3 ? backing : undefined,
-    });
-
-    const b = new Blob([result.zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
+    const name = (rawName || 'NAME').toUpperCase();
+    const model = _bmTemplateOrThrow(catId);
+    const tmpl = await _loadBadgemakerTemplate(model);
+    const zip = _bmBuildBadge(tmpl, name, await _loadProjectSettingsTemplate());
+    const b = new Blob([zip], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
     const u = URL.createObjectURL(b);
     const a = document.createElement('a');
-    a.href = u; a.download = result.filename; a.click();
+    a.href = u; a.download = name + '.3mf'; a.click();
     URL.revokeObjectURL(u);
-    setStatus('ok', 'Badge downloaded: ' + result.filename);
+    setStatus('ok', `Badge downloaded: ${name}.3mf (${model.name})`);
   } catch(e) {
     console.error('Badge generation error:', e);
     setStatus('err', 'Badge failed: ' + _errMsg(e));

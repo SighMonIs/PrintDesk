@@ -204,19 +204,16 @@ function renderModelOpts(idx, catId, savedOpts){
   // Parse saved options: "FieldName:value||FieldName:value" (double pipe separates fields)
   const saved={};
   if(savedOpts){savedOpts.split('||').forEach(p=>{const[k,...v]=p.split(':');if(k)saved[k.trim()]=v.join(':').trim();});}
-  const isBadgeCat=!!(cats.find(c=>String(c.id)===String(catId))?.name?.toLowerCase().includes('name badge'));
   container.innerHTML=catOpts.map(opt=>{
     const val=saved[opt.name]||'';
     if(opt.display==='text'){
       const capsStyle=opt.force_caps?'text-transform:uppercase':'';
-      const badgeCheck=isBadgeCat?`;badgeWidthCheck(${idx})`:'';
       const multiCheck=opt.multi_item?`;updateMultiBadge('ov-${idx}-${opt.id}','mb-${idx}-${opt.id}')`:''
-      const capsHandler=opt.force_caps?`this.value=this.value.toUpperCase();collectOpts(${idx})${badgeCheck}${multiCheck}`:`collectOpts(${idx})${badgeCheck}${multiCheck}`;
-      const warnDiv=isBadgeCat?`<div class="badge-width-warn" id="bww-${idx}" style="display:none"></div>`:'';
+      const capsHandler=opt.force_caps?`this.value=this.value.toUpperCase();collectOpts(${idx})${multiCheck}`:`collectOpts(${idx})${multiCheck}`;
       const multiBadge=opt.multi_item?`<span class="multi-item-badge" id="mb-${idx}-${opt.id}" style="display:none"></span>`:'';
       const inputVal=esc(opt.force_caps&&val?val.toUpperCase():val);
       const capsClass=opt.force_caps?' opt-text-uppercase':'';
-      return`<div class="opt-row"><label>${esc(opt.name)}</label><div class="opt-text-input-wrap"><input type="text" class="opt-text-input${capsClass}" id="ov-${idx}-${opt.id}" value="${inputVal}" placeholder="Enter ${esc(opt.name).toLowerCase()}… or comma-separate for multiple" oninput="${capsHandler}">${multiBadge}</div></div>${warnDiv}`;
+      return`<div class="opt-row"><label>${esc(opt.name)}</label><div class="opt-text-input-wrap"><input type="text" class="opt-text-input${capsClass}" id="ov-${idx}-${opt.id}" value="${inputVal}" placeholder="Enter ${esc(opt.name).toLowerCase()}… or comma-separate for multiple" oninput="${capsHandler}">${multiBadge}</div></div>`;
     } else {
       // dropdown
       const items=opt.options.split(',').map(s=>s.trim()).filter(Boolean);
@@ -268,15 +265,12 @@ function renderModelOpts(idx, catId, savedOpts){
         return rowHtml;
       }
       const customContent=`<input type="text" id="ovt-${idx}-${opt.id}" value="${esc(customVal)}" placeholder="Describe your custom option…" oninput="collectOpts(${idx})">`;
-      const isBacking=isBadgeCat&&opt.name.toLowerCase()==='backing';
-      const ddOnChange=isBacking?`ddChanged(${idx},'${opt.id}');badgeWidthCheck(${idx})`:`ddChanged(${idx},'${opt.id}')`;
+      const ddOnChange=`ddChanged(${idx},'${opt.id}')`;
       const rowHtml=`<div class="opt-row"><label>${esc(opt.name)}</label><select id="ov-${idx}-${opt.id}" onchange="${ddOnChange}"><option value="">— select —</option>${opts_html}</select></div>`+
         `<div class="opt-custom" id="ovc-${idx}-${opt.id}" data-iscolour="0" style="${ddVal==='Custom'?'':'display:none'}">${customContent}</div>`;
       return rowHtml;
     }
   }).join('');
-  // Run width check immediately when editing an existing badge order
-  if(isBadgeCat && savedOpts) setTimeout(()=>badgeWidthCheck(idx), 100);
 }
 
 function colourOptChanged(idx, optId, value){
@@ -1532,25 +1526,10 @@ function showInboxDetail(orderId) {
   _mobileShowDetail();
 }
 
-// Categories that map straight to a badge model type by name, for when there's
-// no per-item "Backing" choice to make (e.g. Keychain is always keychain backing —
-// unlike Name Badge, which offers Pin/Magnet/Round Magnet via a Backing option).
-// Keep in sync with MODEL_TYPES in badge/data.js.
-const BADGE_CATEGORY_BACKING = {keychain:'Keychain', 'dog tag':'Magnet', plaque:'Magnet'};
-
-// Whether a row's category can generate a 3D badge, and what backing value to send:
-// true either when the category has an explicit "Backing" option (user picks one,
-// e.g. Name Badge) or when the category name itself implies a single badge model.
-// A category linked to a BadgeMak3r model is always eligible — the model
-// is the whole design, so no Backing option is needed.
-function _badgeEligibility(catName, catOpts, parsedOpts, catId) {
-  const hasBackingOpt = catOpts.some(o => o.name.trim().toLowerCase().includes('backing'));
-  const impliedBacking = BADGE_CATEGORY_BACKING[(catName||'').trim().toLowerCase()];
-  const hasTemplate = bmModels.some(m => String(m.category_id) === String(catId));
-  return {
-    isBadge: hasBackingOpt || !!impliedBacking || hasTemplate,
-    backing: (parsedOpts && parsedOpts['Backing']) || impliedBacking || ''
-  };
+// A row can generate a 3D badge when its category is linked to a BadgeMak3r
+// model (the model is the whole design — the order's Text fills its "Name" input).
+function _hasBadgeTemplate(catId) {
+  return bmModels.some(m => String(m.category_id) === String(catId));
 }
 
 // Resets the detail-view item search/sort state and builds the filter-panel
@@ -1614,10 +1593,8 @@ function _buildDetailItemsHtml(rows) {
         + '</div>';
     }).filter(Boolean).join('');
 
-    const badgeElig = _badgeEligibility(cat?.name, catOpts, parsedOpts, row.catId);
-    const badgeParams = new URLSearchParams({name:parsedOpts['Text']||'',backing:badgeElig.backing,colours:parsedOpts['Colours']||'',cat:row.catId||''});
-    const badgeBtn = badgeElig.isBadge
-      ? '<button class="sort-btn-main" title="Generate Badge" onclick="generateBadge(\'/badge/?' + badgeParams + '\')"><i class="ti ti-badge"></i> Download</button>'
+    const badgeBtn = _hasBadgeTemplate(row.catId)
+      ? '<button class="sort-btn-main" title="Generate Badge" onclick="generateBadge(\'' + escJsAttr(parsedOpts['Text']||'') + '\',\'' + escJsAttr(row.catId) + '\')"><i class="ti ti-badge"></i> Download</button>'
       : '';
 
     const searchText = [cat ? cat.name : '', Object.values(parsedOpts).join(' '), row.notes || ''].join(' ').toLowerCase();
@@ -1654,15 +1631,12 @@ function _buildDetailItemsHtml(rows) {
 // Builds the order-level action buttons above the items list (bulk badge
 // download, shipping label, invoice) — each conditional on order contents.
 function _buildDetailActionButtons(orderId, rows, first) {
-  const badgeEligibleRows = rows.map(r => {
-    const rowCat = cats.find(c => String(c.id) === String(r.catId));
-    const rowCatOpts = opts.filter(o => String(o.catId) === String(r.catId));
+  const batchItems = rows.filter(r => _hasBadgeTemplate(r.catId)).map(r => {
     const p = {};
     if (r.options) r.options.split('||').forEach(s => { const i = s.indexOf(':'); if (i >= 0) p[s.slice(0,i).trim()] = s.slice(i+1).trim(); });
-    return {parsed: p, catId: r.catId, ..._badgeEligibility(rowCat?.name, rowCatOpts, p, r.catId)};
-  }).filter(x => x.isBadge);
-  const batchItems = badgeEligibleRows.map(x => ({name: x.parsed['Text']||'', backing: x.backing, colours: x.parsed['Colours']||'', catId: x.catId||''}));
-  const bulkBadgeBtn = badgeEligibleRows.length
+    return {name: p['Text']||'', catId: r.catId||''};
+  });
+  const bulkBadgeBtn = batchItems.length
     ? '<button class="sort-btn-main ml-auto" onclick="openBadgeBatchModal(' + esc(JSON.stringify(batchItems)) + ',\'' + escJsAttr(first.customer) + '\')"><i class="ti ti-badges"></i> Download All</button>'
     : '';
 
