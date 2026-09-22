@@ -17,26 +17,45 @@
   tr.best { background: var(--hi); font-weight: 600; }
   a { color: inherit; }
   .err { color: #c00; }
+  .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+  .filters label { display: flex; gap: 4px; align-items: center; }
+  .filters input[type=search] { padding: 6px 8px; font: inherit; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); flex: 1; min-width: 160px; }
 </style>
 </head>
 <body>
 <h1>PepsiWatch</h1>
 <div class="meta" id="meta">Loading…</div>
+<div class="filters" id="filters">
+  <label><input type="checkbox" value="Coles" checked> Coles</label>
+  <label><input type="checkbox" value="Woolworths" checked> Woolworths</label>
+  <label><input type="checkbox" value="Amazon" checked> Amazon</label>
+  <input type="search" id="q" placeholder="Filter products, e.g. cans, 1.25L, vanilla">
+</div>
 <table>
   <thead><tr><th>Store</th><th>Product</th><th class="num">Price</th><th class="num">Litres</th><th class="num">$/L</th></tr></thead>
   <tbody id="rows"></tbody>
 </table>
 <script>
-fetch('prices.json?' + Date.now()).then(r => r.json()).then(d => {
-  const best = Math.min(...d.rows.map(r => r.per_litre));
-  document.getElementById('rows').innerHTML = d.rows.map(r => `
+const $ = id => document.getElementById(id);
+let rows = [];
+function render() {
+  const stores = [...document.querySelectorAll('#filters input:checked')].map(c => c.value);
+  const terms = $('q').value.toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = rows.filter(r => stores.includes(r.store) && terms.every(t => r.name.toLowerCase().includes(t)));
+  const best = Math.min(...shown.map(r => r.per_litre));
+  $('rows').innerHTML = shown.map(r => `
     <tr class="${r.per_litre === best ? 'best' : ''}">
       <td>${r.store}</td>
       <td><a href="${r.url}" target="_blank" rel="noopener">${r.name}</a></td>
       <td class="num">$${r.price.toFixed(2)}</td>
       <td class="num">${r.litres}</td>
       <td class="num">$${r.per_litre.toFixed(2)}</td>
-    </tr>`).join('');
+    </tr>`).join('') || '<tr><td colspan="5">Nothing matches</td></tr>';
+}
+$('filters').addEventListener('input', render);
+fetch('prices.json?' + Date.now()).then(r => r.json()).then(d => {
+  rows = d.rows;
+  render();
   const errs = Object.keys(d.errors);
   document.getElementById('meta').innerHTML =
     `Updated ${new Date(d.updated).toLocaleString('en-AU')} · cheapest per litre highlighted` +
