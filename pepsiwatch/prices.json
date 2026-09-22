@@ -1,6 +1,10 @@
 {
- "updated": "2026-09-22T07:14:58Z",
- "errors": {},
+ "updated": "2026-09-22T07:16:55Z",
+ "errors": {
+  "Coles": "JSONDecodeError('Expecting value: line 1 column 1 (char 0)')",
+  "Woolworths": "CalledProcessError(22, ['curl', '-sS', '--fail', '--compressed', '--max-time', '30', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36', '-c', 'cookies.txt', '-b', 'cookies.txt', 'https://www.woolworths.com.au/'])",
+  "Amazon": "CalledProcessError(22, ['curl', '-sS', '--fail', '--compressed', '--max-time', '30', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36', '-c', 'cookies.txt', '-b', 'cookies.txt', 'https://www.amazon.com.au/s?k=pepsi+max', '-H', 'Accept-Language: en-AU,en;q=0.9'])"
+ },
  "rows": [
   {
    "store": "Coles",
