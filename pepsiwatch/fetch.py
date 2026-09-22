@@ -102,7 +102,10 @@ for fn in (coles, woolworths, amazon):
 if os.path.exists(JAR):
     os.remove(JAR)
 rows.sort(key=lambda r: r["per_litre"])
-json.dump({"updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "errors": errors, "rows": rows}, open("prices.json", "w"), indent=1)
+iv = re.fullmatch(r"(\d+)([smhd])", os.environ.get("INTERVAL", "6h"))  # same INTERVAL run.sh sleeps on
+secs = int(iv.group(1)) * {"s": 1, "m": 60, "h": 3600, "d": 86400}[iv.group(2)]
+stamp = lambda t: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+json.dump({"updated": stamp(time.time()), "next": stamp(time.time() + secs), "errors": errors, "rows": rows}, open("prices.json", "w"), indent=1)
 print(f"{len(rows)} rows, errors={errors}")
 
 if __name__ == "__main__" and "--test" in sys.argv:

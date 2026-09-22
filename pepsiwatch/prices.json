@@ -1,10 +1,7 @@
 {
- "updated": "2026-09-22T07:16:55Z",
- "errors": {
-  "Coles": "JSONDecodeError('Expecting value: line 1 column 1 (char 0)')",
-  "Woolworths": "CalledProcessError(22, ['curl', '-sS', '--fail', '--compressed', '--max-time', '30', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36', '-c', 'cookies.txt', '-b', 'cookies.txt', 'https://www.woolworths.com.au/'])",
-  "Amazon": "CalledProcessError(22, ['curl', '-sS', '--fail', '--compressed', '--max-time', '30', '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36', '-c', 'cookies.txt', '-b', 'cookies.txt', 'https://www.amazon.com.au/s?k=pepsi+max', '-H', 'Accept-Language: en-AU,en;q=0.9'])"
- },
+ "updated": "2026-09-22T07:40:25Z",
+ "next": "2026-09-22T13:40:25Z",
+ "errors": {},
  "rows": [
   {
    "store": "Coles",
@@ -219,6 +216,14 @@
    "name": "Pepsi Max No Sugar Vanilla Soft Drink Cans 375mL x 10 pack",
    "price": 20,
    "url": "https://www.woolworths.com.au/shop/productdetails/580912",
+   "litres": 3.75,
+   "per_litre": 5.33
+  },
+  {
+   "store": "Amazon",
+   "name": "Pepsi Max Zero Sugar Soft Drink Can, 10 X 375ml (Pack of 2)",
+   "price": 20.0,
+   "url": "https://www.amazon.com.au/dp/B0FFST86TQ",
    "litres": 3.75,
    "per_litre": 5.33
   },

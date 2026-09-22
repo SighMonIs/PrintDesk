@@ -94,9 +94,14 @@ fetch('prices.json?' + Date.now()).then(r => r.json()).then(d => {
   fill('type', 'type'); fill('size', 'size'); fill('flavour', 'flavour');
   render();
   const errs = Object.keys(d.errors);
-  document.getElementById('meta').innerHTML =
-    `Updated ${new Date(d.updated).toLocaleString('en-AU')} · cheapest per litre highlighted` +
-    (errs.length ? ` · <span class="err">${errs.join(', ')} unreachable, showing last known prices</span>` : '');
+  const tick = () => {
+    const left = Math.round((new Date(d.next) - Date.now()) / 1000);
+    const next = left > 0 ? `next scrape in ${Math.floor(left / 3600)}h ${Math.floor(left % 3600 / 60)}m ${left % 60}s` : 'next scrape overdue';
+    $('meta').innerHTML =
+      `Updated ${new Date(d.updated).toLocaleString('en-AU')} · ${next} · cheapest per litre highlighted` +
+      (errs.length ? ` · <span class="err">${errs.join(', ')} unreachable, showing last known prices</span>` : '');
+  };
+  tick(); setInterval(tick, 1000);
 }).catch(e => document.getElementById('meta').textContent = 'Failed to load prices: ' + e);
 </script>
 </body>
