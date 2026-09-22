@@ -12,7 +12,8 @@
   .meta { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
-  th { font-size: 13px; color: var(--muted); text-transform: uppercase; }
+  th { font-size: 13px; color: var(--muted); text-transform: uppercase; cursor: pointer; user-select: none; }
+  th.asc::after { content: " B2"; } th.desc::after { content: " BC"; }
   td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   tr.best { background: var(--hi); font-weight: 600; }
   a { color: inherit; }
@@ -36,12 +37,12 @@
   <input type="search" id="q" placeholder="Filter products, e.g. cans, 1.25L, vanilla">
 </div>
 <table>
-  <thead><tr><th>Store</th><th>Product</th><th class="num">Price</th><th class="num">Litres</th><th class="num">$/L</th></tr></thead>
+  <thead><tr><th data-key="store">Store</th><th data-key="name">Product</th><th class="num" data-key="price">Price</th><th class="num" data-key="litres">Litres</th><th class="num" data-key="per_litre">$/L</th></tr></thead>
   <tbody id="rows"></tbody>
 </table>
 <script>
 const $ = id => document.getElementById(id);
-let rows = [];
+let rows = [], sort = { key: 'per_litre', dir: 1 };
 // Derive type / unit size / flavour from the product name — the stores don't give them as fields.
 function tag(r) {
   const n = r.name.toLowerCase();
@@ -60,6 +61,8 @@ function render() {
   const terms = $('q').value.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = rows.filter(r => stores.includes(r.store) && terms.every(t => r.name.toLowerCase().includes(t))
     && ['type', 'size', 'flavour'].every(k => !$(k).value || r[k] === $(k).value));
+  shown.sort((a, b) => (typeof a[sort.key] === 'number' ? a[sort.key] - b[sort.key] : a[sort.key].localeCompare(b[sort.key])) * sort.dir || a.per_litre - b.per_litre);
+  document.querySelectorAll('th').forEach(th => th.className = th.className.replace(/ ?(asc|desc)/, '') + (th.dataset.key === sort.key ? (sort.dir > 0 ? ' asc' : ' desc') : ''));
   const best = Math.min(...shown.map(r => r.per_litre));
   $('rows').innerHTML = shown.map(r => `
     <tr class="${r.per_litre === best ? 'best' : ''}">
@@ -71,6 +74,12 @@ function render() {
     </tr>`).join('') || '<tr><td colspan="5">Nothing matches</td></tr>';
 }
 $('filters').addEventListener('input', render);
+document.querySelector('thead').addEventListener('click', e => {
+  const key = e.target.dataset.key;
+  if (!key) return;
+  sort = { key, dir: sort.key === key ? -sort.dir : 1 };
+  render();
+});
 fetch('prices.json?' + Date.now()).then(r => r.json()).then(d => {
   rows = d.rows;
   rows.forEach(tag);
