@@ -19,6 +19,7 @@
   .err { color: #c00; }
   .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
   .filters label { display: flex; gap: 4px; align-items: center; }
+  .filters select { padding: 6px 4px; font: inherit; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); }
   .filters input[type=search] { padding: 6px 8px; font: inherit; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); flex: 1; min-width: 160px; }
 </style>
 </head>
@@ -29,6 +30,9 @@
   <label><input type="checkbox" value="Coles" checked> Coles</label>
   <label><input type="checkbox" value="Woolworths" checked> Woolworths</label>
   <label><input type="checkbox" value="Amazon" checked> Amazon</label>
+  <select id="type"><option value="">All types</option></select>
+  <select id="size"><option value="">All sizes</option></select>
+  <select id="flavour"><option value="">All flavours</option></select>
   <input type="search" id="q" placeholder="Filter products, e.g. cans, 1.25L, vanilla">
 </div>
 <table>
@@ -38,10 +42,24 @@
 <script>
 const $ = id => document.getElementById(id);
 let rows = [];
+// Derive type / unit size / flavour from the product name — the stores don't give them as fields.
+function tag(r) {
+  const n = r.name.toLowerCase();
+  const m = n.match(/(\d+(?:\.\d+)?)\s*(ml|l|litre)\b/);
+  const ml = m ? +m[1] * (m[2] === 'ml' ? 1 : 1000) : 0;
+  r.type = /\bcans?\b/.test(n) ? 'Can' : 'Bottle';
+  r.size = ml >= 1000 ? ml / 1000 + 'L' : ml + 'mL';
+  r.flavour = (n.match(/vanilla|raspberry|creaming soda|mango|lime|caffeine free/) || ['Original'])[0].replace(/\b\w/g, c => c.toUpperCase());
+}
+function fill(id, key) {
+  const vals = [...new Set(rows.map(r => r[key]))].sort((a, b) => key === 'size' ? parseFloat(a) * (a.endsWith('mL') ? 1 : 1000) - parseFloat(b) * (b.endsWith('mL') ? 1 : 1000) : a.localeCompare(b));
+  $(id).innerHTML += vals.map(v => `<option>${v}</option>`).join('');
+}
 function render() {
   const stores = [...document.querySelectorAll('#filters input:checked')].map(c => c.value);
   const terms = $('q').value.toLowerCase().split(/\s+/).filter(Boolean);
-  const shown = rows.filter(r => stores.includes(r.store) && terms.every(t => r.name.toLowerCase().includes(t)));
+  const shown = rows.filter(r => stores.includes(r.store) && terms.every(t => r.name.toLowerCase().includes(t))
+    && ['type', 'size', 'flavour'].every(k => !$(k).value || r[k] === $(k).value));
   const best = Math.min(...shown.map(r => r.per_litre));
   $('rows').innerHTML = shown.map(r => `
     <tr class="${r.per_litre === best ? 'best' : ''}">
@@ -55,6 +73,8 @@ function render() {
 $('filters').addEventListener('input', render);
 fetch('prices.json?' + Date.now()).then(r => r.json()).then(d => {
   rows = d.rows;
+  rows.forEach(tag);
+  fill('type', 'type'); fill('size', 'size'); fill('flavour', 'flavour');
   render();
   const errs = Object.keys(d.errors);
   document.getElementById('meta').innerHTML =
