@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PepsiWatch</title>
+<style>
+  :root { --bg: #fff; --fg: #111; --muted: #666; --line: #ddd; --hi: #dff5e1; --pepsi: #004b93; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #121212; --fg: #eee; --muted: #999; --line: #333; --hi: #1f4d2a; --pepsi: #4a90e2; } }
+  body { margin: 0 auto; max-width: 900px; padding: 16px; font: 16px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  h1 { color: var(--pepsi); margin: 0 0 4px; }
+  .meta { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  th { font-size: 13px; color: var(--muted); text-transform: uppercase; }
+  td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  tr.best { background: var(--hi); font-weight: 600; }
+  a { color: inherit; }
+  .err { color: #c00; }
+</style>
+</head>
+<body>
+<h1>PepsiWatch</h1>
+<div class="meta" id="meta">Loading…</div>
+<table>
+  <thead><tr><th>Store</th><th>Product</th><th class="num">Price</th><th class="num">Litres</th><th class="num">$/L</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<script>
+fetch('prices.json?' + Date.now()).then(r => r.json()).then(d => {
+  const best = Math.min(...d.rows.map(r => r.per_litre));
+  document.getElementById('rows').innerHTML = d.rows.map(r => `
+    <tr class="${r.per_litre === best ? 'best' : ''}">
+      <td>${r.store}</td>
+      <td><a href="${r.url}" target="_blank" rel="noopener">${r.name}</a></td>
+      <td class="num">$${r.price.toFixed(2)}</td>
+      <td class="num">${r.litres}</td>
+      <td class="num">$${r.per_litre.toFixed(2)}</td>
+    </tr>`).join('');
+  const errs = Object.keys(d.errors);
+  document.getElementById('meta').innerHTML =
+    `Updated ${new Date(d.updated).toLocaleString('en-AU')} · cheapest per litre highlighted` +
+    (errs.length ? ` · <span class="err">${errs.join(', ')} unreachable, showing last known prices</span>` : '');
+}).catch(e => document.getElementById('meta').textContent = 'Failed to load prices: ' + e);
+</script>
+</body>
+</html>
