@@ -1,6 +1,6 @@
 {
- "updated": "2026-09-23T13:39:19Z",
- "next": "2026-09-23T19:39:19Z",
+ "updated": "2026-09-23T19:39:26Z",
+ "next": "2026-09-24T01:39:26Z",
  "errors": {},
  "rows": [
   {
@@ -174,10 +174,10 @@
   {
    "store": "Amazon",
    "name": "Pepsi Max Soft Drink 600 ml (Pack of 24)",
-   "price": 66.8,
+   "price": 67.17,
    "url": "https://www.amazon.com.au/dp/B0CRH85CWN",
    "litres": 14.4,
-   "per_litre": 4.64
+   "per_litre": 4.66
   },
   {
    "store": "Amazon",
@@ -186,6 +186,14 @@
    "url": "https://www.amazon.com.au/dp/B0D9XY4G17",
    "litres": 2.0,
    "per_litre": 4.67
+  },
+  {
+   "store": "Amazon",
+   "name": "Pepsi Max Variety Pack: Classic & Vanilla Edition CAPI Fruit Soda - Blood Orange 250ml x 24 More results",
+   "price": 30.0,
+   "url": "https://www.amazon.com.au/dp/B0CCQK6C7Q",
+   "litres": 6.0,
+   "per_litre": 5.0
   },
   {
    "store": "Coles",
