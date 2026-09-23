@@ -1,6 +1,6 @@
 {
- "updated": "2026-09-23T01:39:04Z",
- "next": "2026-09-23T07:39:04Z",
+ "updated": "2026-09-23T07:39:12Z",
+ "next": "2026-09-23T13:39:12Z",
  "errors": {},
  "rows": [
   {
@@ -100,14 +100,6 @@
    "per_litre": 2.67
   },
   {
-   "store": "Amazon",
-   "name": "Pepsi Max Zero Sugar Cola Soft Drink, 12 x 1.25L",
-   "price": 40.45,
-   "url": "https://www.amazon.com.au/dp/B07XDZ5D5N",
-   "litres": 15.0,
-   "per_litre": 2.7
-  },
-  {
    "store": "Coles",
    "name": "Pepsi Max No Sugar Cola Soft Drink Bottle 1.25L",
    "price": 4,
@@ -121,6 +113,14 @@
    "price": 4,
    "url": "https://www.coles.com.au/product/2765494",
    "litres": 1.25,
+   "per_litre": 3.2
+  },
+  {
+   "store": "Amazon",
+   "name": "Pepsi Max Zero Sugar Cola Soft Drink, 12 x 1.25L",
+   "price": 48.0,
+   "url": "https://www.amazon.com.au/dp/B07XDZ5D5N",
+   "litres": 15.0,
    "per_litre": 3.2
   },
   {
