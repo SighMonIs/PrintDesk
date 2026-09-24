@@ -1,8 +1,16 @@
 {
- "updated": "2026-09-24T13:39:57Z",
- "next": "2026-09-24T19:39:57Z",
+ "updated": "2026-09-24T19:40:06Z",
+ "next": "2026-09-25T01:40:06Z",
  "errors": {},
  "rows": [
+  {
+   "store": "Amazon",
+   "name": "Pepsi Max Manta Soft Drink 2 Litre Customers frequently viewed Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 24) Pepsi Cola Soft Drink Can 375 ml (Pack of 24) Coca-Cola Zero Sugar Soft Drink Multipack Cans 30 x 375mL Coca-Cola Zero Sugar Soft Drink Multipack Mini Cans 6 x 250mL Sunkist Zero Sugar Cube Orange Soft Drink Cans 375 ml (Pack of 24) More results",
+   "price": 3.8,
+   "url": "https://www.amazon.com.au/dp/B0H2HN57ZS",
+   "litres": 48.0,
+   "per_litre": 0.08
+  },
   {
    "store": "Woolworths",
    "name": "Pepsi Max Cola No Sugar Soft Drink Bottle 1.25L",
@@ -41,14 +49,6 @@
    "price": 11.4,
    "url": "https://www.amazon.com.au/dp/B0HBQ5KBR8",
    "litres": 6.0,
-   "per_litre": 1.9
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Manta Soft Drink 2 Litre",
-   "price": 3.8,
-   "url": "https://www.amazon.com.au/dp/B0H2HN57ZS",
-   "litres": 2.0,
    "per_litre": 1.9
   },
   {
@@ -140,14 +140,6 @@
    "per_litre": 3.2
   },
   {
-   "store": "Amazon",
-   "name": "Pepsi Max Vanilla Zero Sugar Cola, 12 x 1.25L",
-   "price": 48.0,
-   "url": "https://www.amazon.com.au/dp/B086G8239B",
-   "litres": 15.0,
-   "per_litre": 3.2
-  },
-  {
    "store": "Coles",
    "name": "Pepsi Max Soft Drink Zero Sugar Mini Cans 250ml 6 Pack",
    "price": 5.7,
@@ -198,10 +190,10 @@
   {
    "store": "Amazon",
    "name": "Pepsi Max Soft Drink 600 ml (Pack of 24)",
-   "price": 67.17,
+   "price": 66.98,
    "url": "https://www.amazon.com.au/dp/B0CRH85CWN",
    "litres": 14.4,
-   "per_litre": 4.66
+   "per_litre": 4.65
   },
   {
    "store": "Amazon",
@@ -277,7 +269,7 @@
   },
   {
    "store": "Amazon",
-   "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml (Pack of 3) CAPI Fruit Soda - Blood Orange 250ml x 24 More results",
+   "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml (Pack of 3)",
    "price": 30.0,
    "url": "https://www.amazon.com.au/dp/B0FFSM23V7",
    "litres": 3.75,
