@@ -1,6 +1,6 @@
 {
- "updated": "2026-09-25T07:41:22Z",
- "next": "2026-09-25T13:41:22Z",
+ "updated": "2026-09-25T13:41:29Z",
+ "next": "2026-09-25T19:41:29Z",
  "errors": {},
  "rows": [
   {
@@ -258,14 +258,6 @@
    "url": "https://www.woolworths.com.au/shop/productdetails/175763",
    "litres": 0.6,
    "per_litre": 7.0
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml (Pack of 3) CAPI Fruit Soda - Blood Orange 250ml x 24 More results",
-   "price": 30.0,
-   "url": "https://www.amazon.com.au/dp/B0FFSM23V7",
-   "litres": 3.75,
-   "per_litre": 8.0
   },
   {
    "store": "Woolworths",
