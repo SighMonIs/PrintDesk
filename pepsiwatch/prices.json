@@ -1,6 +1,6 @@
 {
- "updated": "2026-09-26T19:42:33Z",
- "next": "2026-09-27T01:42:33Z",
+ "updated": "2026-09-27T01:42:40Z",
+ "next": "2026-09-27T07:42:40Z",
  "errors": {},
  "rows": [
   {
@@ -165,14 +165,6 @@
   },
   {
    "store": "Amazon",
-   "name": "Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 24)",
-   "price": 39.5,
-   "url": "https://www.amazon.com.au/dp/B08JVVQ791",
-   "litres": 9.0,
-   "per_litre": 4.39
-  },
-  {
-   "store": "Amazon",
    "name": "Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 48)",
    "price": 79.0,
    "url": "https://www.amazon.com.au/dp/B0G8YVQBF2",
@@ -186,14 +178,6 @@
    "url": "https://www.woolworths.com.au/shop/productdetails/1112891873",
    "litres": 11.25,
    "per_litre": 4.44
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Zero Sugar Cola Soft Drink, 2L",
-   "price": 9.33,
-   "url": "https://www.amazon.com.au/dp/B0D9XY4G17",
-   "litres": 2.0,
-   "per_litre": 4.67
   },
   {
    "store": "Coles",
@@ -274,14 +258,6 @@
    "url": "https://www.woolworths.com.au/shop/productdetails/6042410",
    "litres": 0.25,
    "per_litre": 10.6
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Zero Sugar Soft Drink Can, 10 X 375ml (Pack of 2) Customers frequently viewed Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 24) Pepsi Cola Soft Drink Can 375 ml (Pack of 24) Sunkist Zero Sugar Cube Orange Soft Drink Cans 375 ml (Pack of 24) Mountain Dew Citrus Energised Soft Drink Can 375 ml (Pack of 24) Coca-Cola Zero Sugar Soft Drink Multipack Cans 36 x 375mL More results",
-   "price": 40.0,
-   "url": "https://www.amazon.com.au/dp/B0FFST86TQ",
-   "litres": 3.75,
-   "per_litre": 10.67
   }
  ]
 }
