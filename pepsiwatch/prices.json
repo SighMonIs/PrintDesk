@@ -1,6 +1,6 @@
 {
- "updated": "2026-09-27T01:42:40Z",
- "next": "2026-09-27T07:42:40Z",
+ "updated": "2026-09-27T07:42:56Z",
+ "next": "2026-09-27T13:42:56Z",
  "errors": {},
  "rows": [
   {
@@ -205,7 +205,7 @@
   },
   {
    "store": "Amazon",
-   "name": "Pepsi Max Soda Shop Vanilla Soft Drink 600 ml (Pack of 24)",
+   "name": "Pepsi Max Soda Shop Vanilla Soft Drink 600 ml (Pack of 24) More results",
    "price": 81.99,
    "url": "https://www.amazon.com.au/dp/B0CRH8LV8P",
    "litres": 14.4,
@@ -252,12 +252,28 @@
    "per_litre": 7.0
   },
   {
+   "store": "Amazon",
+   "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml (Pack of 3) CAPI Fruit Soda - Blood Orange 250ml x 24 More results",
+   "price": 30.0,
+   "url": "https://www.amazon.com.au/dp/B0FFSM23V7",
+   "litres": 3.75,
+   "per_litre": 8.0
+  },
+  {
    "store": "Woolworths",
    "name": "Pepsi Max No Sugar Cola Soft Drink Single Mini Can 250mL",
    "price": 2.65,
    "url": "https://www.woolworths.com.au/shop/productdetails/6042410",
    "litres": 0.25,
    "per_litre": 10.6
+  },
+  {
+   "store": "Amazon",
+   "name": "Pepsi Max Zero Sugar Soft Drink Can, 10 X 375ml (Pack of 2)",
+   "price": 40.0,
+   "url": "https://www.amazon.com.au/dp/B0FFST86TQ",
+   "litres": 3.75,
+   "per_litre": 10.67
   }
  ]
 }
