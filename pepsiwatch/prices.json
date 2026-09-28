@@ -1,6 +1,6 @@
 {
- "updated": "2026-09-28T01:43:18Z",
- "next": "2026-09-28T07:43:18Z",
+ "updated": "2026-09-28T07:43:26Z",
+ "next": "2026-09-28T13:43:26Z",
  "errors": {},
  "rows": [
   {
@@ -100,6 +100,14 @@
    "per_litre": 2.67
   },
   {
+   "store": "Amazon",
+   "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml",
+   "price": 10.0,
+   "url": "https://www.amazon.com.au/dp/B0BBYKPL55",
+   "litres": 3.75,
+   "per_litre": 2.67
+  },
+  {
    "store": "Coles",
    "name": "Pepsi Max No Sugar Cola Soft Drink Bottle 1.25L",
    "price": 4,
@@ -113,14 +121,6 @@
    "price": 4,
    "url": "https://www.coles.com.au/product/2765494",
    "litres": 1.25,
-   "per_litre": 3.2
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Zero Sugar Cola Soft Drink, 12 x 1.25L",
-   "price": 48.0,
-   "url": "https://www.amazon.com.au/dp/B07XDZ5D5N",
-   "litres": 15.0,
    "per_litre": 3.2
   },
   {
@@ -173,15 +173,7 @@
   },
   {
    "store": "Amazon",
-   "name": "Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 24)",
-   "price": 39.5,
-   "url": "https://www.amazon.com.au/dp/B08JVVQ791",
-   "litres": 9.0,
-   "per_litre": 4.39
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 48) Customers frequently viewed Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 24) Pepsi Cola Soft Drink Can 375 ml (Pack of 24) Coca-Cola Classic Soft Drink Multipack Mini Cans 6 x 250mL Coca-Cola Classic Soft Drink Multipack Cans 10 x 375mL Coca-Cola Zero Sugar Soft Drink Multipack Mini Cans 6 x 250mL More results",
+   "name": "Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 48)",
    "price": 79.0,
    "url": "https://www.amazon.com.au/dp/B0G8YVQBF2",
    "litres": 18.0,
@@ -208,6 +200,14 @@
    "name": "Pepsi Max Soft Drink No Sugar Cans Multipack 375ml 10 Pack",
    "price": 20,
    "url": "https://www.coles.com.au/product/2684166",
+   "litres": 3.75,
+   "per_litre": 5.33
+  },
+  {
+   "store": "Amazon",
+   "name": "Pepsi Max Zero Sugar Soft Drink Can, 10 X 375ml",
+   "price": 20.0,
+   "url": "https://www.amazon.com.au/dp/B0BBYDZJX3",
    "litres": 3.75,
    "per_litre": 5.33
   },
