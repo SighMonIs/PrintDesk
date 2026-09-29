@@ -1,6 +1,6 @@
 {
- "updated": "2026-09-29T07:43:55Z",
- "next": "2026-09-29T13:43:55Z",
+ "updated": "2026-09-29T13:44:03Z",
+ "next": "2026-09-29T19:44:03Z",
  "errors": {},
  "rows": [
   {
@@ -66,14 +66,6 @@
    "url": "https://www.amazon.com.au/dp/B0H2HN57ZS",
    "litres": 2.0,
    "per_litre": 1.9
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 24)",
-   "price": 21.0,
-   "url": "https://www.amazon.com.au/dp/B08JVVQ791",
-   "litres": 9.0,
-   "per_litre": 2.33
   },
   {
    "store": "Coles",
@@ -172,14 +164,6 @@
    "per_litre": 4.39
   },
   {
-   "store": "Amazon",
-   "name": "Pepsi Max No Sugar Soft Drink Can 375 ml (Pack of 48)",
-   "price": 79.0,
-   "url": "https://www.amazon.com.au/dp/B0G8YVQBF2",
-   "litres": 18.0,
-   "per_litre": 4.39
-  },
-  {
    "store": "Woolworths",
    "name": "Schweppes 375Ml Pepsi Max 30 Pack 9000ML",
    "price": 50,
@@ -216,14 +200,6 @@
    "name": "Schweppes 600Ml Pepsi Max 24 Pack 14400ML",
    "price": 81.99,
    "url": "https://www.woolworths.com.au/shop/productdetails/1099557771",
-   "litres": 14.4,
-   "per_litre": 5.69
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Soda Shop Vanilla Soft Drink 600 ml (Pack of 24)",
-   "price": 81.99,
-   "url": "https://www.amazon.com.au/dp/B0CRH8LV8P",
    "litres": 14.4,
    "per_litre": 5.69
   },
@@ -274,6 +250,14 @@
    "url": "https://www.woolworths.com.au/shop/productdetails/6042410",
    "litres": 0.25,
    "per_litre": 10.6
+  },
+  {
+   "store": "Amazon",
+   "name": "Pepsi Max Zero Sugar Soft Drink Can, 10 X 375ml (Pack of 2)",
+   "price": 40.0,
+   "url": "https://www.amazon.com.au/dp/B0FFST86TQ",
+   "litres": 3.75,
+   "per_litre": 10.67
   }
  ]
 }
