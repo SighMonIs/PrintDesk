@@ -1,6 +1,6 @@
 {
- "updated": "2026-09-30T07:45:06Z",
- "next": "2026-09-30T13:45:06Z",
+ "updated": "2026-09-30T13:45:47Z",
+ "next": "2026-09-30T19:45:47Z",
  "errors": {},
  "rows": [
   {
@@ -13,7 +13,7 @@
   },
   {
    "store": "Amazon",
-   "name": "Pepsi Max Vanilla Zero Sugar Cola, 12 x 1.25L CAPI Fruit Soda - Blood Orange 250ml x 24 More results",
+   "name": "Pepsi Max Vanilla Zero Sugar Cola, 12 x 1.25L",
    "price": 24.0,
    "url": "https://www.amazon.com.au/dp/B086G8239B",
    "litres": 15.0,
@@ -266,14 +266,6 @@
    "url": "https://www.woolworths.com.au/shop/productdetails/6042410",
    "litres": 0.25,
    "per_litre": 10.6
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml (Pack of 3)",
-   "price": 60.0,
-   "url": "https://www.amazon.com.au/dp/B0FFSM23V7",
-   "litres": 3.75,
-   "per_litre": 16.0
   }
  ]
 }
