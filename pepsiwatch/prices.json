@@ -1,6 +1,6 @@
 {
- "updated": "2026-10-01T19:46:24Z",
- "next": "2026-10-02T01:46:24Z",
+ "updated": "2026-10-02T01:46:31Z",
+ "next": "2026-10-02T07:46:31Z",
  "errors": {},
  "rows": [
   {
@@ -274,14 +274,6 @@
    "url": "https://www.woolworths.com.au/shop/productdetails/6042410",
    "litres": 0.25,
    "per_litre": 10.6
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml (Pack of 3)",
-   "price": 60.0,
-   "url": "https://www.amazon.com.au/dp/B0FFSM23V7",
-   "litres": 3.75,
-   "per_litre": 16.0
   }
  ]
 }
