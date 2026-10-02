@@ -1,6 +1,6 @@
 {
- "updated": "2026-10-02T01:46:31Z",
- "next": "2026-10-02T07:46:31Z",
+ "updated": "2026-10-02T07:46:38Z",
+ "next": "2026-10-02T13:46:38Z",
  "errors": {},
  "rows": [
   {
@@ -234,14 +234,6 @@
    "url": "https://www.coles.com.au/product/1164455",
    "litres": 1.5,
    "per_litre": 6.33
-  },
-  {
-   "store": "Woolworths",
-   "name": "Pepsi Max 600ml x 24 ",
-   "price": 95.95,
-   "url": "https://www.woolworths.com.au/shop/productdetails/1121216449",
-   "litres": 14.4,
-   "per_litre": 6.66
   },
   {
    "store": "Woolworths",
