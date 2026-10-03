@@ -1,6 +1,6 @@
 {
- "updated": "2026-10-03T13:47:45Z",
- "next": "2026-10-03T19:47:45Z",
+ "updated": "2026-10-03T19:48:03Z",
+ "next": "2026-10-04T01:48:03Z",
  "errors": {},
  "rows": [
   {
@@ -213,7 +213,7 @@
   },
   {
    "store": "Amazon",
-   "name": "Pepsi Max Soda Shop Vanilla Soft Drink 600 ml (Pack of 24) More results",
+   "name": "Pepsi Max Soda Shop Vanilla Soft Drink 600 ml (Pack of 24)",
    "price": 81.99,
    "url": "https://www.amazon.com.au/dp/B0CRH8LV8P",
    "litres": 14.4,
@@ -258,6 +258,14 @@
    "url": "https://www.woolworths.com.au/shop/productdetails/6042410",
    "litres": 0.25,
    "per_litre": 10.6
+  },
+  {
+   "store": "Amazon",
+   "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml (Pack of 3)",
+   "price": 60.0,
+   "url": "https://www.amazon.com.au/dp/B0FFSM23V7",
+   "litres": 3.75,
+   "per_litre": 16.0
   }
  ]
 }
