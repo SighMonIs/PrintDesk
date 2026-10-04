@@ -1,7 +1,9 @@
 {
- "updated": "2026-10-03T19:48:03Z",
- "next": "2026-10-04T01:48:03Z",
- "errors": {},
+ "updated": "2026-10-04T01:48:50Z",
+ "next": "2026-10-04T07:48:50Z",
+ "errors": {
+  "Amazon": "ValueError('no products parsed (bot wall / blank page?)')"
+ },
  "rows": [
   {
    "store": "Amazon",
