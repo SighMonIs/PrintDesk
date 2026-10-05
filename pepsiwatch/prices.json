@@ -1,24 +1,8 @@
 {
- "updated": "2026-10-05T01:49:36Z",
- "next": "2026-10-05T07:49:36Z",
+ "updated": "2026-10-05T07:49:54Z",
+ "next": "2026-10-05T13:49:54Z",
  "errors": {},
  "rows": [
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Zero Sugar Cola Soft Drink, 12 x 1.25L",
-   "price": 24.0,
-   "url": "https://www.amazon.com.au/dp/B07XDZ5D5N",
-   "litres": 15.0,
-   "per_litre": 1.6
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Vanilla Zero Sugar Cola, 12 x 1.25L",
-   "price": 24.0,
-   "url": "https://www.amazon.com.au/dp/B086G8239B",
-   "litres": 15.0,
-   "per_litre": 1.6
-  },
   {
    "store": "Amazon",
    "name": "Pepsi Max Zero Sugar Cola Soft Drink, 12 x 1.25L",
@@ -205,14 +189,6 @@
   },
   {
    "store": "Amazon",
-   "name": "Pepsi Max Zero Sugar Soft Drink Can, 10 X 375ml (Pack of 2)",
-   "price": 20.0,
-   "url": "https://www.amazon.com.au/dp/B0FFST86TQ",
-   "litres": 3.75,
-   "per_litre": 5.33
-  },
-  {
-   "store": "Amazon",
    "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml",
    "price": 20.0,
    "url": "https://www.amazon.com.au/dp/B0BBYKPL55",
@@ -274,14 +250,6 @@
    "url": "https://www.woolworths.com.au/shop/productdetails/6042410",
    "litres": 0.25,
    "per_litre": 10.6
-  },
-  {
-   "store": "Amazon",
-   "name": "Pepsi Max Soda Shop Vanilla Cola, 10 X 375ml (Pack of 3)",
-   "price": 60.0,
-   "url": "https://www.amazon.com.au/dp/B0FFSM23V7",
-   "litres": 3.75,
-   "per_litre": 16.0
   }
  ]
 }
