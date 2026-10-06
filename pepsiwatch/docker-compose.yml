@@ -1,7 +1,0 @@
-services:
-  pepsiwatch:
-    build: .
-    restart: unless-stopped
-    environment:
-      GITHUB_TOKEN: ${GITHUB_TOKEN:?}
-      INTERVAL: 6h
