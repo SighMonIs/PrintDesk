@@ -1,0 +1,41 @@
+name: Apply migration
+
+# Manual only. There is no psql or Supabase CLI on the dev machine and the
+# database URL only exists as a repo secret, so this is how a migration file
+# in supabase/migrations gets applied to production.
+#
+# One named file per run, wrapped in a transaction: a failure rolls the whole
+# thing back rather than leaving half a schema behind.
+
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'Migration file, relative to supabase/migrations'
+        required: true
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install postgresql-client 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install --yes postgresql-client-17
+
+      - name: Show what will run
+        run: cat "supabase/migrations/${{ inputs.file }}"
+
+      - name: Apply
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          /usr/lib/postgresql/17/bin/psql "$DB_URL" \
+            --variable ON_ERROR_STOP=1 \
+            --single-transaction \
+            --echo-errors \
+            --file "supabase/migrations/${{ inputs.file }}"
