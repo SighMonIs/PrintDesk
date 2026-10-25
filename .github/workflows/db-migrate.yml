@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       file:
-        description: 'Migration file, relative to supabase/migrations'
+        description: 'SQL file to run, relative to the repo root'
         required: true
 
 jobs:
@@ -28,7 +28,7 @@ jobs:
           sudo apt-get install --yes postgresql-client-17
 
       - name: Show what will run
-        run: cat "supabase/migrations/${{ inputs.file }}"
+        run: cat "${{ inputs.file }}"
 
       - name: Apply
         env:
@@ -38,4 +38,4 @@ jobs:
             --variable ON_ERROR_STOP=1 \
             --single-transaction \
             --echo-errors \
-            --file "supabase/migrations/${{ inputs.file }}"
+            --file "${{ inputs.file }}"
