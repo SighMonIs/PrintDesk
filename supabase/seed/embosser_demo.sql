@@ -1,11 +1,23 @@
 -- Two demo EmbossMak3r designs, so there's something to export without
 -- drawing one first. Re-running is a no-op.
 
+-- Reports what is actually there, so a run says so in its own log rather
+-- than leaving you to take exit code 0 on trust.
+create or replace function report_demo_counts() returns void language plpgsql as $f$
+declare m int; e int;
+begin
+  select count(*) into m from embosser_models where name like 'Demo - %';
+  select count(*) into e from embosser_elements el
+    join embosser_models mo on mo.id = el.model_id where mo.name like 'Demo - %';
+  raise notice 'DEMO CHECK: models=% elements=%', m, e;
+end $f$;
+
 do $$
 declare mid bigint;
 begin
   if exists (select 1 from embosser_models where name like 'Demo - %') then
-    raise notice 'Demo designs already present — nothing to do.';
+    raise notice 'Demo designs already present - nothing inserted.';
+    perform report_demo_counts();
     return;
   end if;
 
@@ -27,4 +39,10 @@ begin
     (model_id, el_order, kind, name, content, font_size, pos_u, pos_v, size_w, size_h, rotation) values
     (mid, 0, 'circle', 'Spot',    '', 10, 5.2, 13, 5, 5,  0),
     (mid, 1, 'rect',   'Diamond', '', 10, 5.2,  6, 3, 3, 45);
+
+  perform report_demo_counts();
 end $$;
+
+-- Don't leave the helper behind: anything in public shows up as a PostgREST
+-- RPC endpoint.
+drop function report_demo_counts();
