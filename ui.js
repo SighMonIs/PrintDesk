@@ -97,11 +97,13 @@ function renderTable(){
   const fStatuses = getFilterValues('status');
   const fCats     = getFilterValues('cat');
   const fPays     = getFilterValues('pay');
+  const fPaid     = getFilterValues('paid');
 
   let list=orders.filter(o=>{
     if(fStatuses.length&&!fStatuses.includes(o.status||'Pending'))return false;
     if(fCats.length&&!fCats.includes(String(o.catId)))return false;
     if(fPays.length&&!fPays.includes(o.payment||''))return false;
+    if(fPaid.length&&!fPaid.includes(o.paid?'yes':'no'))return false;
     if(q){
       // Search: customer name, notes, and text option values only
       const textOptVals = o.options ? o.options.split('||')
@@ -1253,7 +1255,7 @@ const FILTER_DEFAULT_KEY = 'pd_filterDefault';
 
 function _currentFilterState(){
   const state = {};
-  ['status','cat','pay'].forEach(f=>{
+  ['status','cat','pay','paid'].forEach(f=>{
     state[f] = Array.from(document.querySelectorAll(`[data-filter="${f}"]`)).map(el=>({v:el.value, c:el.checked}));
   });
   return state;
@@ -1270,7 +1272,7 @@ function applyFilterDefault(){
   if(!raw) return; // no saved default — leave everything checked (existing behaviour)
   let saved;
   try{ saved = JSON.parse(raw); }catch(e){ return; }
-  ['status','cat','pay'].forEach(f=>{
+  ['status','cat','pay','paid'].forEach(f=>{
     (saved[f]||[]).forEach(({v,c})=>{
       const el = document.querySelector(`[data-filter="${f}"][value="${CSS.escape(v)}"]`);
       if(el) el.checked = c;
@@ -1292,7 +1294,7 @@ function _filterDiffCount(){
   let def = null;
   try{ def = raw ? JSON.parse(raw) : null; }catch(e){}
   const cur = _currentFilterState();
-  return ['status','cat','pay'].filter(f=>{
+  return ['status','cat','pay','paid'].filter(f=>{
     const c = cur[f];
     if(!c.length) return false;
     const d = def && def[f];
@@ -1858,6 +1860,10 @@ function _renderViewOrders() {
     + '<div id="filterCatChecks"></div>'
     + '<div class="filter-section-title filter-section-title-mt10">Payment</div>'
     + '<div id="filterPayChecks"></div>'
+    + '<div class="filter-section-title filter-section-title-mt10">Paid</div>'
+    + [['yes','Paid'],['no','Unpaid']].map(function(p){
+        return '<label class="filter-check"><input type="checkbox" data-filter="paid" value="' + p[0] + '" checked onchange="renderTable();updateFilterCount();updateFilterDefaultBtn()"> ' + p[1] + '</label>';
+      }).join('')
     + '<div class="filter-panel-divider"></div>'
     + '<button class="filter-save-default-btn" onclick="saveFilterAsDefault()"><i class="ti ti-device-floppy"></i> Save as default</button>'
     + '</div>'
