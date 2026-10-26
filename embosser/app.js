@@ -450,6 +450,10 @@ function updateSizeLabel(){
   el.textContent=`roller ⌀${p.dia.toFixed(1)} × ${p.width.toFixed(0)} mm · wrap ${p.wrap.toFixed(1)} mm`
     +(p.repeat>1?` · ${p.repeat}× tile ${p.tileU.toFixed(1)} mm`:'')
     +` · body ${(p.dia+2*p.margin).toFixed(0)} × ${(eCentreDist(p)+p.dia+2*p.margin).toFixed(0)} mm`;
+  const hint=document.getElementById('derivedHint');
+  if(hint) hint.innerHTML=`Worked out: roller <b>⌀${p.dia.toFixed(1)} mm</b>, `
+    +`<b>${p.teeth}</b>-tooth gears, <b>${p.nip.toFixed(2)} mm</b> gap, `
+    +`<b>${p.emboss.toFixed(1)} mm</b> emboss. Body <b>${(p.dia+2*p.margin).toFixed(0)} × ${(eCentreDist(p)+p.dia+2*p.margin).toFixed(0)} mm</b>.`;
 }
 
 // ── Flat view (the design surface, unrolled) ────────────────────
@@ -665,7 +669,7 @@ function onElChange(field,value){
 
 // ── Roller / body parameters ───────────────────────────────────
 const PRESETS={
-  card:   { label:'Business card — one card per turn', wrapMM:85.6, widthMM:54,  repeatCount:1 },
+  card:   { label:'Business card — 85.6 × 54', wrapMM:85.6, widthMM:54,  repeatCount:1 },
   half:   { label:'Half card — two per turn',          wrapMM:42.8, widthMM:54,  repeatCount:2 },
   pattern:{ label:'Pattern roller — ⌀20, 6 repeats',   wrapMM:62.83, widthMM:20, repeatCount:6 },
   strip:  { label:'Name strip — ⌀25, 12 mm wide',      wrapMM:78.54, widthMM:12, repeatCount:1 },
@@ -680,7 +684,7 @@ function onModelChange(field,value){
   if(!currentModel) return;
   currentModel[field]=value;
   markDirty();
-  if(field==='wrapMM'||field==='repeatCount'||field==='widthMM') updateSizeLabel();
+  updateSizeLabel();
   scheduleRender();
 }
 function buildParamsUI(){
@@ -692,21 +696,11 @@ function buildParamsUI(){
   box.innerHTML=
      row('Preset',`<select class="adv-text-input" style="width:150px" onchange="applyPreset(this.value);this.value=''"><option value="">Choose…</option>`
        +Object.entries(PRESETS).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join('')+'</select>')
-    +row('Wrap (mm)',num('wrapMM',10,400,0.1),'Design length around the roller. The diameter follows: ⌀ = wrap ÷ π')
-    +row('Roller width (mm)',num('widthMM',5,250,1),'Must be at least as wide as the card')
-    +row('Repeats around',num('repeatCount',1,24,1),'Tile the design this many times around the roller')
-    +row('Emboss height (mm)',num('embossMM',0.1,3,0.05))
-    +row('Paper (mm)',num('paperMM',0,2,0.05),'Card stock thickness — sets how much deeper the recess goes')
-    +row('Clearance (mm)',num('clearanceMM',0,1,0.05),'Extra width on the recess so the paper can fold in')
-    +row('Nip gap (mm)',num('nipMM',0,2,0.05),'Gap between the rollers. Too tight and the card jams')
-    +`<div class="section-title" style="margin:10px 0 6px">Drive &amp; body</div>`
-    +row('Axle ⌀ (mm)',num('axleMM',2,12,0.5))
-    +row('Gear teeth',num('gearTeeth',8,60,1))
-    +row('Gear thickness (mm)',num('gearMM',2,12,0.5))
-    +row('Plate thickness (mm)',num('plateMM',2,12,0.5))
-    +row('Post ⌀ (mm)',num('postMM',3,14,0.5))
-    +row('Knob ⌀ (mm)',num('knobMM',10,60,1))
-    +row('Body margin (mm)',num('marginMM',3,25,0.5),'Material around the rollers');
+    +row('Card length (mm)',num('wrapMM',10,400,0.1),'The way it feeds through. One card per turn, so this is the roller circumference: ⌀ = length ÷ π')
+    +row('Card width (mm)',num('widthMM',5,250,1),'Across the feed. The roller is made this wide, so the flat view is the card')
+    +row('Card thickness (mm)',num('paperMM',0.05,2,0.05),'How deep the recess goes and how far apart the rollers sit')
+    +row('Repeats around',num('repeatCount',1,24,1),'Tile the design this many times around the roller — for pattern rollers')
+    +`<div class="panel-hint" id="derivedHint"></div>`;
   wrapSpinners(box);
   updateSizeLabel();
 }

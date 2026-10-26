@@ -534,28 +534,33 @@ function eKnobShape(r, lobes, depth){
 // Derived numbers in one place, so the UI, the flat view and the mesh can't
 // drift apart. wrap is the design length around the roller; the diameter
 // follows from it.
+// Everything except the card itself is derived. The user says how long, how
+// wide and how thick the card is; the roller, the gears and the body follow.
+// ponytail: the fixed numbers are the ones that tested fine on a business-card
+// roller. The model table still has columns for each of them, so any one can be
+// put back in the UI without a migration.
 function eParams(m){
-  const wrap=Math.max(10, +m.wrapMM||85.6);
+  const wrap=Math.max(10, +m.wrapMM||85.6);       // card length = circumference
   const dia=wrap/Math.PI;
   const repeat=Math.max(1, Math.round(+m.repeatCount||1));
-  const gearT=Math.max(2, +m.gearMM||4);
-  const plateT=Math.max(2, +m.plateMM||4);
+  const paper=Math.max(0.05, +m.paperMM||0.3);
+  const gearT=4, plateT=4;
   const CL=0.6;                                   // axial slop either side of a plate
   const zBody=gearT+plateT+CL;
   return {
     wrap, dia, repeat,
     tileU: wrap/repeat,
-    width: Math.max(5, +m.widthMM||54),
-    emboss: Math.max(0.1, +m.embossMM||0.6),
-    paper: Math.max(0, +m.paperMM||0.3),
-    clear: +m.clearanceMM||0,
-    axle: Math.max(2, +m.axleMM||5),
-    teeth: Math.max(8, Math.round(+m.gearTeeth||18)),
+    width: Math.max(5, +m.widthMM||54),           // roller is exactly card-width
+    emboss: 0.6,
+    paper,
+    clear: 0.15,
+    axle: 5,
+    teeth: Math.max(8, Math.min(60, Math.round(dia/1.5))),  // ~1.5 mm tooth pitch
     gearT, plateT, CL, zBody,
-    post: Math.max(3, +m.postMM||6),
-    knob: Math.max(10, +m.knobMM||26),
-    nip: Math.max(0, +m.nipMM||0.4),
-    margin: Math.max(3, +m.marginMM||7),
+    post: 6,
+    knob: 26,
+    nip: paper+0.1,                               // the card has to fit through
+    margin: 7,
     stub: 9,                                      // knob-end axle, mm
   };
 }
