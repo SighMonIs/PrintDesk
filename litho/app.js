@@ -192,7 +192,7 @@ try{
   pane.insertAdjacentHTML('beforeend','<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--muted,#999)">3D preview unavailable — your browser/GPU couldn\'t create a WebGL context.</div>');
 }
 
-const LS_BG='litho_bgColour', LS_GRID='litho_gridVisible';
+const LS_BG='litho_bgColour', LS_GRID='litho_gridVisible', LS_LOCKX='litho_lockX';
 const savedBg=parseInt(localStorage.getItem(LS_BG) ?? '0x18181b');
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(isNaN(savedBg)?0x18181b:savedBg);
@@ -224,13 +224,19 @@ resize();
 
 let rotX=-1.0, rotY=0.3, zoom=1;
 let isDragging=false,lastX=0,lastY=0;
+// Locking the tilt leaves a drag spinning the bauble about its own axis, which
+// is how you want to read panels round the equator. The rotX slider still
+// moves it — this is only about the mouse.
+let lockX=localStorage.getItem(LS_LOCKX)==='1';
 canvas.addEventListener('mousedown',e=>{ isDragging=true; lastX=e.clientX; lastY=e.clientY; });
 window.addEventListener('mouseup',()=>{ isDragging=false; });
 window.addEventListener('mousemove',e=>{
   if(!isDragging) return;
   rotY+=(e.clientX-lastX)*0.01;
-  rotX+=(e.clientY-lastY)*0.01;
-  rotX=Math.max(-Math.PI/2,Math.min(Math.PI/2,rotX));
+  if(!lockX){
+    rotX+=(e.clientY-lastY)*0.01;
+    rotX=Math.max(-Math.PI/2,Math.min(Math.PI/2,rotX));
+  }
   lastX=e.clientX; lastY=e.clientY;
   syncSlidersFromView();
 });
@@ -254,6 +260,8 @@ animate();
 
 function toggleGrid(){ grid.visible=!grid.visible; localStorage.setItem(LS_GRID,grid.visible?'1':'0'); syncGridBtn(); }
 function syncGridBtn(){ const b=document.getElementById('toggleGridBtn'); if(b) b.classList.toggle('primary',grid.visible); }
+function toggleLockX(){ lockX=!lockX; localStorage.setItem(LS_LOCKX,lockX?'1':'0'); syncLockXBtn(); }
+function syncLockXBtn(){ const b=document.getElementById('lockXBtn'); if(b) b.classList.toggle('primary',lockX); }
 // "Lit" draws the wall the picture is actually cut into. With the relief on
 // the inside that means back faces only, so what you see is the near half's
 // inner wall lit by the bulb — the outer sphere is in front of it but
@@ -659,6 +667,7 @@ async function showApp(){
 }
 
 syncGridBtn();
+syncLockXBtn();
 syncShellMaterial();
 syncSlidersFromView();
 buildParamsUI();
