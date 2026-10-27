@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LithoMak3r</title>
+<!-- Styling is BadgeMak3r's — same shell, same components. -->
+<link rel="stylesheet" href="../badge/styles.css?v=2.5.45">
+<link rel="stylesheet" href="../badgemaker/styles.css?v=1.58.1">
+<style>
+  #appScreen { display: flex; }
+  /* Flat view — the panels as they'll be backlit. Shares the box with the 3D
+     canvas and swaps with it, so both get the whole pane. */
+  #flatWrap{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    gap:14px; flex-wrap:wrap; padding:56px 24px 40px; overflow:auto; }
+  .lm-flat-panel{ border:2px solid var(--border2); border-radius:8px; overflow:hidden; cursor:pointer;
+    background:#000; max-width:220px; }
+  .lm-flat-panel.selected{ border-color:var(--accent); }
+  .lm-flat-panel canvas{ display:block; width:100%; height:auto; }
+  .lm-flat-label{ font-size:11px; padding:4px 6px; color:var(--muted); background:var(--panel,#1c1c20);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lm-dropping{ outline:2px dashed var(--accent); outline-offset:-6px; }
+  .lm-hint{ position:absolute; left:10px; bottom:10px; font-size:11px; color:var(--muted); }
+  .lm-building{ position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:11;
+    background:rgba(0,0,0,0.55); border:1px solid var(--border2); border-radius:8px; padding:4px 10px; font-size:12px; }
+  .lm-view-toggle{ position:absolute; top:10px; left:10px; display:flex; gap:6px; z-index:10; }
+</style>
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.46.0/dist/fonts/tabler-icons.woff2?v3.46.0" as="font" type="font/woff2" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.46.0/dist/tabler-icons.min.css" integrity="sha384-ND+q1IVc0KDElX60dZaqKc7Xl9cdxd2PpU2JfVUHcurCkFVtVLFdt9vJfxtHSL3p" crossorigin="anonymous">
+</head>
+<body>
+
+<div class="small-screen-block" id="smallScreenBlock">
+  <i class="ti ti-device-desktop"></i>
+  <h1>Desktop required</h1>
+  <p>LithoMak3r's 3D preview needs a wide screen to work properly. Please open this page on a desktop monitor.</p>
+</div>
+
+<div class="app-screen" id="appScreen">
+  <header>
+    <a href="/" class="btn sm" style="margin-right:8px" title="Back to PrintDesk"><i class="ti ti-arrow-left"></i></a>
+    <span class="logo">LithoMak3r</span>
+    <div class="header-model">
+      <input type="text" class="adv-text-input" id="nameInput" style="width:200px" placeholder="Bauble name" title="Used for the 3MF filename">
+    </div>
+  </header>
+
+  <div class="bm-body">
+    <!-- Left: the photos, then the bauble itself -->
+    <div class="panel">
+      <div>
+        <div class="panel-head">
+          <span class="panel-title">Photos</span>
+          <button class="btn sm add-btn" title="Add photos" onclick="pickFiles()"><i class="ti ti-plus"></i></button>
+        </div>
+        <div id="imageList" class="layer-list"></div>
+      </div>
+
+      <div>
+        <div class="panel-head"><span class="panel-title">Bauble</span></div>
+        <div id="paramsBox"></div>
+      </div>
+
+      <div class="status" id="status"></div>
+      <div class="btn-group">
+        <button class="btn primary" id="exportBtn" onclick="exportModel()" style="flex:1"><i class="ti ti-download"></i> Export 3MF</button>
+      </div>
+    </div>
+
+    <!-- Centre: backlit panels / 3D bauble -->
+    <div class="bm-right-col">
+      <div class="preview" id="previewPane">
+        <canvas id="canvas"></canvas>
+        <div id="flatWrap" style="display:none"></div>
+
+        <div class="lm-view-toggle">
+          <button class="btn sm" id="viewFlatBtn" onclick="setView('flat')"><i class="ti ti-photo"></i> Backlit</button>
+          <button class="btn sm primary" id="view3dBtn" onclick="setView('3d')"><i class="ti ti-3d-cube-sphere"></i> 3D</button>
+        </div>
+        <div class="lm-building" id="buildingLabel" style="display:none">Building geometry…</div>
+
+        <div class="preview-controls">
+          <button class="btn sm primary" id="toggleBulbBtn" onclick="toggleBulb()" title="Light it from inside"><i class="ti ti-bulb"></i> Lit</button>
+          <button class="btn sm" id="toggleGridBtn" onclick="toggleGrid()"><i class="ti ti-grid-dots"></i> Grid</button>
+          <button class="btn sm" onclick="toggleCamPanel('camAnglePanel')"><i class="ti ti-camera-cog"></i></button>
+          <button class="btn sm" onclick="toggleCamPanel('viewportPanel')"><i class="ti ti-palette"></i></button>
+        </div>
+        <div class="cam-panel" id="camAnglePanel" style="display:none">
+          <div class="cam-panel-title">Camera Angle</div>
+          <div class="cam-row"><label>rotX</label><input type="range" id="camRotX" min="-1.57" max="1.57" step="0.01" value="-1.00" oninput="syncNum('camRotX','camRotXN');applyCam()"><input type="number" id="camRotXN" value="-1.00" step="0.01" oninput="syncSlider('camRotX','camRotXN');applyCam()"></div>
+          <div class="cam-row"><label>rotY</label><input type="range" id="camRotY" min="-3.14" max="3.14" step="0.01" value="0.30" oninput="syncNum('camRotY','camRotYN');applyCam()"><input type="number" id="camRotYN" value="0.30" step="0.01" oninput="syncSlider('camRotY','camRotYN');applyCam()"></div>
+          <div class="cam-row"><label>Zoom</label><input type="range" id="camZoom" min="0.3" max="4" step="0.05" value="1" oninput="syncNum('camZoom','camZoomN');applyCam()"><input type="number" id="camZoomN" value="1.00" step="0.05" oninput="syncSlider('camZoom','camZoomN');applyCam()"></div>
+        </div>
+        <div class="cam-panel" id="viewportPanel" style="display:none">
+          <div class="cam-panel-title">Viewport</div>
+          <div class="cam-row">
+            <label>Background</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+              <div onclick="setBg(0x18181b,this)" style="width:24px;height:24px;border-radius:4px;background:#18181b;border:2px solid var(--accent);cursor:pointer"></div>
+              <div onclick="setBg(0x444444,this)" style="width:24px;height:24px;border-radius:4px;background:#444;border:1px solid var(--border2);cursor:pointer"></div>
+              <div onclick="setBg(0x888888,this)" style="width:24px;height:24px;border-radius:4px;background:#888;border:1px solid var(--border2);cursor:pointer"></div>
+              <div onclick="setBg(0xcccccc,this)" style="width:24px;height:24px;border-radius:4px;background:#ccc;border:1px solid var(--border2);cursor:pointer"></div>
+              <div onclick="setBg(0xffffff,this)" style="width:24px;height:24px;border-radius:4px;background:#fff;border:1px solid var(--border2);cursor:pointer"></div>
+            </div>
+          </div>
+        </div>
+        <div class="lm-hint">Drop photos anywhere here &middot; drag to rotate, scroll to zoom</div>
+        <div class="preview-size" id="sizeLabel"></div>
+      </div>
+    </div>
+
+    <!-- Right: selected photo -->
+    <div id="imageEditor" class="right-panel" style="display:none"></div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" integrity="sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O" crossorigin="anonymous"></script>
+<script src="../shared/3mf.js?v=1.0.11"></script>
+<script src="geometry.js?v=1.0.0"></script>
+<script src="app.js?v=1.0.0"></script>
+</body>
+</html>
