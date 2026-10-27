@@ -8,7 +8,8 @@
 <link rel="stylesheet" href="../badge/styles.css?v=2.5.45">
 <link rel="stylesheet" href="../badgemaker/styles.css?v=1.58.1">
 <style>
-  #appScreen { display: flex; }
+  #loginScreen { display: flex; }
+  #appScreen   { display: none; }
   /* Flat view — the panels as they'll be backlit. Shares the box with the 3D
      canvas and swaps with it, so both get the whole pane. */
   #flatWrap{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
@@ -36,12 +37,43 @@
   <p>LithoMak3r's 3D preview needs a wide screen to work properly. Please open this page on a desktop monitor.</p>
 </div>
 
+<!-- ── Login ── -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">PrintDesk</div>
+    <div class="login-sub">LithoMak3r — sign in to continue</div>
+    <div class="login-field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="username email" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="login-field"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="login-error" id="loginError"></div>
+    <button class="btn primary" id="loginBtn" onclick="doLogin()" style="width:100%"><i class="ti ti-login"></i> Sign in</button>
+  </div>
+</div>
+
+<!-- ── App ── -->
 <div class="app-screen" id="appScreen">
   <header>
     <a href="/" class="btn sm" style="margin-right:8px" title="Back to PrintDesk"><i class="ti ti-arrow-left"></i></a>
     <span class="logo">LithoMak3r</span>
     <div class="header-model">
-      <input type="text" class="adv-text-input" id="nameInput" style="width:200px" placeholder="Bauble name" title="Used for the 3MF filename">
+      <button class="btn sm btn-new" title="New bauble" onclick="newModel()"><i class="ti ti-plus"></i></button>
+      <select class="model-select" id="modelSelect" onchange="onModelSelect()" style="width:180px"><option value="">Loading…</option></select>
+      <div class="model-menu-wrap">
+        <button class="btn sm" title="Bauble options" onclick="event.stopPropagation();toggleModelMenu()"><i class="ti ti-dots-vertical"></i></button>
+        <div class="layer-row-menu" id="modelMenu" style="display:none" onclick="event.stopPropagation()">
+          <div class="lrm-item" onclick="closeModelMenu();renameModel()"><i class="ti ti-edit"></i> Rename</div>
+          <div class="lrm-item" onclick="closeModelMenu();duplicateModel()"><i class="ti ti-copy"></i> Duplicate</div>
+          <div class="lrm-item danger" onclick="closeModelMenu();deleteModel()"><i class="ti ti-trash"></i> Delete</div>
+        </div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="user-menu-wrap">
+        <button class="btn sm user-btn" id="userBtn" title="Account" onclick="event.stopPropagation();toggleUserMenu()"><i class="ti ti-user"></i></button>
+        <div class="layer-row-menu" id="userMenu" style="display:none" onclick="event.stopPropagation()">
+          <div class="lrm-user" id="userChip"></div>
+          <div class="lrm-item" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -63,6 +95,7 @@
 
       <div class="status" id="status"></div>
       <div class="btn-group">
+        <button class="btn" id="saveBtn" onclick="saveModel()" style="flex:1"><i class="ti ti-device-floppy"></i> Save</button>
         <button class="btn primary" id="exportBtn" onclick="exportModel()" style="flex:1"><i class="ti ti-download"></i> Export 3MF</button>
       </div>
     </div>
@@ -116,9 +149,11 @@
 
 <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
 
+<script src="../config.js" onerror="console.warn('config.js missing')"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" integrity="sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O" crossorigin="anonymous"></script>
+<script src="../shared/sb.js?v=1.0.0"></script>
 <script src="../shared/3mf.js?v=1.0.11"></script>
-<script src="geometry.js?v=1.0.0"></script>
-<script src="app.js?v=1.0.0"></script>
+<script src="geometry.js?v=1.0.1"></script>
+<script src="app.js?v=1.0.1"></script>
 </body>
 </html>

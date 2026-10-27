@@ -1,8 +1,11 @@
 // LithoMak3r — drop photos in, get a lithophane bauble out.
 //
-// Nothing here talks to Supabase: a lithophane is its own source of truth, so
-// the images live in the tab until you export. Shell geometry is geometry.js;
-// this file is the UI, the image processing and the 3MF.
+// Shell geometry is geometry.js, sign-in and the Supabase wrappers are
+// shared/sb.js; this file is the UI, the image processing and the 3MF.
+//
+// A design is a row in litho_models plus a row per photo in litho_photos,
+// each carrying the downsampled image as a data URL — the full-size file is
+// never kept, because 640 px on the long edge is all the geometry samples.
 
 // ── Small helpers ──────────────────────────────────────────────
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -39,12 +42,28 @@ const PRESETS={
   shade:   { label:'Tealight shade — ⌀70',  dia:70, topHole:26, botHole:34 },
 };
 
-const model={
-  name:'Bauble', dia:60, topHole:14, botHole:16,
-  thinMM:0.7, thickMM:2.6, centreDeg:90, repeat:1,
-  reliefSide:'inside', detail:'normal', hanger:true, hangerMM:3.6,
+const MODEL_FIELDS={
+  dia:'dia_mm', topHole:'top_hole_deg', botHole:'bot_hole_deg',
+  thinMM:'thin_mm', thickMM:'thick_mm', centreDeg:'centre_deg',
+  repeat:'repeat_count', reliefSide:'relief_side', detail:'detail',
+  hanger:'hanger', hangerMM:'hanger_mm',
 };
-let images=[], selected=-1;
+const PHOTO_FIELDS={ name:'name', src:'data_url', invert:'invert', bright:'bright', contrast:'contrast' };
+// Postgres `numeric` comes back over PostgREST as a string, so these get
+// coerced on the way in. The rest are already text or boolean.
+const NUM_FIELDS=new Set(['dia','topHole','botHole','thinMM','thickMM','centreDeg','repeat','hangerMM','bright','contrast']);
+
+function defaultModel(name){
+  return { id:null, name, dia:60, topHole:14, botHole:16,
+    thinMM:0.7, thickMM:2.6, centreDeg:90, repeat:1,
+    reliefSide:'inside', detail:'normal', hanger:true, hangerMM:3.6 };
+}
+
+let models=[], model=defaultModel('Bauble');
+let images=[], selected=-1, deletedPhotoIds=[], isDirty=false;
+
+function markDirty(){ isDirty=true; const b=document.getElementById('saveBtn'); if(b) b.classList.add('dirty'); }
+function clearDirty(){ isDirty=false; const b=document.getElementById('saveBtn'); if(b) b.classList.remove('dirty'); }
 
 function params(){
   const d=LITHO_DETAIL[model.detail]||LITHO_DETAIL.normal;
@@ -71,22 +90,35 @@ function fileToImage(file){
   });
 }
 
-function makeImage(name, img){
+function dataUrlToImage(src){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>res(img);
+    img.onerror=()=>rej(new Error('Could not decode a saved photo'));
+    img.src=src;
+  });
+}
+
+function makeImage(name, img, over={}){
   const scale=Math.min(1, MAX_PX/Math.max(img.width,img.height));
   const w=Math.max(2,Math.round(img.width*scale)), h=Math.max(2,Math.round(img.height*scale));
   const c=document.createElement('canvas'); c.width=w; c.height=h;
   const ctx=c.getContext('2d');
+  // White underneath, so anything transparent reads as a thin wall — and so
+  // the JPEG we save keeps it that way, since JPEG has no alpha.
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
   ctx.drawImage(img,0,0,w,h);
   const d=ctx.getImageData(0,0,w,h).data;
   const gray=new Float32Array(w*h);
   for(let i=0;i<gray.length;i++){
     // Rec. 709 — matches how the eye weights the channels, so colour photos
     // keep their contrast where it matters.
-    const a=d[i*4+3]/255;
-    const l=(0.2126*d[i*4]+0.7152*d[i*4+1]+0.0722*d[i*4+2])/255;
-    gray[i]=l*a+(1-a); // transparent reads as white, i.e. thin wall
+    gray[i]=(0.2126*d[i*4]+0.7152*d[i*4+1]+0.0722*d[i*4+2])/255;
   }
-  const rec={ name, w, h, gray, lum:new Float32Array(w*h), invert:false, bright:0, contrast:1 };
+  const rec=Object.assign(
+    { name, w, h, gray, lum:new Float32Array(w*h), invert:false, bright:0, contrast:1,
+      src:over.src||c.toDataURL('image/jpeg',0.84), id:null },
+    over);
   bake(rec);
   return rec;
 }
@@ -109,7 +141,7 @@ async function addFiles(files){
       images.push(makeImage(f.name.replace(/\.[^.]+$/,''), img));
     }
     selected=images.length-1;
-    rebuildAll();
+    markDirty(); rebuildAll();
     setStatus('');
   }catch(e){
     console.error(e);
@@ -125,16 +157,17 @@ function pickFiles(){
 }
 
 function removeImage(i){
-  images.splice(i,1);
+  const [gone]=images.splice(i,1);
+  if(gone.id) deletedPhotoIds.push(gone.id);
   if(selected>=images.length) selected=images.length-1;
-  rebuildAll();
+  markDirty(); rebuildAll();
 }
 function moveImage(i,dir){
   const j=i+dir;
   if(j<0||j>=images.length) return;
   [images[i],images[j]]=[images[j],images[i]];
   selected=j;
-  rebuildAll();
+  markDirty(); rebuildAll();
 }
 function selectImage(i){ selected=i; buildImageList(); buildImageEditor(); }
 function onImgChange(field,value){
@@ -142,6 +175,7 @@ function onImgChange(field,value){
   if(!im) return;
   im[field]=value;
   bake(im);
+  markDirty();
   buildFlatView();
   scheduleRender();
 }
@@ -386,7 +420,7 @@ function resetImage(){
   const im=images[selected];
   if(!im) return;
   im.bright=0; im.contrast=1; im.invert=false;
-  bake(im); buildImageEditor(); buildFlatView(); scheduleRender();
+  bake(im); markDirty(); buildImageEditor(); buildFlatView(); scheduleRender();
 }
 
 // ── Bauble parameters ──────────────────────────────────────────
@@ -394,10 +428,11 @@ function applyPreset(key){
   const p=PRESETS[key];
   if(!p) return;
   Object.assign(model,{dia:p.dia,topHole:p.topHole,botHole:p.botHole});
-  buildParamsUI(); scheduleRender();
+  markDirty(); buildParamsUI(); scheduleRender();
 }
 function onChange(field,value){
   model[field]=value;
+  markDirty();
   if(field==='detail'||field==='hanger') buildParamsUI();
   if(field==='reliefSide') syncShellMaterial();
   scheduleRender();
@@ -438,6 +473,137 @@ function rebuildAll(){
   scheduleRender();
 }
 
+// ── Design CRUD ─────────────────────────────────────────────
+function rowFromModel(m){
+  const row={ name:m.name, updated_at:new Date().toISOString() };
+  for(const [js,db] of Object.entries(MODEL_FIELDS)) row[db]=m[js];
+  return row;
+}
+function modelFromRow(r){
+  const m={ id:r.id, name:r.name };
+  for(const [js,db] of Object.entries(MODEL_FIELDS)) m[js]=NUM_FIELDS.has(js)?+r[db]:r[db];
+  return m;
+}
+// The image bytes never change once a photo is in — only its name, order and
+// the three sliders do — so an update leaves data_url out rather than pushing
+// another 100 KB over the wire on every save.
+function rowFromPhoto(im, modelId, order, withSrc){
+  const row={ model_id:modelId, photo_order:order };
+  for(const [js,db] of Object.entries(PHOTO_FIELDS)) if(withSrc||js!=='src') row[db]=im[js];
+  return row;
+}
+
+async function loadModels(){
+  try{ models=await sbGet('litho_models','?archived=eq.false&order=name'); }catch(e){ models=[]; }
+  if(!Array.isArray(models)) models=[];
+  refreshModelDropdown();
+}
+function refreshModelDropdown(){
+  const sel=document.getElementById('modelSelect');
+  if(!sel) return;
+  sel.innerHTML=models.map(m=>`<option value="${m.id}"${String(model.id)===String(m.id)?' selected':''}>${esc(m.name)}</option>`).join('')
+    || '<option value="">No designs yet</option>';
+}
+async function onModelSelect(){
+  const id=document.getElementById('modelSelect').value;
+  if(!id) return;
+  if(isDirty && !await askConfirm('Discard unsaved changes?','Discard')){ refreshModelDropdown(); return; }
+  await openModel(+id);
+}
+async function openModel(id){
+  const row=models.find(m=>String(m.id)===String(id));
+  if(!row){ setStatus('Design not found','err'); return; }
+  setStatus('Loading…');
+  model=modelFromRow(row);
+  let rows=[];
+  try{ rows=await sbGet('litho_photos',`?model_id=eq.${id}&order=photo_order`); }catch(e){ rows=[]; }
+  images=[];
+  for(const r of (Array.isArray(rows)?rows:[])){
+    try{
+      const img=await dataUrlToImage(r.data_url);
+      images.push(makeImage(r.name, img, {
+        id:r.id, src:r.data_url, invert:r.invert, bright:+r.bright, contrast:+r.contrast,
+      }));
+    }catch(e){ console.error('Could not decode photo',r.id,e); }
+  }
+  deletedPhotoIds=[]; selected=images.length?0:-1;
+  clearDirty(); refreshModelDropdown(); syncShellMaterial();
+  buildParamsUI(); rebuildAll();
+  setStatus('');
+}
+async function newModel(){
+  if(isDirty && !await askConfirm('Discard unsaved changes?','Discard')) return;
+  const name=await askText('Name this bauble','Bauble '+(models.length+1));
+  if(!name) return;
+  setStatus('Creating…');
+  const res=await sbInsert('litho_models', rowFromModel(defaultModel(name)));
+  if(!Array.isArray(res)||!res[0]){ setStatus('Could not create: '+(res&&res.message||'unknown error'),'err'); return; }
+  models.push(res[0]);
+  model=modelFromRow(res[0]);
+  images=[]; deletedPhotoIds=[]; selected=-1;
+  clearDirty(); refreshModelDropdown(); syncShellMaterial();
+  buildParamsUI(); rebuildAll();
+  setStatus('Add some photos.');
+}
+async function saveModel(){
+  if(!model.id){ setStatus('Nothing to save — make a design first','err'); return; }
+  setStatus('Saving…');
+  const err=await sbPatch('litho_models',`?id=eq.${model.id}`, rowFromModel(model));
+  if(err){ setStatus('Save failed: '+(err.message||'unknown error'),'err'); return; }
+  for(const id of deletedPhotoIds) await sbDelete('litho_photos',`?id=eq.${id}`);
+  deletedPhotoIds=[];
+  for(let i=0;i<images.length;i++){
+    const row=rowFromPhoto(images[i], model.id, i, !images[i].id);
+    if(images[i].id){
+      const e=await sbPatch('litho_photos',`?id=eq.${images[i].id}`,row);
+      if(e){ setStatus('Save failed: '+(e.message||'unknown error'),'err'); return; }
+    }else{
+      const res=await sbInsert('litho_photos',row);
+      if(!Array.isArray(res)||!res[0]){ setStatus('Save failed: '+(res&&res.message||'unknown error'),'err'); return; }
+      images[i].id=res[0].id;
+    }
+  }
+  const idx=models.findIndex(m=>String(m.id)===String(model.id));
+  if(idx>=0) models[idx]={...models[idx], ...rowFromModel(model)};
+  clearDirty(); refreshModelDropdown();
+  setStatus('Saved','ok');
+}
+async function renameModel(){
+  if(!model.id) return;
+  const n=await askText('Rename bauble', model.name);
+  if(!n) return;
+  model.name=n;
+  markDirty(); refreshModelDropdown();
+}
+async function duplicateModel(){
+  if(!model.id) return;
+  const name=await askText('Name the copy', model.name+' copy');
+  if(!name) return;
+  setStatus('Duplicating…');
+  const res=await sbInsert('litho_models', rowFromModel({...model, name}));
+  if(!Array.isArray(res)||!res[0]){ setStatus('Could not duplicate','err'); return; }
+  models.push(res[0]);
+  model={...model, id:res[0].id, name};
+  // The copy needs its own photo rows, not the originals'.
+  for(const im of images) im.id=null;
+  deletedPhotoIds=[];
+  refreshModelDropdown(); markDirty();
+  await saveModel();
+}
+async function deleteModel(){
+  if(!model.id) return;
+  if(!await askConfirm(`Delete "${model.name}"?`)) return;
+  // Soft delete, same as everywhere else in PrintDesk.
+  const err=await sbPatch('litho_models',`?id=eq.${model.id}`,{archived:true});
+  if(err){ setStatus('Delete failed','err'); return; }
+  models=models.filter(m=>String(m.id)!==String(model.id));
+  if(models.length){ await openModel(models[0].id); return; }
+  model=defaultModel('Bauble'); images=[]; deletedPhotoIds=[]; selected=-1;
+  clearDirty(); clearPreview(); refreshModelDropdown();
+  buildParamsUI(); rebuildAll();
+  setStatus('Hit + in the header to make a design.');
+}
+
 // ── Export ─────────────────────────────────────────────────────
 function exportModel(){
   setStatus('Building 3MF…');
@@ -463,9 +629,14 @@ function exportModel(){
   },0);
 }
 
+// ── Header menus ───────────────────────────────────────────────
+let modelMenuOpen=false, userMenuOpen=false;
+function toggleModelMenu(){ modelMenuOpen=!modelMenuOpen; document.getElementById('modelMenu').style.display=modelMenuOpen?'flex':'none'; }
+function closeModelMenu(){ modelMenuOpen=false; document.getElementById('modelMenu').style.display='none'; }
+function toggleUserMenu(){ userMenuOpen=!userMenuOpen; document.getElementById('userMenu').style.display=userMenuOpen?'flex':'none'; }
+document.addEventListener('click',()=>{ closeModelMenu(); if(userMenuOpen) toggleUserMenu(); });
+
 // ── Boot ───────────────────────────────────────────────────────
-document.getElementById('nameInput').value=model.name;
-document.getElementById('nameInput').oninput=e=>{ model.name=e.target.value; };
 
 // Drop photos straight onto the preview.
 pane.addEventListener('dragover',e=>{ e.preventDefault(); pane.classList.add('lm-dropping'); });
@@ -476,6 +647,17 @@ pane.addEventListener('drop',e=>{
   addFiles([...e.dataTransfer.files].filter(f=>f.type.startsWith('image/')));
 });
 
+async function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='flex';
+  document.getElementById('userChip').textContent=currentUser?.user_metadata?.display_name||currentUser?.email||'';
+  resize();
+  setStatus('Loading…');
+  await loadModels();
+  if(models.length) await openModel(models[0].id);
+  else setStatus('No designs yet — hit + in the header to make one.');
+}
+
 syncGridBtn();
 syncShellMaterial();
 syncSlidersFromView();
@@ -483,3 +665,9 @@ buildParamsUI();
 rebuildAll();
 setView('3d');
 if(location.search.includes('selfcheck')) lSelfCheck();
+
+// A design only exists in the tab until Save, and the photos are the
+// expensive part to redo.
+window.addEventListener('beforeunload',e=>{ if(isDirty){ e.preventDefault(); e.returnValue=''; } });
+
+(async()=>{ const ok=await restoreSession(); if(ok) showApp(); else setStatus(''); })();
