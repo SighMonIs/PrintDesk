@@ -1,7 +1,8 @@
 // BeadMak3r — letter-bead bracelet generator.
-// Same shell/behaviour as BadgeMak3r; reuses ../shared/3mf.js for all the
-// clipper/3MF plumbing and the same Supabase `colours` + `badgemaker_fonts`
-// tables (read-only), so uploaded fonts and filament colours are shared.
+// Same shell/behaviour as BadgeMak3r; reuses ../shared/sb.js for sign-in and
+// ../shared/3mf.js for all the clipper/3MF plumbing, and reads the same
+// Supabase `colours` + `badgemaker_fonts` tables, so uploaded fonts and
+// filament colours are shared.
 //
 // ponytail: bracelets live in localStorage, not Supabase — no new tables, no
 // migration. Move to a beadmaker_models table when they need to be shared
@@ -11,120 +12,6 @@
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escJsAttr(s){ return esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 function setStatus(msg,cls=''){ const el=document.getElementById('status'); if(el){ el.textContent=msg; el.className='status'+(cls?' '+cls:''); } }
-
-function askText(message, defaultValue){
-  return new Promise(resolve=>{
-    const overlay=document.createElement('div');
-    overlay.className='bm-modal-overlay';
-    overlay.innerHTML='<div class="bm-modal"><div class="bm-modal-msg"></div><input type="text" class="adv-text-input" id="bmModalInput"><div class="bm-modal-btns"><button class="btn sm" id="bmModalCancel">Cancel</button><button class="btn sm primary" id="bmModalOk">OK</button></div></div>';
-    overlay.querySelector('.bm-modal-msg').textContent=message;
-    document.body.appendChild(overlay);
-    const input=overlay.querySelector('#bmModalInput');
-    input.value=defaultValue||''; input.focus(); input.select();
-    const close=val=>{ overlay.remove(); resolve(val); };
-    overlay.querySelector('#bmModalOk').onclick=()=>close(input.value.trim()||null);
-    overlay.querySelector('#bmModalCancel').onclick=()=>close(null);
-    overlay.addEventListener('click', e=>{ if(e.target===overlay) close(null); });
-    input.onkeydown=e=>{ if(e.key==='Enter') close(input.value.trim()||null); if(e.key==='Escape') close(null); };
-  });
-}
-function askConfirm(message, confirmLabel='Delete'){
-  return new Promise(resolve=>{
-    const overlay=document.createElement('div');
-    overlay.className='bm-modal-overlay';
-    overlay.innerHTML='<div class="bm-modal"><div class="bm-modal-msg"></div><div class="bm-modal-btns"><button class="btn sm" id="bmModalCancel">Cancel</button><button class="btn sm primary" id="bmModalOk">'+esc(confirmLabel)+'</button></div></div>';
-    overlay.querySelector('.bm-modal-msg').textContent=message;
-    document.body.appendChild(overlay);
-    const close=val=>{ overlay.remove(); resolve(val); };
-    overlay.querySelector('#bmModalOk').onclick=()=>close(true);
-    overlay.querySelector('#bmModalCancel').onclick=()=>close(false);
-    overlay.addEventListener('click', e=>{ if(e.target===overlay) close(false); });
-  });
-}
-
-// ── Supabase (read-only: colours + fonts) ──────────────────────
-// ponytail: copied from badgemaker/data.js rather than extracted into a
-// shared module — extracting would mean editing the live BadgeMak3r. Pull
-// both onto a shared/sb.js the next time either one changes.
-const SB_URL=(window.CONFIG&&window.CONFIG.SUPABASE_URL)||'';
-const SB_KEY=(window.CONFIG&&window.CONFIG.SUPABASE_KEY)||'';
-let sbToken=null, sbRefreshToken=null, currentUser=null;
-
-function sbHeaders(){ return{'apikey':SB_KEY,'Authorization':'Bearer '+(sbToken||SB_KEY),'Content-Type':'application/json'}; }
-
-let _refreshInFlight=null;
-async function refreshSession(){
-  if(!sbRefreshToken) return false;
-  if(_refreshInFlight) return _refreshInFlight;
-  _refreshInFlight=(async()=>{
-    try{
-      const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{
-        method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
-        body:JSON.stringify({refresh_token:sbRefreshToken}),
-      });
-      const data=await res.json();
-      if(!res.ok || !data.access_token) return false;
-      storeSession(data); return true;
-    }catch(e){ return false; }
-    finally{ _refreshInFlight=null; }
-  })();
-  return _refreshInFlight;
-}
-function storeSession(data){
-  sbToken=data.access_token;
-  if(data.refresh_token) sbRefreshToken=data.refresh_token;
-  if(data.user) currentUser=data.user;
-  // Same keys as BadgeMak3r — one sign-in covers both tools.
-  localStorage.setItem('badgemaker_token', sbToken);
-  if(sbRefreshToken) localStorage.setItem('badgemaker_refresh', sbRefreshToken);
-}
-async function sbFetch(path, opts={}){
-  const send=()=>fetch(`${SB_URL}/rest/v1/${path}`,{...opts, headers:sbHeaders()});
-  let r=await send();
-  if(r.status===401 && await refreshSession()) r=await send();
-  return r;
-}
-async function sbGet(table,q=''){ const r=await sbFetch(`${table}${q}`); return r.json(); }
-
-async function doLogin(){
-  const email=document.getElementById('loginEmail').value.trim();
-  const pass=document.getElementById('loginPassword').value;
-  const errEl=document.getElementById('loginError');
-  const btn=document.getElementById('loginBtn');
-  errEl.style.display='none';
-  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> Signing in…';
-  try{
-    const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
-    const data=await res.json();
-    if(data.error) throw new Error(data.error_description||data.error);
-    storeSession(data);
-    showApp();
-  }catch(e){
-    errEl.textContent=e.message; errEl.style.display='block';
-    btn.disabled=false; btn.innerHTML='<i class="ti ti-login"></i> Sign in';
-  }
-}
-async function restoreSession(){
-  const t=localStorage.getItem('badgemaker_token')||localStorage.getItem('pd_access_token')||localStorage.getItem('pd_token');
-  sbRefreshToken=localStorage.getItem('badgemaker_refresh')||null;
-  if(!t && !sbRefreshToken) return false;
-  const fetchUser=async tok=>{
-    const res=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+tok}});
-    return res.ok ? res.json() : null;
-  };
-  try{
-    if(t){ const user=await fetchUser(t); if(user){ sbToken=t; currentUser=user; return true; } }
-    if(await refreshSession()){ currentUser=await fetchUser(sbToken); return !!currentUser; }
-    return false;
-  }catch(e){ return false; }
-}
-function doLogout(){
-  localStorage.removeItem('badgemaker_token');
-  localStorage.removeItem('badgemaker_refresh');
-  sbToken=null; sbRefreshToken=null; currentUser=null;
-  document.getElementById('appScreen').style.display='none';
-  document.getElementById('loginScreen').style.display='flex';
-}
 
 // ── Fonts ──────────────────────────────────────────────────────
 const fontCache=new Map();   // 'builtin' | String(id) -> opentype Font

@@ -4,38 +4,6 @@ function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 function autoGrow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function escJsAttr(s){ return esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 
-// window.prompt/confirm/alert aren't reliable in every embedding context (e.g.
-// automated/kiosk browser shells) — use a small inline modal instead.
-function askText(message, defaultValue){
-  return new Promise(resolve=>{
-    const overlay=document.createElement('div');
-    overlay.className='bm-modal-overlay';
-    overlay.innerHTML=`<div class="bm-modal"><div class="bm-modal-msg"></div><input type="text" class="adv-text-input" id="bmModalInput"><div class="bm-modal-btns"><button class="btn sm" id="bmModalCancel">Cancel</button><button class="btn sm primary" id="bmModalOk">OK</button></div></div>`;
-    overlay.querySelector('.bm-modal-msg').textContent=message;
-    document.body.appendChild(overlay);
-    const input=overlay.querySelector('#bmModalInput');
-    input.value=defaultValue||''; input.focus(); input.select();
-    const close=val=>{ overlay.remove(); resolve(val); };
-    overlay.querySelector('#bmModalOk').onclick=()=>close(input.value.trim()||null);
-    overlay.querySelector('#bmModalCancel').onclick=()=>close(null);
-    overlay.addEventListener('click', e=>{ if(e.target===overlay) close(null); });
-    input.onkeydown=e=>{ if(e.key==='Enter') close(input.value.trim()||null); if(e.key==='Escape') close(null); };
-  });
-}
-function askConfirm(message, confirmLabel='Delete'){
-  return new Promise(resolve=>{
-    const overlay=document.createElement('div');
-    overlay.className='bm-modal-overlay';
-    overlay.innerHTML=`<div class="bm-modal"><div class="bm-modal-msg"></div><div class="bm-modal-btns"><button class="btn sm" id="bmModalCancel">Cancel</button><button class="btn sm primary" id="bmModalOk">${esc(confirmLabel)}</button></div></div>`;
-    overlay.querySelector('.bm-modal-msg').textContent=message;
-    document.body.appendChild(overlay);
-    const close=val=>{ overlay.remove(); resolve(val); };
-    overlay.querySelector('#bmModalOk').onclick=()=>close(true);
-    overlay.querySelector('#bmModalCancel').onclick=()=>close(false);
-    overlay.addEventListener('click', e=>{ if(e.target===overlay) close(false); });
-  });
-}
-
 // Three-way prompt for the unsaved-changes guard.
 function askSaveDiscard(message){
   return new Promise(resolve=>{
@@ -75,106 +43,10 @@ function setStatus(msg,cls=''){
 }
 
 // ── Supabase ──────────────────────────────────────────────────
-const SB_URL=(window.CONFIG&&window.CONFIG.SUPABASE_URL)||'';
-const SB_KEY=(window.CONFIG&&window.CONFIG.SUPABASE_KEY)||'';
-let sbToken=null, sbRefreshToken=null, currentUser=null;
-
-function sbHeaders(){ return{'apikey':SB_KEY,'Authorization':'Bearer '+(sbToken||SB_KEY),'Content-Type':'application/json','Prefer':'return=representation'}; }
-
-// Access tokens expire after ~1h. Rather than losing a long editing session
-// to a failed save, swap in a fresh token using the refresh token and retry.
-let _refreshInFlight = null;
-async function refreshSession(){
-  if(!sbRefreshToken) return false;
-  if(_refreshInFlight) return _refreshInFlight;   // don't stampede on parallel 401s
-  _refreshInFlight = (async()=>{
-    try{
-      const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{
-        method:'POST', headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
-        body: JSON.stringify({refresh_token: sbRefreshToken}),
-      });
-      const data = await res.json();
-      if(!res.ok || !data.access_token) return false;
-      storeSession(data);
-      return true;
-    }catch(e){ return false; }
-    finally{ _refreshInFlight = null; }
-  })();
-  return _refreshInFlight;
-}
-
-function storeSession(data){
-  sbToken = data.access_token;
-  if(data.refresh_token) sbRefreshToken = data.refresh_token;
-  if(data.user) currentUser = data.user;
-  localStorage.setItem('badgemaker_token', sbToken);
-  if(sbRefreshToken) localStorage.setItem('badgemaker_refresh', sbRefreshToken);
-}
-
-// Single entry point so every call gets the refresh-and-retry behaviour.
-// Headers are rebuilt per attempt so the retry picks up the new token, with
-// any caller extras (e.g. upsert's Prefer) merged on top.
-async function sbFetch(path, opts={}, extraHeaders={}){
-  const send = () => fetch(`${SB_URL}/rest/v1/${path}`, {...opts, headers: {...sbHeaders(), ...extraHeaders}});
-  let r = await send();
-  if(r.status === 401 && await refreshSession()) r = await send();
-  return r;
-}
-
-async function sbGet(table,q=''){ const r=await sbFetch(`${table}${q}`); return r.json(); }
-async function sbPatch(table,q,row){ const r=await sbFetch(`${table}${q}`,{method:'PATCH',body:JSON.stringify(row)}); if(!r.ok) return await r.json(); return null; }
+// Sign-in and the plain wrappers live in ../shared/sb.js; models, inputs,
+// layers and fonts are all saved by id-or-insert, which needs the upsert
+// Prefer header on top of the shared ones.
 async function sbUpsert(table,row){ const r=await sbFetch(table,{method:'POST',body:JSON.stringify(row)},{'Prefer':'resolution=merge-duplicates,return=representation'}); return r.json(); }
-async function sbDelete(table,q){ const r=await sbFetch(`${table}${q}`,{method:'DELETE'}); if(!r.ok) return await r.json(); return null; }
-
-// ── Auth ──────────────────────────────────────────────────────
-async function doLogin(){
-  const email=document.getElementById('loginEmail').value.trim();
-  const pass=document.getElementById('loginPassword').value;
-  const errEl=document.getElementById('loginError');
-  const btn=document.getElementById('loginBtn');
-  errEl.style.display='none';
-  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> Signing in…';
-  try{
-    const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
-    const data=await res.json();
-    if(data.error) throw new Error(data.error_description||data.error);
-    storeSession(data);
-    showApp();
-  }catch(e){
-    errEl.textContent=e.message; errEl.style.display='block';
-    btn.disabled=false; btn.innerHTML='<i class="ti ti-login"></i> Sign in';
-  }
-}
-
-async function restoreSession(){
-  const t=localStorage.getItem('badgemaker_token')||localStorage.getItem('pd_access_token')||localStorage.getItem('pd_token');
-  sbRefreshToken=localStorage.getItem('badgemaker_refresh')||null;
-  if(!t && !sbRefreshToken) return false;
-  const fetchUser=async tok=>{
-    const res=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+tok}});
-    return res.ok ? res.json() : null;
-  };
-  try{
-    if(t){
-      const user=await fetchUser(t);
-      if(user){ sbToken=t; currentUser=user; return true; }
-    }
-    // Stored token dead — a valid refresh token still gets us back in.
-    if(await refreshSession()){
-      currentUser = await fetchUser(sbToken);
-      return !!currentUser;
-    }
-    return false;
-  }catch(e){ return false; }
-}
-
-function doLogout(){
-  localStorage.removeItem('badgemaker_token');
-  localStorage.removeItem('badgemaker_refresh');
-  sbToken=null; sbRefreshToken=null; currentUser=null;
-  document.getElementById('appScreen').style.display='none';
-  document.getElementById('loginScreen').style.display='flex';
-}
 
 async function showApp(){
   document.getElementById('loginScreen').style.display='none';

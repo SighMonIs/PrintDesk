@@ -1,10 +1,9 @@
 // ── Shared sign-in + Supabase REST, plus the two prompts that go with it ──
 //
 // Every maker tool needs the same thing: one PrintDesk sign-in, a token that
-// refreshes itself, and four thin wrappers over PostgREST. BadgeMak3r,
-// BeadMak3r and EmbossMak3r each carry their own copy of this; LithoMak3r is
-// the first to use this file instead. Move the other three over when they're
-// next open — the copies have drifted slightly, so it wants its own pass.
+// refreshes itself, and four thin wrappers over PostgREST. This is the only
+// copy — BadgeMak3r, BeadMak3r, EmbossMak3r and LithoMak3r all load it.
+// BadgeMak3r adds its own sbUpsert on top, since nothing else upserts.
 //
 // Expects window.CONFIG (config.js) and a page with #loginScreen / #appScreen
 // / #loginEmail / #loginPassword / #loginError / #loginBtn, and a showApp().
@@ -62,7 +61,10 @@ async function doLogin(){
   try{
     const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
     const data=await res.json();
-    if(data.error) throw new Error(data.error_description||data.error);
+    // GoTrue reports a bad password as {code, error_code, msg}; the older
+    // {error, error_description} shape only shows up on some endpoints. Go by
+    // the status, or a wrong password stores "undefined" as the token.
+    if(!res.ok || !data.access_token) throw new Error(data.msg||data.error_description||data.error||'Sign-in failed');
     storeSession(data);
     showApp();
   }catch(e){
