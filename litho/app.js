@@ -46,17 +46,19 @@ const MODEL_FIELDS={
   dia:'dia_mm', topHole:'top_hole_deg', botHole:'bot_hole_deg',
   thinMM:'thin_mm', thickMM:'thick_mm', centreDeg:'centre_deg',
   repeat:'repeat_count', reliefSide:'relief_side', detail:'detail',
-  hanger:'hanger', hangerMM:'hanger_mm',
+  hanger:'hanger', hangerMM:'hanger_mm', bandDeg:'band_deg',
 };
-const PHOTO_FIELDS={ name:'name', src:'data_url', invert:'invert', bright:'bright', contrast:'contrast' };
+const PHOTO_FIELDS={ name:'name', src:'data_url', invert:'invert', bright:'bright', contrast:'contrast',
+  zoom:'zoom', rot:'rot_deg', offX:'off_x', offY:'off_y' };
 // Postgres `numeric` comes back over PostgREST as a string, so these get
 // coerced on the way in. The rest are already text or boolean.
-const NUM_FIELDS=new Set(['dia','topHole','botHole','thinMM','thickMM','centreDeg','repeat','hangerMM','bright','contrast']);
+const NUM_FIELDS=new Set(['dia','topHole','botHole','thinMM','thickMM','centreDeg','repeat','hangerMM','bandDeg',
+  'bright','contrast','zoom','rot','offX','offY']);
 
 function defaultModel(name){
   return { id:null, name, dia:60, topHole:14, botHole:16,
     thinMM:0.7, thickMM:2.6, centreDeg:90, repeat:1,
-    reliefSide:'inside', detail:'normal', hanger:true, hangerMM:3.6 };
+    reliefSide:'inside', detail:'normal', hanger:true, hangerMM:3.6, bandDeg:0 };
 }
 
 let models=[], model=defaultModel('Bauble');
@@ -117,18 +119,36 @@ function makeImage(name, img, over={}){
   }
   const rec=Object.assign(
     { name, w, h, gray, lum:new Float32Array(w*h), invert:false, bright:0, contrast:1,
+      zoom:1, rot:0, offX:0, offY:0,
       src:over.src||c.toDataURL('image/jpeg',0.84), id:null },
     over);
   bake(rec);
   return rec;
 }
 
+// Baking is where a photo's framing happens too: zoom, nudge and rotation
+// resample `gray` into `lum`, so the geometry and the backlit view both see
+// the framed picture without either of them knowing about it. Anything that
+// falls outside the photo reads as 1 — thin wall, same as the plain shell.
 function bake(im){
-  const {gray,lum,bright,contrast,invert}=im;
-  for(let i=0;i<gray.length;i++){
-    let v=(gray[i]-0.5)*contrast+0.5+bright;
+  const {gray,lum,w,h,bright,contrast,invert}=im;
+  const zoom=im.zoom||1, rot=(im.rot||0)*Math.PI/180, ox=im.offX||0, oy=im.offY||0;
+  const framed=zoom!==1||rot!==0||ox!==0||oy!==0;
+  const cs=Math.cos(rot)/zoom, sn=Math.sin(rot)/zoom;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const k=y*w+x;
+    let g=gray[k];
+    if(framed){
+      // Nudges are fractions of the frame, so they mean the same at any zoom.
+      // Rotate in pixels, or a photo that isn't square shears instead of turning.
+      const ax=((x+0.5)/w-0.5-ox)*w, ay=((y+0.5)/h-0.5-oy)*h;
+      const sx=(ax*cs-ay*sn)/w+0.5, sy=(ax*sn+ay*cs)/h+0.5;
+      if(sx<0||sx>1||sy<0||sy>1){ lum[k]=1; continue; }
+      g=lSampleLum(im,sx,sy,gray);
+    }
+    let v=(g-0.5)*contrast+0.5+bright;
     v=v<0?0:v>1?1:v;
-    lum[i]=invert?1-v:v;
+    lum[k]=invert?1-v:v;
   }
 }
 
@@ -346,7 +366,8 @@ function updateSizeLabel(){
   if(el) el.textContent=`⌀${p.dia} mm · ${d.panels} panel${d.panels>1?'s':''} · wall ${p.thinMM}–${p.thickMM} mm · ${(d.tris/1000).toFixed(0)}k triangles`;
   const hint=document.getElementById('derivedHint');
   if(hint) hint.innerHTML= d.panel
-    ? `Each panel is <b>${d.panel.w.toFixed(0)} × ${d.panel.h.toFixed(0)} mm</b> on the surface. `
+    ? `Each panel is <b>${d.panel.w.toFixed(0)} × ${d.panel.h.toFixed(0)} mm</b> on the surface, `
+      +`with <b>${d.panel.plainTopMM.toFixed(0)} mm</b> plain above and <b>${d.panel.plainBotMM.toFixed(0)} mm</b> below. `
       +`Holes <b>⌀${d.topHoleMM.toFixed(0)} mm</b> top, <b>⌀${d.botHoleMM.toFixed(0)} mm</b> bottom.`
     : `Holes <b>⌀${d.topHoleMM.toFixed(0)} mm</b> top, <b>⌀${d.botHoleMM.toFixed(0)} mm</b> bottom. `
       +`Print it hole-down — the bottom rim is the first layer.`;
@@ -421,13 +442,19 @@ function buildImageEditor(){
     +row('Brightness',`<input type="range" min="-0.4" max="0.4" step="0.01" value="${im.bright}" oninput="onImgChange('bright',+this.value)">`)
     +row('Contrast',`<input type="range" min="0.4" max="2.2" step="0.02" value="${im.contrast}" oninput="onImgChange('contrast',+this.value)">`)
     +row('Invert',`<input type="checkbox" ${im.invert?'checked':''} onchange="onImgChange('invert',this.checked)">`)
-    +`<div class="panel-hint">Dark areas print thick and read as shadow. Invert if you're printing in a dark filament lit from inside.</div>`
+    +`<div class="panel-head" style="margin-top:10px"><span class="panel-title">Framing</span></div>`
+    +row('Zoom',`<input type="range" min="0.4" max="4" step="0.01" value="${im.zoom}" oninput="onImgChange('zoom',+this.value)">`)
+    +row('Rotate (°)',`<input type="range" min="-180" max="180" step="1" value="${im.rot}" oninput="onImgChange('rot',+this.value)">`)
+    +row('Across',`<input type="range" min="-0.5" max="0.5" step="0.005" value="${im.offX}" oninput="onImgChange('offX',+this.value)">`)
+    +row('Up / down',`<input type="range" min="-0.5" max="0.5" step="0.005" value="${im.offY}" oninput="onImgChange('offY',+this.value)">`)
+    +`<div class="panel-hint">Zoom past 1 to crop in; the Backlit view shows exactly what ends up on the panel. Dark areas print thick and read as shadow — invert if you're printing in a dark filament lit from inside.</div>`
     +`<div class="btn-group"><button class="btn" style="flex:1" onclick="resetImage()"><i class="ti ti-restore"></i> Reset</button></div>`;
 }
 function resetImage(){
   const im=images[selected];
   if(!im) return;
   im.bright=0; im.contrast=1; im.invert=false;
+  im.zoom=1; im.rot=0; im.offX=0; im.offY=0;
   bake(im); markDirty(); buildImageEditor(); buildFlatView(); scheduleRender();
 }
 
@@ -460,6 +487,7 @@ function buildParamsUI(){
     +row('Top hole (°)',num('topHole',6,45,1),'Half-angle from the pole — the opening the hanger arches over')
     +row('Bottom hole (°)',num('botHole',6,50,1),'The flat rim it prints on, and where the light goes in')
     +row('Panel centre (°)',num('centreDeg',30,150,1),'Latitude the photos sit on. 90 is the equator')
+    +row('Band height (°)',num('bandDeg',0,170,1),'How much latitude the photos cover — 0 fits the band to the photo. Set it smaller to wrap the photos round a band and leave the top and bottom plain')
     +row('Repeat around',num('repeat',1,8,1),'Tile the photos this many times around — one photo stretched over 360° distorts badly')
     +row('Relief',`<select class="adv-text-input" title="Inside leaves the outside a clean sphere — the usual choice. Outside makes it a textured ball you can read unlit." onchange="onChange('reliefSide',this.value)">`
        +`<option value="inside"${m.reliefSide==='inside'?' selected':''}>Inside</option>`
@@ -529,9 +557,9 @@ async function openModel(id){
   for(const r of (Array.isArray(rows)?rows:[])){
     try{
       const img=await dataUrlToImage(r.data_url);
-      images.push(makeImage(r.name, img, {
-        id:r.id, src:r.data_url, invert:r.invert, bright:+r.bright, contrast:+r.contrast,
-      }));
+      const over={id:r.id};
+      for(const [js,db] of Object.entries(PHOTO_FIELDS)) over[js]=NUM_FIELDS.has(js)?+r[db]:r[db];
+      images.push(makeImage(r.name, img, over));
     }catch(e){ console.error('Could not decode photo',r.id,e); }
   }
   deletedPhotoIds=[]; selected=images.length?0:-1;

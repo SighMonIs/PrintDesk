@@ -24,13 +24,14 @@ const LITHO_DETAIL = {
 // you get a crease where one image's edge meets the next one's.
 const L_PANEL_GAP = 0.05;
 
-// Bilinear — nearest-neighbour bands badly once it's printed.
-function lSampleLum(im, u, v) {
+// Bilinear — nearest-neighbour bands badly once it's printed. Takes the plane
+// to read so the UI can resample the raw gray through a photo's own transform.
+function lSampleLum(im, u, v, plane) {
   const x = Math.min(im.w - 1, Math.max(0, u * (im.w - 1)));
   const y = Math.min(im.h - 1, Math.max(0, v * (im.h - 1)));
   const x0 = Math.floor(x), y0 = Math.floor(y);
   const x1 = Math.min(im.w - 1, x0 + 1), y1 = Math.min(im.h - 1, y0 + 1);
-  const fx = x - x0, fy = y - y0, L = im.lum;
+  const fx = x - x0, fy = y - y0, L = plane || im.lum;
   const a = L[y0 * im.w + x0], b = L[y0 * im.w + x1];
   const c = L[y1 * im.w + x0], d = L[y1 * im.w + x1];
   return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
@@ -40,15 +41,18 @@ function lPanelCount(p, imgs) {
   return Math.max(1, imgs.length * Math.max(1, p.repeat));
 }
 
-// The latitude band each image occupies. Height follows the image's aspect,
-// width follows the widest row in the band — so two passes settle the pair.
+// The latitude band each image occupies. bandDeg pins the height, leaving the
+// rest of the shell plain above and below; 0 lets the photo's own aspect set
+// it. Width follows the widest row in the band — two passes settle the pair.
 function lBands(p, imgs, f0, f1) {
   const panels = lPanelCount(p, imgs);
   const phiC = Math.min(f1, Math.max(f0, p.centreDeg * Math.PI / 180));
+  const forced = (p.bandDeg || 0) > 0 ? p.bandDeg * Math.PI / 180 : 0;
   return imgs.map(im => {
     let sinRef = Math.max(0.05, Math.sin(phiC)), top = f0, bot = f1;
     for (let it = 0; it < 2; it++) {
-      const dphi = Math.min(f1 - f0, 2 * Math.PI * sinRef * (im.h / im.w) / panels);
+      const dphi = Math.min(f1 - f0, forced ||
+        2 * Math.PI * sinRef * (1 - L_PANEL_GAP) * (im.h / im.w) / panels);
       top = Math.max(f0, Math.min(f1 - dphi, phiC - dphi / 2));
       bot = top + dphi;
       sinRef = (top <= Math.PI / 2 && bot >= Math.PI / 2)
@@ -62,12 +66,19 @@ function lThickness(th, phi, sp, imgs, bands, sliceW, p) {
   if (!imgs.length) return p.thinMM;
   const a = th / sliceW;
   const k = Math.floor(a) % imgs.length;
-  const b = bands[k];
+  const b = bands[k], im = imgs[k];
   if (phi < b.top || phi > b.bot) return p.thinMM;
-  const u = 0.5 + ((a - Math.floor(a)) - 0.5) * (b.sinRef / Math.max(0.02, sp)) / (1 - L_PANEL_GAP);
+  let u = 0.5 + ((a - Math.floor(a)) - 0.5) * (b.sinRef / Math.max(0.02, sp)) / (1 - L_PANEL_GAP);
   if (u < 0 || u > 1) return p.thinMM;
-  const v = (phi - b.top) / Math.max(1e-6, b.bot - b.top);
-  return p.thinMM + (1 - lSampleLum(imgs[k], u, v)) * (p.thickMM - p.thinMM);
+  let v = (phi - b.top) / Math.max(1e-6, b.bot - b.top);
+  // Cover fit. Once bandDeg pins the height the panel stops matching the
+  // photo's shape, so crop whichever axis has room to spare rather than
+  // stretch the picture. Left to itself the band already matches and this is
+  // an identity.
+  const ar = (im.w / im.h) * lPanelCount(p, imgs) * (b.bot - b.top)
+    / (2 * Math.PI * b.sinRef * (1 - L_PANEL_GAP));
+  if (ar > 1) u = 0.5 + (u - 0.5) / ar; else v = 0.5 + (v - 0.5) * ar;
+  return p.thinMM + (1 - lSampleLum(im, u, v)) * (p.thickMM - p.thinMM);
 }
 
 function lBuildShell(p, imgs) {
@@ -189,6 +200,8 @@ function lDerived(p, imgs) {
     panel: bands.length ? {
       w: 2 * Math.PI * R * bands[0].sinRef / panels * (1 - L_PANEL_GAP),
       h: R * (bands[0].bot - bands[0].top),
+      plainTopMM: R * (bands[0].top - f0),
+      plainBotMM: R * (f1 - bands[0].bot),
     } : null,
   };
 }
@@ -199,10 +212,26 @@ function lSelfCheck() {
   const p = {
     dia: 60, topHole: 14, botHole: 16, thinMM: 0.7, thickMM: 2.6,
     centreDeg: 90, repeat: 1, reliefSide: 'inside', segsU: 16, segsV: 10,
-    hanger: true, hangerMM: 3.6,
+    hanger: true, hangerMM: 3.6, bandDeg: 0,
   };
   const lum = new Float32Array(16).fill(0.5);
-  for (const part of lBuildParts(p, [{ w: 4, h: 4, lum }])) {
+  // 8×2, so the band its aspect asks for still fits between the pole holes —
+  // a squarer photo gets clamped by them and is cropped to fit, by design.
+  const imgs = [{ w: 8, h: 2, lum }];
+
+  // A forced band is exactly that tall and sits centred, leaving the rest
+  // plain; left at 0 the band matches the photo, so the cover fit is a no-op.
+  const f0 = p.topHole * Math.PI / 180, f1 = Math.PI - p.botHole * Math.PI / 180;
+  const deg = x => x * 180 / Math.PI;
+  const forced = lBands({ ...p, bandDeg: 40 }, imgs, f0, f1)[0];
+  console.assert(Math.abs(deg(forced.bot - forced.top) - 40) < 1e-6, 'band height ignored');
+  console.assert(Math.abs(deg(forced.top + forced.bot) / 2 - 90) < 1e-6, 'band off centre');
+  const auto = lBands(p, imgs, f0, f1)[0];
+  const ar = (8 / 2) * lPanelCount(p, imgs) * (auto.bot - auto.top)
+    / (2 * Math.PI * auto.sinRef * (1 - L_PANEL_GAP));
+  console.assert(Math.abs(ar - 1) < 1e-6, `auto band distorts the photo (ar ${ar})`);
+
+  for (const part of lBuildParts(p, imgs)) {
     const idx = part.geo.index.array, seen = new Map();
     for (let i = 0; i < idx.length; i += 3) {
       for (const [a, b] of [[idx[i], idx[i + 1]], [idx[i + 1], idx[i + 2]], [idx[i + 2], idx[i]]]) {
