@@ -412,6 +412,23 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
 .method-check input{width:16px;height:16px;accent-color:var(--green);}
 
 .field-hint{font-size:10.5px;color:var(--muted);line-height:1.45;}
+.form-row input:disabled{opacity:.55;cursor:not-allowed;}
+
+.related-row{
+  display:flex;align-items:center;gap:9px;width:100%;
+  padding:10px 14px;border:none;border-bottom:1px solid var(--border);
+  background:transparent;color:var(--text);font:inherit;font-size:12px;
+  cursor:pointer;text-align:left;
+}
+.related-row:last-child{border-bottom:none;}
+.related-row:hover{background:var(--surface2);}
+.related-total{margin-left:auto;font-weight:600;}
+
+.month-row{display:flex;align-items:center;gap:9px;margin-bottom:7px;}
+.month-row:last-child{margin-bottom:0;}
+.month-label{font-size:11px;color:var(--muted);width:58px;flex-shrink:0;}
+.month-row .bar{flex:1;height:7px;}
+.month-val{font-size:11px;width:72px;text-align:right;flex-shrink:0;}
 .hexrow{display:flex;gap:8px;align-items:center;}
 .hexrow input[type=color]{
   width:46px;height:38px;padding:2px;flex-shrink:0;

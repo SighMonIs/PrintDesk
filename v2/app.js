@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.4.0';
+const VERSION = '2.5.0';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -34,6 +34,7 @@ const VIEWS = [
   { k: 'customers', label: 'Customers', short: 'People', icon: 'ti-users',            sub: 'Accounts and history' },
   { k: 'products',  label: 'Products',  short: 'Items',  icon: 'ti-tags',             sub: 'Catalogue and pricing' },
   { k: 'stock',     label: 'Stock',     short: 'Stock',  icon: 'ti-stack-2',          sub: 'Inventory on hand' },
+  { k: 'calculator',label: 'Calculator',short: 'Calc',   icon: 'ti-calculator',       sub: 'Print cost calculator' },
   { k: 'settings',  label: 'Settings',  short: 'More',   icon: 'ti-settings',         sub: 'Workspace configuration' }
 ];
 
@@ -46,7 +47,7 @@ let invItems = [], invReceipts = [], invConsumption = [];
 
 let view = 'dashboard';
 let selected = null;
-let chip = 'open';
+let chip = 'open';   // restored from localStorage once lsGet is defined (see boot)
 let showDetail = false;   // phone: detail takes over the screen
 let loading = true;
 
@@ -591,7 +592,9 @@ async function maybeAdvance(orderId) {
 function go(v) { view = v; showDetail = false; editing = null; record = null; window.scrollTo(0, 0); render(); }
 function pick(id) { selected = id; showDetail = true; editing = null; if (view !== 'orders') view = 'orders'; render(); }
 function closeDetail() { if (editing) { editing = null; } else { showDetail = false; } render(); }
-function setChip(c) { chip = c; render(); }
+// The chosen filter is remembered, which is what the main site's
+// "save as default filter" amounts to in a single-select world.
+function setChip(c) { chip = c; lsSet('v2_filter', c); render(); }
 
 /* ── Shared bits ───────────────────────────────────────────────────── */
 function pipeline(o) {
@@ -692,6 +695,8 @@ function orderDetail(o) {
         <button class="btn ${o.paid ? '' : 'primary'}" onclick="togglePaid('${esc(o.id)}')">
           <i class="ti ${o.paid ? 'ti-rotate-2' : 'ti-cash'}"></i> ${o.paid ? 'Mark unpaid' : 'Mark paid'}</button>
         <button class="btn" onclick="openEditOrder('${esc(o.id)}')"><i class="ti ti-pencil"></i> Edit</button>
+        <button class="btn icon ghost" onclick="generateInvoice('${esc(o.id)}')" title="Invoice PDF" aria-label="Invoice PDF"><i class="ti ti-file-invoice"></i></button>
+        <button class="btn icon ghost" onclick="printShippingLabel('${esc(o.id)}')" title="Shipping label" aria-label="Shipping label"><i class="ti ti-tag"></i></button>
         <button class="btn icon ghost" onclick="deleteOrder('${esc(o.id)}')" title="Delete order" aria-label="Delete order"><i class="ti ti-trash"></i></button>
       </div>
     </div>
@@ -725,6 +730,8 @@ function orderDetail(o) {
         </div>
       </div>
     </div>
+
+    ${relatedOrders(o)}
 
     <div class="card">
       <div class="card-hdr"><i class="ti ti-list-details"></i><h3>Line items</h3></div>
@@ -1002,6 +1009,25 @@ function linkCustomer(name) {
   render();
 }
 
+// Other orders from the same customer, so you can hop between them.
+function relatedOrders(o) {
+  const others = orders.filter(x => x.id !== o.id &&
+    (o.customerId ? x.customerId === o.customerId : x.customer === o.customer));
+  if (!others.length) return '';
+  return `<div class="card">
+    <div class="card-hdr"><i class="ti ti-link"></i><h3>Other orders from ${esc(o.customer || 'this customer')}</h3>
+      <div class="right subtle">${others.length}</div></div>
+    <div class="card-body flush">
+      ${others.slice(0, 8).map(x => `<button class="related-row" onclick="pick('${esc(x.id)}')">
+        <span class="mono">${esc(x.no)}</span>
+        <span class="subtle">${esc(fmtDate(x.date))}</span>
+        ${pill(x.status)}
+        <span class="mono related-total">${money(x.total)}</span>
+      </button>`).join('')}
+    </div>
+  </div>`;
+}
+
 function viewOrders() {
   const list = filtered();
   const counts = k => orders.filter(o => o.status === k).length;
@@ -1220,6 +1246,149 @@ function viewStock() {
     )}
     ${invItems.length ? '' : `<p class="readonly-note"><i class="ti ti-info-circle"></i> Name an item exactly as an option value — "Magnet", say — and completed orders draw it down on their own.</p>`}
   </div></div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Invoice and shipping label
+
+   Same output as the main site: an A4 PDF via jsPDF loaded on demand, and
+   a 100x150mm label printed from a popup. The invoice number is the same
+   deterministic hash of the order id, so a customer sent an invoice by v1
+   and then by v2 sees the same number, and neither reveals how many
+   orders have been processed.
+   ══════════════════════════════════════════════════════════════════════ */
+let jsPDFReady = false;
+function loadJsPDF() {
+  if (jsPDFReady) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.integrity = 'sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk';
+    s.crossOrigin = 'anonymous';
+    s.onload = () => { jsPDFReady = true; res(); };
+    s.onerror = () => rej(new Error('Could not load the PDF library'));
+    document.head.appendChild(s);
+  });
+}
+
+const invoiceNumber = orderId => {
+  let h = 0;
+  for (const ch of String(orderId)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return '#' + (100000 + (h % 900000));
+};
+
+async function generateInvoice(orderId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  toast('Building invoice…');
+  try {
+    await loadJsPDF();
+    const num = invoiceNumber(orderId);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
+    doc.text('PrintDesk', 15, y);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(12);
+    doc.text('INVOICE', pageW - 15, y, { align: 'right' });
+    y += 6;
+    doc.setFontSize(10); doc.setTextColor(100);
+    doc.text('Order ' + num, pageW - 15, y, { align: 'right' }); y += 5;
+    doc.text(toDMY(o.date) || '', pageW - 15, y, { align: 'right' });
+    doc.setTextColor(0);
+    y += 12;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('Bill To', 15, y); y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(o.customer || '', 15, y); y += 5;
+    (o.address || '').split(/,\s*|\n/).map(s => s.trim()).filter(Boolean)
+      .forEach(line => { doc.text(line, 15, y); y += 5; });
+    y += 10;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFillColor(240, 240, 240);
+    doc.rect(15, y - 5, pageW - 30, 8, 'F');
+    doc.text('Item', 17, y);
+    doc.text('Qty', pageW - 70, y, { align: 'right' });
+    doc.text('Price', pageW - 45, y, { align: 'right' });
+    doc.text('Total', pageW - 17, y, { align: 'right' });
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+
+    o.lines.forEach(l => {
+      // Colour choices are a production detail, not something the customer
+      // ordered by name, so the invoice lists the other options only.
+      const labels = parseOpts(l).filter(a => !a.colours).map(a => a.value);
+      const text = [catName(l.cat_id), ...labels].join(' - ');
+      const wrapped = doc.splitTextToSize(text, pageW - 95);
+      doc.text(wrapped, 17, y);
+      doc.text(String(l.qty), pageW - 70, y, { align: 'right' });
+      doc.text('$' + (Number(l.price) || 0).toFixed(2), pageW - 45, y, { align: 'right' });
+      doc.text('$' + (Number(l.total) || 0).toFixed(2), pageW - 17, y, { align: 'right' });
+      y += 7 * wrapped.length;
+      if (l.notes) {
+        doc.setFontSize(8); doc.setTextColor(120);
+        doc.text(l.notes, 17, y); y += 5;
+        doc.setFontSize(10); doc.setTextColor(0);
+      }
+      if (y > 270) { doc.addPage(); y = 20; }
+    });
+
+    if (o.ship) {
+      doc.text('Delivery (' + o.delivery + ')', 17, y);
+      doc.text('$' + o.ship.toFixed(2), pageW - 17, y, { align: 'right' });
+      y += 7;
+    }
+    y += 3;
+    doc.setDrawColor(200); doc.line(15, y, pageW - 15, y);
+    y += 8;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('Total', pageW - 45, y, { align: 'right' });
+    doc.text('$' + o.total.toFixed(2), pageW - 17, y, { align: 'right' });
+
+    doc.save('Invoice_' + num.replace('#', '') + '_' + String(o.customer || '').replace(/[^a-z0-9]/gi, '') + '.pdf');
+    toast('Invoice downloaded');
+  } catch (e) {
+    toast(e.message, 'err');
+  }
+}
+
+function printShippingLabel(orderId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  if (!o.address) { toast('This order has no address', 'err'); return; }
+  const addr = o.address.split(/,\s*|\n/).map(s => s.trim()).filter(Boolean)
+    .map(l => '<div>' + esc(l) + '</div>').join('');
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Shipping Label</title>
+<style>
+  @page{size:100mm 150mm;margin:0}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;width:100mm;height:150mm;padding:6mm;display:flex;flex-direction:column;gap:4mm}
+  .from-block{border:1.5px solid #000;padding:3mm 4mm;font-size:9pt}
+  .from-label{font-size:7pt;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#555;margin-bottom:1mm}
+  .from-name{font-weight:700;font-size:10pt}
+  .to-block{flex:1;border:1.5px solid #000;padding:3mm 4mm;display:flex;flex-direction:column;justify-content:center}
+  .to-label{font-size:7pt;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#555;margin-bottom:2mm}
+  .to-name{font-size:15pt;font-weight:700;margin-bottom:2mm}
+  .to-addr{font-size:11pt;line-height:1.5}
+  .order-ref{text-align:right;font-size:7.5pt;color:#555;margin-top:auto;padding-top:2mm}
+</style></head><body>
+  <div class="from-block"><div class="from-label">From</div><div class="from-name">PrintDesk</div></div>
+  <div class="to-block">
+    <div class="to-label">To</div>
+    <div class="to-name">${esc(o.customer)}</div>
+    <div class="to-addr">${addr}</div>
+    <div class="order-ref">Order ${esc(o.id)}</div>
+  </div>
+<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
+</body></html>`;
+  const w = window.open('', '_blank', 'width=400,height=600');
+  if (!w) { toast('Allow pop-ups to print a label', 'err'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1662,6 +1831,212 @@ function usersCard() {
   </div>`;
 }
 
+/* ── Print cost calculator ─────────────────────────────────────────────
+   Same model as the main site. Inputs persist locally so the machine and
+   filament rates survive a reload. */
+const CALC_KEY = 'v2_calc';
+const CALC_FIELDS = [
+  { k: 'weight', label: 'Filament used (g)', def: 50, step: 1 },
+  { k: 'hours', label: 'Print time (hours)', def: 3, step: 0.1 },
+  { k: 'filamentPrice', label: 'Filament $/kg', def: 25, step: 0.5 },
+  { k: 'power', label: 'Printer draw (W)', def: 150, step: 5 },
+  { k: 'elecRate', label: 'Electricity $/kWh', def: 0.3, step: 0.01 },
+  { k: 'laborMin', label: 'Hands-on time (min)', def: 10, step: 1 },
+  { k: 'laborRate', label: 'Your rate $/hr', def: 30, step: 1 },
+  { k: 'waste', label: 'Failure allowance (%)', def: 10, step: 1 },
+  { k: 'markup', label: 'Markup (%)', def: 50, step: 1 }
+];
+
+function calcValues() {
+  let saved = {};
+  try { saved = JSON.parse(lsGet(CALC_KEY) || '{}'); } catch (e) { /* ignore */ }
+  const v = {};
+  CALC_FIELDS.forEach(f => {
+    const el = document.getElementById('calc-' + f.k);
+    v[f.k] = el ? (parseFloat(el.value) || 0) : (saved[f.k] !== undefined ? saved[f.k] : f.def);
+  });
+  return v;
+}
+
+function calcRun() {
+  const v = calcValues();
+  lsSet(CALC_KEY, JSON.stringify(v));
+  const material = (v.weight / 1000) * v.filamentPrice;
+  const electricity = (v.power / 1000) * v.hours * v.elecRate;
+  const labour = (v.laborMin / 60) * v.laborRate;
+  const subtotal = material + electricity + labour;
+  const waste = subtotal * (v.waste / 100);
+  const withWaste = subtotal + waste;
+  const markup = withWaste * (v.markup / 100);
+  const out = { material, electricity, labour, subtotal, waste, markup, total: withWaste + markup };
+  for (const k in out) {
+    const el = document.getElementById('calc-out-' + k);
+    if (el) el.textContent = money(out[k]);
+  }
+  return out;
+}
+
+function viewCalculator() {
+  const v = calcValues();
+  const row = (label, id, cls) => `<div class="totals-row${cls || ''}"><span>${esc(label)}</span><span id="calc-out-${id}">$0.00</span></div>`;
+  return `<div class="page"><div class="page-inner narrow">
+    <div class="section-title">Print cost calculator</div>
+    <div class="card"><div class="card-body form-grid">
+      ${CALC_FIELDS.map(f => `<div class="form-row"><label for="calc-${f.k}">${esc(f.label)}</label>
+        <input type="number" id="calc-${f.k}" value="${esc(v[f.k])}" step="${f.step}" min="0" inputmode="decimal" oninput="calcRun()"></div>`).join('')}
+    </div></div>
+    <div class="card" style="margin-top:12px"><div class="totals">
+      ${row('Material', 'material')}
+      ${row('Electricity', 'electricity')}
+      ${row('Labour', 'labour')}
+      ${row('Subtotal', 'subtotal')}
+      ${row('Failure allowance', 'waste')}
+      ${row('Markup', 'markup')}
+      ${row('Suggested price', 'total', ' grand')}
+    </div></div>
+  </div></div>`;
+}
+
+/* ── Stats ─────────────────────────────────────────────────────────── */
+function statsCard() {
+  const live = orders.filter(o => o.status !== 'Cancelled');
+  const paid = live.filter(o => o.paid);
+  const revenue = paid.reduce((s, o) => s + o.total, 0);
+  const byMonth = new Map();
+  for (const o of paid) {
+    const d = parseDate(o.date);
+    if (!d) continue;
+    const k = d.getFullYear() + '-' + padN(d.getMonth() + 1, 2);
+    byMonth.set(k, (byMonth.get(k) || 0) + o.total);
+  }
+  const months = [...byMonth.entries()].sort().slice(-6);
+  const peak = Math.max(1, ...months.map(m => m[1]));
+  const spend = invReceipts.reduce((s, r) => s + (Number(r.cost) || 0), 0);
+
+  return `<div class="card settings-card">
+    <div class="card-hdr"><i class="ti ti-chart-bar"></i><h3>Stats</h3></div>
+    <div class="card-body kv">
+      <div class="kv-row"><div class="k wide">Orders</div><div class="v">${live.length} <span class="subtle">(${orders.length - live.length} cancelled)</span></div></div>
+      <div class="kv-row"><div class="k wide">Units sold</div><div class="v">${live.reduce((s, o) => s + o.units, 0)}</div></div>
+      <div class="kv-row"><div class="k wide">Revenue collected</div><div class="v mono">${money(revenue)}</div></div>
+      <div class="kv-row"><div class="k wide">Outstanding</div><div class="v mono">${money(live.filter(o => !o.paid).reduce((s, o) => s + o.total, 0))}</div></div>
+      <div class="kv-row"><div class="k wide">Average order</div><div class="v mono">${money(live.length ? live.reduce((s, o) => s + o.total, 0) / live.length : 0)}</div></div>
+      ${spend ? `<div class="kv-row"><div class="k wide">Stock spend</div><div class="v mono">${money(spend)}</div></div>` : ''}
+    </div>
+    ${months.length ? `<div class="card-body" style="border-top:1px solid var(--border)">
+      <div class="subtle" style="margin-bottom:9px">Collected by month</div>
+      ${months.map(([k, v]) => `<div class="month-row">
+        <span class="mono month-label">${esc(k)}</span>
+        <div class="bar"><i style="width:${v / peak * 100}%"></i></div>
+        <span class="mono month-val">${money(v)}</span>
+      </div>`).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
+/* ── Profile ───────────────────────────────────────────────────────── */
+async function saveProfile() {
+  const name = (val('p-name') || '').trim();
+  const pass = val('p-pass') || '';
+  if (pass && pass.length < 6) { toast('Password must be at least 6 characters', 'err'); return; }
+  if (!currentUser) { toast('Not signed in', 'err'); return; }
+  const body = { data: { display_name: name } };
+  if (pass) body.password = pass;
+  const btn = document.getElementById('p-save');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Saving…'; }
+  try {
+    const res = await sbAdminCall('PUT', 'users/' + currentUser.id, body);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || data.message || 'Could not save');
+    currentUser.user_metadata = Object.assign({}, currentUser.user_metadata, { display_name: name });
+    toast(pass ? 'Profile and password updated' : 'Profile updated');
+  } catch (e) {
+    toast(e.message, 'err');
+  } finally { render(); }
+}
+
+function profileCard() {
+  const name = (currentUser && currentUser.user_metadata && currentUser.user_metadata.display_name) || '';
+  return `<div class="card settings-card">
+    <div class="card-hdr"><i class="ti ti-user-circle"></i><h3>Your profile</h3></div>
+    <div class="card-body form-grid">
+      <div class="form-row"><label>Email</label>
+        <input type="text" value="${esc((currentUser && currentUser.email) || '')}" disabled></div>
+      <div class="form-row"><label for="p-name">Display name</label>
+        <input type="text" id="p-name" value="${esc(name)}" placeholder="Your name"></div>
+      <div class="form-row"><label for="p-pass">New password</label>
+        <input type="password" id="p-pass" autocomplete="new-password" placeholder="Leave blank to keep it">
+        <span class="field-hint">At least 6 characters.</span></div>
+      <button class="btn primary" id="p-save" onclick="saveProfile()"><i class="ti ti-check"></i> Save profile</button>
+    </div>
+  </div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Email alerts
+
+   These rows already exist in app_settings and are what the main site
+   writes; v2 just surfaces the same switches. The sender itself is not in
+   this repo — notify_threshold_last_sent has never been set — so these
+   configure something that is not currently sending.
+   ══════════════════════════════════════════════════════════════════════ */
+let appSettings = null;
+
+async function loadAppSettings() {
+  try {
+    const rows = await sbGet('app_settings', '?select=key,value');
+    appSettings = Object.fromEntries((rows || []).map(r => [r.key, r.value]));
+  } catch (e) { appSettings = {}; }
+  render();
+}
+
+async function saveAppSettings() {
+  const rows = [
+    { key: 'notify_email', value: (val('n-email') || '').trim() },
+    { key: 'notify_daily_enabled', value: String(!!(document.getElementById('n-daily') || {}).checked) },
+    { key: 'notify_threshold_enabled', value: String(!!(document.getElementById('n-thresh') || {}).checked) },
+    { key: 'notify_threshold_count', value: val('n-count') || '5' }
+  ];
+  const btn = document.getElementById('n-save');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Saving…'; }
+  try {
+    for (const r of rows) await sbUpsert('app_settings', r);
+    rows.forEach(r => { appSettings[r.key] = r.value; });
+    toast('Email alert settings saved');
+  } catch (e) { toast('Save failed: ' + e.message, 'err'); }
+  finally { render(); }
+}
+
+function emailAlertsCard() {
+  if (appSettings === null) {
+    return `<div class="card settings-card">
+      <div class="card-hdr"><i class="ti ti-mail"></i><h3>Email alerts</h3></div>
+      <div class="card-body"><button class="btn" onclick="loadAppSettings()"><i class="ti ti-mail"></i> Load settings</button></div>
+    </div>`;
+  }
+  const s = appSettings;
+  const lastSent = s.notify_threshold_last_sent;
+  return `<div class="card settings-card">
+    <div class="card-hdr"><i class="ti ti-mail"></i><h3>Email alerts</h3>
+      <div class="right"><span class="pill" style="--pc:var(${lastSent ? '--green' : '--amber'})">${lastSent ? 'sending' : 'never sent'}</span></div>
+    </div>
+    <div class="card-body form-grid">
+      <div class="form-row"><label for="n-email">Send alerts to</label>
+        <input type="email" id="n-email" value="${esc(s.notify_email || '')}" placeholder="you@example.com" inputmode="email"></div>
+      <div class="form-row"><label class="method-check">
+        <input type="checkbox" id="n-daily" ${s.notify_daily_enabled === 'true' ? 'checked' : ''}> Daily summary of new orders</label></div>
+      <div class="form-row"><label class="method-check">
+        <input type="checkbox" id="n-thresh" ${s.notify_threshold_enabled === 'true' ? 'checked' : ''}> Alert me after a number of new orders</label></div>
+      <div class="form-row"><label for="n-count">That number</label>
+        <input type="number" id="n-count" value="${esc(s.notify_threshold_count || '5')}" min="1" step="1" inputmode="numeric"></div>
+      <div class="kv-row"><div class="k wide">Last sent</div><div class="v">${lastSent ? esc(new Date(lastSent).toLocaleString('en-AU')) : 'Never'}</div></div>
+      <button class="btn primary" id="n-save" onclick="saveAppSettings()"><i class="ti ti-check"></i> Save email alerts</button>
+      ${!lastSent ? `<p class="readonly-note"><i class="ti ti-alert-triangle"></i>
+        These settings are stored, but nothing has ever sent from them. The sender is not in this repository — it needs an Edge Function that reads these rows and emails via Resend.</p>` : ''}
+    </div>
+  </div>`;
+}
+
 /* ══════════════════════════════════════════════════════════════════════
    New-order alerts
 
@@ -1873,9 +2248,12 @@ function viewSettings() {
       ['Stored as', FLOW.map(f => `<code>${esc(f.k)}</code>`).join(', ')],
       ['Ageing after', AGEING_DAYS + ' days open']
     ])}
+    ${statsCard()}
     ${methodsCard('delivery')}
     ${methodsCard('payment')}
     ${usersCard()}
+    ${profileCard()}
+    ${emailAlertsCard()}
     ${notificationsCard()}
     ${group('Workspace', 'ti-building', [
       ['Signed in as', esc((typeof currentUser !== 'undefined' && currentUser && currentUser.email) || '—')],
@@ -1890,7 +2268,8 @@ function viewSettings() {
 /* ── Render ────────────────────────────────────────────────────────── */
 const RENDER = {
   dashboard: viewDashboard, orders: viewOrders, queue: viewQueue,
-  customers: viewCustomers, products: viewProducts, stock: viewStock, settings: viewSettings
+  customers: viewCustomers, products: viewProducts, stock: viewStock,
+  calculator: viewCalculator, settings: viewSettings
 };
 
 function render() {
@@ -1918,6 +2297,8 @@ function render() {
     ? `<div class="empty"><i class="ti ti-loader-2 spin"></i><p>Loading&hellip;</p></div>`
     : RENDER[view]();
 
+  if (view === 'calculator') calcRun();   // fill the results after the inputs exist
+
   // Back arrow belongs to the phone detail view only.
   document.getElementById('backBtn').classList.toggle('hide', !(view === 'orders' && showDetail));
 }
@@ -1932,6 +2313,7 @@ function showApp() {
 }
 
 (async function boot() {
+  chip = lsGet('v2_filter') || 'open';
   const ok = await restoreSession();
   document.getElementById('bootSplash').remove();
   if (ok) showApp();
