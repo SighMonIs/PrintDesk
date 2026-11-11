@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.0.1';
+const VERSION = '2.1.0';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -198,7 +198,12 @@ async function setOrderStatus(id, status) {
     toast('Could not save: ' + (err.message || 'unknown error'), 'err');
     render();
   } else {
+    // Same rule as the main site: stock is drawn down when an order completes,
+    // never before. Without this v2 could complete an order and silently leave
+    // the inventory ledger short.
+    if (status === 'Complete') await consumeInventory(o.lines, id);
     toast(o.no + ' → ' + meta(status).label);
+    render();
   }
 }
 
@@ -222,14 +227,367 @@ async function togglePaid(id) {
     toast('Could not save: ' + (err.message || 'unknown error'), 'err');
     render();
   } else {
+    await maybeAdvance(id);
+    render();
     toast(o.no + ' marked ' + (paid ? 'paid' : 'unpaid'));
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   Order editor — create, edit, delete.
+
+   Everything here writes the same row shapes the main site writes, so an
+   order created in v2 is indistinguishable from one created in v1:
+   - one `orders` row per line item, each carrying the order header
+   - row ids are O<n>-<i>, order ids are O000000000<n>
+   - dates are stored dd/mm/yyyy (what the main site's form produces)
+   - options are packed "Name:Value||Name:Value", colours pipe-joined
+   - editing marks the old rows deleted, then upserts the new set
+   ══════════════════════════════════════════════════════════════════════ */
+
+// shared/sb.js deliberately ships no upsert (only BadgeMak3r needed one), so
+// v2 adds the same one-liner rather than changing the shared module.
+async function sbUpsert(table, row) {
+  const r = await sbFetch(table, { method: 'POST', body: JSON.stringify(row) },
+    { 'Prefer': 'resolution=merge-duplicates,return=representation' });
+  if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+  return r.json();
+}
+
+const padN = (n, l) => String(n).padStart(l, '0');
+const todayDMY = () => { const d = new Date(); return padN(d.getDate(), 2) + '/' + padN(d.getMonth() + 1, 2) + '/' + d.getFullYear(); };
+const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + padN(d.getMonth() + 1, 2) + '-' + padN(d.getDate(), 2); };
+const toDMY = v => { const d = parseDate(v); return d ? padN(d.getDate(), 2) + '/' + padN(d.getMonth() + 1, 2) + '/' + d.getFullYear() : ''; };
+const makeRowId = (orderId, i) => String(orderId).replace(/^O0*/, 'O') + '-' + (i + 1);
+
+function nextOrderId() {
+  const ns = orders.map(o => o.id).filter(id => /^O\d+$/.test(id)).map(id => parseInt(id.slice(1), 10));
+  return 'O' + padN((ns.length ? Math.max(...ns) : 0) + 1, 10);
+}
+// Checked against the server right before use, the way the main site does it:
+// two people creating an order at once would otherwise compute the same id.
+async function nextOrderIdChecked() {
+  let id = nextOrderId();
+  for (let i = 0; i < 5; i++) {
+    const hit = await sbGet('orders', '?order_id=eq.' + encodeURIComponent(id) + '&select=order_id&limit=1');
+    if (!Array.isArray(hit) || !hit.length) return id;
+    id = 'O' + padN(parseInt(id.slice(1), 10) + 1, 10);
+  }
+  return id;
+}
+function nextInvConsumptionId() {
+  const ns = invConsumption.map(c => String(c.id)).filter(id => /^IC\d+$/.test(id)).map(id => parseInt(id.slice(2), 10));
+  return 'IC' + padN((ns.length ? Math.max(...ns) : 0) + 1, 6);
+}
+
+/* ── Inventory ─────────────────────────────────────────────────────── */
+// The main site links stock by name: an option *value* that matches an
+// inventory item *name* draws that item down. No explicit linking table.
+function matchedInventoryItems(line) {
+  if (!line.options) return [];
+  return String(line.options).split('||')
+    .map(p => p.includes(':') ? p.split(':').slice(1).join(':').trim() : '')
+    .filter(Boolean)
+    .map(v => invItems.find(i => i.name.toLowerCase() === v.toLowerCase()))
+    .filter(Boolean);
+}
+
+async function logConsumption(itemId, orderId, qty) {
+  const rec = { id: nextInvConsumptionId(), item_id: itemId, order_id: orderId, qty, date: todayISO() };
+  try {
+    await sbUpsert('inventory_consumption', rec);
+    invConsumption.push(rec);
+  } catch (e) {
+    console.error('Inventory write failed for ' + itemId + ' on ' + orderId + ':', e);
+  }
+}
+
+// Guarded by inv_consumed per row so completing an order twice never
+// double-counts.
+async function consumeInventory(lines, orderId) {
+  for (const l of lines) {
+    if (l.inv_consumed || !l.options) continue;
+    for (const item of matchedInventoryItems(l)) await logConsumption(item.id, orderId, Number(l.qty) || 0);
+    l.inv_consumed = true;
+    await sbPatch('orders', '?id=eq.' + encodeURIComponent(l.id), { inv_consumed: true });
+  }
+}
+
+// inventory_consumption is an append-only ledger, so a qty change on an
+// already-consumed row is logged as a delta (which may be negative) rather
+// than by editing the original entry.
+async function reconcileQty(line, prevQty, orderId) {
+  const delta = (Number(line.qty) || 0) - prevQty;
+  if (!delta) return;
+  for (const item of matchedInventoryItems(line)) await logConsumption(item.id, orderId, delta);
+}
+
+/* ── Editor state ──────────────────────────────────────────────────── */
+let editing = null;   // {orderId|null, header:{…}, lines:[…]}
+let saving = false;
+
+function newLine() { return { catId: cats[0] ? String(cats[0].id) : '', qty: 1, price: cats[0] ? Number(cats[0].price) || 0 : 0, notes: '', options: '', model: '' }; }
+
+function openNewOrder() {
+  if (!cats.length) { toast('Add a product in the main site first', 'err'); return; }
+  editing = {
+    orderId: null,
+    header: { customer: '', customerId: '', address: '', date: todayDMY(), delivery: (deliveryOptions[0] || {}).name || '', payment: '', hold: '' },
+    lines: [newLine()]
+  };
+  view = 'orders'; showDetail = true; render();
+}
+
+function openEditOrder(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  editing = {
+    orderId: o.id,
+    header: {
+      customer: o.customer, customerId: o.customerId, address: o.address,
+      date: toDMY(o.date) || todayDMY(), delivery: o.delivery, payment: o.payment,
+      hold: (o.status === 'On Hold' || o.status === 'Cancelled') ? o.status : ''
+    },
+    lines: o.lines.map(l => ({
+      catId: String(l.cat_id || ''), qty: Number(l.qty) || 1, price: Number(l.price) || 0,
+      notes: l.notes || '', options: l.options || '', model: l.model || ''
+    }))
+  };
+  view = 'orders'; showDetail = true; render();
+}
+
+function closeEditor() { editing = null; render(); }
+
+function addLine() { syncForm(); editing.lines.push(newLine()); render(); }
+function removeLine(i) {
+  syncForm();
+  if (editing.lines.length === 1) { toast('An order needs at least one item', 'err'); return; }
+  editing.lines.splice(i, 1); render();
+}
+// Picking a different product changes which option fields exist, so the row
+// is re-rendered and its price reset to that product's default.
+function lineProductChanged(i, catId) {
+  syncForm();
+  editing.lines[i].catId = catId;
+  editing.lines[i].options = '';
+  const c = cats.find(x => String(x.id) === String(catId));
+  if (c) editing.lines[i].price = Number(c.price) || 0;
+  render();
+}
+
+/* ── Reading the form back ─────────────────────────────────────────── */
+const val = id => (document.getElementById(id) || {}).value || '';
+// A '|' in free text would corrupt the packed option string, which uses '|'
+// between colour layers and '||' between fields.
+const safeOptValue = s => String(s).replace(/\|/g, '/').trim();
+
+function optionsStringFor(i) {
+  const defs = opts.filter(d => String(d.cat_id) === String(editing.lines[i].catId));
+  const parts = [];
+  for (const d of defs) {
+    let v = '';
+    if (isColourOpt(d)) {
+      const n = Number(d.num_colours) || 4;
+      const picked = [];
+      for (let k = 0; k < n; k++) {
+        const c = val('optc-' + i + '-' + d.id + '-' + k);
+        if (c) picked.push(c);
+      }
+      v = picked.join('|');
+    } else if (d.display === 'text') {
+      v = safeOptValue(val('opt-' + i + '-' + d.id));
+      if (d.force_caps) v = v.toUpperCase();
+    } else {
+      v = val('opt-' + i + '-' + d.id);
+      if (v === 'Custom') v = safeOptValue(val('optx-' + i + '-' + d.id));
+    }
+    if (v) parts.push(d.name + ':' + v);
+  }
+  return parts.join('||');
+}
+
+function syncForm() {
+  if (!editing) return;
+  const typed = val('f-customer').trim();
+  // Resolve the customer record by name on every read rather than trusting a
+  // change event to have fired — autofill and paste don't always raise one,
+  // and an order saved with a null customer_id loses its account link.
+  const match = customers.find(c => c.name.trim().toLowerCase() === typed.toLowerCase());
+  editing.header = {
+    customer: typed,
+    customerId: match ? String(match.id) : '',
+    address: val('f-address').trim(),
+    date: val('f-date'),
+    delivery: val('f-delivery'),
+    payment: val('f-payment'),
+    hold: val('f-hold')
+  };
+  editing.lines.forEach((l, i) => {
+    l.catId = val('l-cat-' + i) || l.catId;
+    l.qty = Math.max(1, parseInt(val('l-qty-' + i), 10) || 1);
+    l.price = parseFloat(val('l-price-' + i)) || 0;
+    l.notes = val('l-notes-' + i).trim();
+    l.options = optionsStringFor(i);
+  });
+}
+
+const isColourOpt = d => d.display === 'colour'
+  || d.name.toLowerCase().includes('colour') || d.name.toLowerCase().includes('color');
+
+/* ── Save ──────────────────────────────────────────────────────────── */
+function validate() {
+  const errs = [];
+  if (!editing.header.customer) errs.push('Customer name is required');
+  if (!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(editing.header.date)) errs.push('Date must be dd/mm/yyyy');
+  editing.lines.forEach((l, i) => {
+    if (!l.catId) errs.push('Item ' + (i + 1) + ' has no product');
+    if (!(l.qty > 0)) errs.push('Item ' + (i + 1) + ' needs a quantity');
+  });
+  return errs;
+}
+
+async function saveOrder() {
+  if (saving) return;
+  syncForm();
+  const errs = validate();
+  if (errs.length) { toast(errs[0], 'err'); return; }
+
+  saving = true;
+  const btn = document.getElementById('saveBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Saving…'; }
+
+  const isEdit = !!editing.orderId;
+  const prev = isEdit ? orders.find(o => o.id === editing.orderId) : null;
+  try {
+    const orderId = editing.orderId || await nextOrderIdChecked();
+    const h = editing.header;
+
+    // Carry the untouched workflow fields across an edit, matched by row id.
+    const prevById = new Map((prev ? prev.lines : []).map(l => [String(l.id), l]));
+    const qtyChanges = [];
+    const newRows = editing.lines.map((l, i) => {
+      const id = makeRowId(orderId, i);
+      const old = prevById.get(id);
+      let status = old ? old.status : 'Pending';
+      if (h.hold) status = h.hold;
+      else if (status === 'On Hold' || status === 'Cancelled') status = 'Pending';
+      const qty = Number(l.qty) || 0;
+      if (old && old.inv_consumed && Number(old.qty) !== qty) qtyChanges.push([id, Number(old.qty) || 0]);
+      return {
+        id, order_id: orderId, customer: h.customer, customer_id: h.customerId || null,
+        address: h.address, delivery: h.delivery, payment: h.payment || 'No',
+        model: l.model || '', cat_id: l.catId, qty, price: Number(l.price) || 0,
+        total: parseFloat((qty * (Number(l.price) || 0)).toFixed(2)),
+        status, date: h.date, notes: l.notes, options: l.options,
+        printed: old ? !!old.printed : false,
+        paid: prev ? !!prev.paid : false,
+        inv_consumed: old ? !!old.inv_consumed : false,
+        deleted: false
+      };
+    });
+
+    // Mark the whole old set deleted first; the upsert below revives the rows
+    // that still exist, so any item removed in this edit stays deleted.
+    if (isEdit) await sbPatch('orders', '?order_id=eq.' + encodeURIComponent(orderId), { deleted: true });
+    for (const r of newRows) await sbUpsert('orders', r);
+
+    for (const [id, was] of qtyChanges) {
+      await reconcileQty(newRows.find(r => r.id === id), was, orderId);
+    }
+    if (newRows[0].status === 'Complete') await consumeInventory(newRows, orderId);
+
+    rows = rows.filter(r => String(r.order_id) !== String(orderId)).concat(newRows);
+    group();
+    selected = orderId;
+    editing = null;
+    toast((isEdit ? 'Saved ' : 'Created ') + orderNo(orderId));
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
+  } finally {
+    saving = false;
+    render();
+  }
+}
+
+/* ── Delete (soft, with undo) ──────────────────────────────────────── */
+async function deleteOrder(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  const name = o.customer || 'this order';
+  const typed = await askText('Type the customer name to confirm deleting ' + o.no + ':\n\n"' + name + '"', '');
+  if (typed === null) return;
+  if (typed.trim().toLowerCase() !== name.trim().toLowerCase()) { toast('Name did not match — nothing deleted', 'err'); return; }
+
+  const kept = o.lines.slice();
+  rows = rows.filter(r => String(r.order_id) !== String(id));
+  group();
+  if (selected === id) { selected = null; showDetail = false; }
+  editing = null;
+  render();
+
+  const err = await sbPatch('orders', '?order_id=eq.' + encodeURIComponent(id), { deleted: true });
+  if (err) {
+    rows = rows.concat(kept); group(); render();
+    toast('Delete failed: ' + (err.message || 'unknown error'), 'err');
+    return;
+  }
+  showUndo(o.no + ' deleted', async () => {
+    const e2 = await sbPatch('orders', '?order_id=eq.' + encodeURIComponent(id), { deleted: false });
+    if (e2) { toast('Undo failed: ' + (e2.message || 'unknown error'), 'err'); return; }
+    rows = rows.concat(kept); group(); selected = id; render();
+    toast(o.no + ' restored');
+  });
+}
+
+function showUndo(msg, onUndo) {
+  const el = document.getElementById('toast');
+  el.className = 'toast';
+  el.innerHTML = '';
+  el.appendChild(document.createTextNode(msg + ' '));
+  const b = document.createElement('button');
+  b.className = 'btn sm';
+  b.textContent = 'Undo';
+  b.onclick = () => { el.style.display = 'none'; onUndo(); };
+  el.appendChild(b);
+  el.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.style.display = 'none'; }, 7000);
+}
+
+/* ── Per-item printed, and the forward-only auto-advance ───────────── */
+async function toggleLinePrinted(orderId, rowId, checked) {
+  const o = orders.find(x => x.id === orderId);
+  const l = o && o.lines.find(x => String(x.id) === String(rowId));
+  if (!l) return;
+  l.printed = checked;
+  render();
+  const err = await sbPatch('orders', '?id=eq.' + encodeURIComponent(rowId), { printed: checked });
+  if (err) { l.printed = !checked; toast('Could not save: ' + (err.message || ''), 'err'); render(); return; }
+  await maybeAdvance(orderId);
+  render();
+}
+
+// Mirrors the main site: Pending/Confirmed → Printed once every item is
+// printed, Printed → Complete once it is paid. Never moves backwards, and
+// never touches On Hold, Cancelled or Complete.
+async function maybeAdvance(orderId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o || ['On Hold', 'Cancelled', 'Complete'].includes(o.status)) return;
+  let next = null;
+  if (o.status === 'Printed' && o.paid) next = 'Complete';
+  else if ((o.status === 'Pending' || o.status === 'Confirmed') && o.lines.every(l => l.printed)) next = 'Printed';
+  if (!next) return;
+  o.status = next; o.lines.forEach(l => { l.status = next; });
+  const err = await sbPatch('orders', '?order_id=eq.' + encodeURIComponent(orderId), { status: next });
+  if (err) { toast('Could not save: ' + (err.message || ''), 'err'); return; }
+  if (next === 'Complete') await consumeInventory(o.lines, orderId);
+  toast(o.no + ' advanced to ' + meta(next).label);
+}
+
 /* ── Navigation ────────────────────────────────────────────────────── */
-function go(v) { view = v; showDetail = false; window.scrollTo(0, 0); render(); }
-function pick(id) { selected = id; showDetail = true; if (view !== 'orders') view = 'orders'; render(); }
-function closeDetail() { showDetail = false; render(); }
+function go(v) { view = v; showDetail = false; editing = null; window.scrollTo(0, 0); render(); }
+function pick(id) { selected = id; showDetail = true; editing = null; if (view !== 'orders') view = 'orders'; render(); }
+function closeDetail() { if (editing) { editing = null; } else { showDetail = false; } render(); }
 function setChip(c) { chip = c; render(); }
 
 /* ── Shared bits ───────────────────────────────────────────────────── */
@@ -330,6 +688,8 @@ function orderDetail(o) {
         ${next && isOpen(o) ? `<button class="btn success" onclick="advance('${esc(o.id)}')"><i class="ti ${next.icon}"></i> Mark ${esc(next.label)}</button>` : ''}
         <button class="btn ${o.paid ? '' : 'primary'}" onclick="togglePaid('${esc(o.id)}')">
           <i class="ti ${o.paid ? 'ti-rotate-2' : 'ti-cash'}"></i> ${o.paid ? 'Mark unpaid' : 'Mark paid'}</button>
+        <button class="btn" onclick="openEditOrder('${esc(o.id)}')"><i class="ti ti-pencil"></i> Edit</button>
+        <button class="btn icon ghost" onclick="deleteOrder('${esc(o.id)}')" title="Delete order" aria-label="Delete order"><i class="ti ti-trash"></i></button>
       </div>
     </div>
 
@@ -380,6 +740,10 @@ function orderDetail(o) {
             <div class="line-money">
               <div class="ea">${money(l.price)} ea</div>
               <div class="tot">${money(l.total)}</div>
+              <label class="made-check" title="Mark this item made">
+                <input type="checkbox" ${l.printed ? 'checked' : ''}
+                  onchange="toggleLinePrinted('${esc(o.id)}','${esc(l.id)}',this.checked)"> made
+              </label>
             </div>
           </div>`;
         }).join('')}</div>
@@ -393,6 +757,158 @@ function orderDetail(o) {
 
     <p class="readonly-note"><i class="ti ti-info-circle"></i> v2 writes stage and paid only. Everything else is read-only — edit it in the live site.</p>
   </div>`;
+}
+
+/* ── The form ──────────────────────────────────────────────────────── */
+function optionFieldHtml(i, d) {
+  const saved = {};
+  String(editing.lines[i].options || '').split('||').forEach(p => {
+    const x = p.indexOf(':'); if (x >= 0) saved[p.slice(0, x).trim()] = p.slice(x + 1).trim();
+  });
+  const v = saved[d.name] || '';
+  const label = `<label for="opt-${i}-${d.id}">${esc(d.name)}</label>`;
+
+  if (isColourOpt(d)) {
+    const n = Number(d.num_colours) || 4;
+    const picked = v ? v.split('|') : String(d.default_colours || '').split('|').filter(Boolean);
+    const usable = colours.filter(c => !c.archived);
+    const sel = k => `<select id="optc-${i}-${d.id}-${k}" class="opt-colour">
+      <option value="">—</option>
+      ${usable.map(c => `<option value="${esc(c.name)}"${picked[k] === c.name ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}
+    </select>`;
+    return `<div class="form-row"><label>${esc(d.name)}</label>
+      <div class="opt-colours">${Array.from({ length: n }, (_, k) => sel(k)).join('')}</div></div>`;
+  }
+
+  if (d.display === 'text') {
+    return `<div class="form-row">${label}
+      <input type="text" id="opt-${i}-${d.id}" value="${esc(v)}" ${d.force_caps ? 'style="text-transform:uppercase"' : ''}
+        placeholder="${esc(d.name)}…"></div>`;
+  }
+
+  const items = String(d.options || '').split(',').map(s => s.trim()).filter(Boolean);
+  const custom = v && !items.includes(v);
+  return `<div class="form-row">${label}
+    <select id="opt-${i}-${d.id}" onchange="syncForm();render()">
+      <option value="">— select —</option>
+      ${items.map(it => `<option${v === it ? ' selected' : ''}>${esc(it)}</option>`).join('')}
+      <option value="Custom"${custom ? ' selected' : ''}>Custom…</option>
+    </select>
+    ${custom ? `<input type="text" id="optx-${i}-${d.id}" value="${esc(v)}" placeholder="Describe the custom option…" class="mt6">` : ''}
+  </div>`;
+}
+
+function orderForm() {
+  const h = editing.header;
+  const isEdit = !!editing.orderId;
+  const total = editing.lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0)
+    + (Number(delivery(h.delivery).price) || 0);
+
+  return `<div class="detail">
+    <div class="detail-hdr">
+      <div class="detail-hdr-main">
+        <div class="detail-title">${isEdit ? 'Edit ' + esc(orderNo(editing.orderId)) : 'New order'}</div>
+        <div class="detail-sub"><span>${isEdit ? 'Changes replace every line in this order' : 'Saved straight to the live database'}</span></div>
+      </div>
+      <div class="detail-actions">
+        <button class="btn" onclick="closeEditor()">Cancel</button>
+        <button class="btn primary" id="saveBtn" onclick="saveOrder()"><i class="ti ti-check"></i> Save order</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr"><i class="ti ti-user"></i><h3>Customer</h3></div>
+      <div class="card-body form-grid">
+        <div class="form-row"><label for="f-customer">Name</label>
+          <input type="text" id="f-customer" list="customerList" value="${esc(h.customer)}" placeholder="Start typing a name…"
+            onchange="linkCustomer(this.value)">
+          <datalist id="customerList">${customers.map(c => `<option value="${esc(c.name)}">`).join('')}</datalist>
+        </div>
+        <input type="hidden" id="f-customer-id" value="${esc(h.customerId)}">
+        <div class="form-row"><label for="f-address">Address</label>
+          <textarea id="f-address" rows="2" placeholder="Delivery address">${esc(h.address)}</textarea></div>
+        <div class="form-row"><label for="f-date">Date</label>
+          <input type="text" id="f-date" value="${esc(h.date)}" placeholder="dd/mm/yyyy" inputmode="numeric"></div>
+        <div class="form-row"><label for="f-delivery">Delivery</label>
+          <select id="f-delivery" onchange="syncForm();render()">
+            ${deliveryOptions.map(d => `<option value="${esc(d.name)}"${h.delivery === d.name ? ' selected' : ''}>${esc(d.name)} — ${money(d.price)}</option>`).join('')}
+          </select></div>
+        <div class="form-row"><label for="f-payment">Payment</label>
+          <select id="f-payment">
+            <option value="">— not set —</option>
+            ${paymentOptions.map(p => `<option value="${esc(p.name)}"${h.payment === p.name ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}
+          </select></div>
+        ${isEdit ? `<div class="form-row"><label for="f-hold">Hold / cancel</label>
+          <select id="f-hold">
+            <option value="">— in the normal pipeline —</option>
+            <option value="On Hold"${h.hold === 'On Hold' ? ' selected' : ''}>On Hold</option>
+            <option value="Cancelled"${h.hold === 'Cancelled' ? ' selected' : ''}>Cancelled</option>
+          </select></div>` : '<input type="hidden" id="f-hold" value="">'}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr"><i class="ti ti-list-details"></i><h3>Items</h3>
+        <div class="right"><button class="btn sm" onclick="addLine()"><i class="ti ti-plus"></i> Add item</button></div>
+      </div>
+      <div class="card-body flush">
+        ${editing.lines.map((l, i) => {
+          const defs = opts.filter(d => String(d.cat_id) === String(l.catId));
+          return `<div class="form-line">
+            <div class="form-line-hdr">
+              <span class="form-line-n">Item ${i + 1}</span>
+              <button class="btn sm ghost" onclick="removeLine(${i})" aria-label="Remove item ${i + 1}"><i class="ti ti-trash"></i></button>
+            </div>
+            <div class="form-grid">
+              <div class="form-row"><label for="l-cat-${i}">Product</label>
+                <select id="l-cat-${i}" onchange="lineProductChanged(${i},this.value)">
+                  ${cats.map(c => `<option value="${esc(c.id)}"${String(l.catId) === String(c.id) ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}
+                </select></div>
+              <div class="form-row form-row-pair">
+                <div><label for="l-qty-${i}">Qty</label>
+                  <input type="number" id="l-qty-${i}" min="1" step="1" value="${esc(l.qty)}" inputmode="numeric" oninput="syncForm();updateFormTotal()"></div>
+                <div><label for="l-price-${i}">Unit price</label>
+                  <input type="number" id="l-price-${i}" min="0" step="0.01" value="${esc(l.price)}" inputmode="decimal" oninput="syncForm();updateFormTotal()"></div>
+              </div>
+              ${defs.map(d => optionFieldHtml(i, d)).join('')}
+              <div class="form-row"><label for="l-notes-${i}">Notes</label>
+                <input type="text" id="l-notes-${i}" value="${esc(l.notes)}" placeholder="Anything to remember for this item"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="totals">
+        <div class="totals-row"><span>${esc(delivery(h.delivery).name || 'Delivery')}</span><span>${money(delivery(h.delivery).price || 0)}</span></div>
+        <div class="totals-row grand"><span>Total</span><span id="formTotal">${money(total)}</span></div>
+      </div>
+    </div>
+
+    ${isEdit ? `<div class="card">
+      <div class="card-hdr"><i class="ti ti-trash"></i><h3>Danger zone</h3></div>
+      <div class="card-body">
+        <button class="btn danger" onclick="deleteOrder('${esc(editing.orderId)}')"><i class="ti ti-trash"></i> Delete this order</button>
+        <p class="readonly-note" style="margin-top:9px"><i class="ti ti-info-circle"></i> Marks the order deleted rather than removing it, and offers an undo. The main site hides deleted orders the same way.</p>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+// Cheap live total — avoids re-rendering (and losing focus) on every keystroke.
+function updateFormTotal() {
+  if (!editing) return;
+  const t = editing.lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0)
+    + (Number(delivery(editing.header.delivery).price) || 0);
+  const el = document.getElementById('formTotal');
+  if (el) el.textContent = money(t);
+}
+
+// Picking a known customer fills in their address and links the record.
+function linkCustomer(name) {
+  const c = customers.find(x => x.name.toLowerCase() === String(name).trim().toLowerCase());
+  syncForm();
+  editing.header.customerId = c ? String(c.id) : '';
+  if (c && c.address && !editing.header.address) editing.header.address = c.address;
+  render();
 }
 
 function viewOrders() {
@@ -422,7 +938,7 @@ function viewOrders() {
         <span style="margin-left:auto">${money(list.reduce((s, o) => s + o.total, 0))}</span>
       </div>
     </div>
-    <div class="pane-detail">${orderDetail(sel)}</div>`;
+    <div class="pane-detail">${editing ? orderForm() : orderDetail(sel)}</div>`;
 }
 
 /* ── Dashboard ─────────────────────────────────────────────────────── */
@@ -688,6 +1204,21 @@ function _selftest() {
   console.assert(isOpen(o1) && !isOpen(orders.find(o => o.id === 'O2')), 'open excludes Complete');
   console.assert(stageIdx('On Hold') === -1 && meta('On Hold').label === 'On Hold', 'off-flow handled');
   console.assert(fmtDate('2026-01-05') === fmtDate('5/1/2026'), 'both stored date formats parse alike');
+
+  // Writing: ids and shapes must match what the main site produces.
+  console.assert(nextOrderId() === 'O0000000003', 'next order id follows the highest existing');
+  console.assert(makeRowId('O0000000014', 0) === 'O14-1', 'row id strips the padding');
+  console.assert(makeRowId('O0000000014', 2) === 'O14-3', 'row ids are 1-based');
+  console.assert(toDMY('2026-01-05') === '05/01/2026', 'dates are written dd/mm/yyyy');
+  console.assert(toDMY('5/1/2026') === '05/01/2026', 'already-DMY dates round-trip');
+
+  const saveInv = invItems;
+  invItems = [{ id: 'I1', name: 'Magnet' }, { id: 'I2', name: 'Gold' }];
+  const hit = matchedInventoryItems({ options: 'Backing:Magnet||Text:Kevin||Colours:Gold|Black' });
+  console.assert(hit.length === 1 && hit[0].id === 'I1', 'stock matches whole option values, not pipe-joined colours');
+  console.assert(matchedInventoryItems({ options: '' }).length === 0, 'no options, no stock movement');
+  invItems = saveInv;
+
   rows = saveRows; deliveryOptions = saveDel; orders = saveOrders;
   console.log('v2 selftest ok');
 }
