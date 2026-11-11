@@ -40,6 +40,12 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
 .spin{animation:sp 0.9s linear infinite;display:inline-block;}
 @keyframes sp{to{transform:rotate(360deg);}}
 
+.boot-splash{
+  position:fixed;inset:0;z-index:150;background:var(--base);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:26px;
+}
+
 /* ══ Sign in ═══════════════════════════════════════════════════════ */
 .login-screen{
   position:fixed;inset:0;display:flex;align-items:center;justify-content:center;

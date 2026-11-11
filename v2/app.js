@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.0.0';
+const VERSION = '2.0.1';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -664,7 +664,9 @@ function showApp() {
 }
 
 (async function boot() {
-  if (await restoreSession()) showApp();
+  const ok = await restoreSession();
+  document.getElementById('bootSplash').remove();
+  if (ok) showApp();
   else document.getElementById('loginScreen').style.display = 'flex';
 })();
 

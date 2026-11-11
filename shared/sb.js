@@ -74,7 +74,11 @@ async function doLogin(){
 }
 async function restoreSession(){
   const t=localStorage.getItem('badgemaker_token')||localStorage.getItem('pd_access_token')||localStorage.getItem('pd_token');
-  sbRefreshToken=localStorage.getItem('badgemaker_refresh')||null;
+  // The main site stores its refresh token under pd_refresh_token. Without
+  // that fallback an access token picked up from PrintDesk could never be
+  // refreshed, so every visit after the first hour landed on the sign-in
+  // screen even though the session was still good.
+  sbRefreshToken=localStorage.getItem('badgemaker_refresh')||localStorage.getItem('pd_refresh_token')||null;
   if(!t && !sbRefreshToken) return false;
   const fetchUser=async tok=>{
     const res=await fetch(`${SB_URL}/auth/v1/user`,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+tok}});
