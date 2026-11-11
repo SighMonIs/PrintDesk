@@ -111,11 +111,9 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
   height:52px;flex-shrink:0;display:flex;align-items:center;gap:10px;
   padding:0 14px;border-bottom:1px solid var(--border);
 }
-.crumb{font-size:14px;font-weight:600;flex-shrink:0;line-height:1.2;}
-.crumb small{display:block;font-size:11px;font-weight:400;color:var(--muted);}
 .searchbox{
-  margin-left:auto;display:flex;align-items:center;gap:7px;
-  width:280px;height:34px;padding:0 10px;
+  display:flex;align-items:center;gap:7px;
+  flex:1;max-width:340px;height:34px;padding:0 10px;
   background:var(--surface2);border:1px solid var(--border2);
   border-radius:var(--radius);transition:border-color .12s;
 }
@@ -199,6 +197,13 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
   border-right:1px solid var(--border);min-height:0;
 }
 .pane-list-hdr{padding:10px 12px;border-bottom:1px solid var(--border);}
+.filter-select{
+  width:100%;height:36px;padding:0 10px;font:inherit;font-size:13px;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:var(--radius);color:var(--text);outline:none;
+  transition:border-color .12s;cursor:pointer;
+}
+.filter-select:focus{border-color:var(--accent2);}
 .chipbar{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
 .chipbar::-webkit-scrollbar{display:none;}
 .chip{
@@ -310,12 +315,94 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
 .form-row .mt6{margin-top:6px;}
 .form-row-pair{flex-direction:row;gap:10px;}
 .form-row-pair > div{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
-.opt-colours{display:flex;gap:6px;flex-wrap:wrap;}
-.opt-colours select{
-  flex:1;min-width:92px;height:38px;padding:0 8px;font:inherit;font-size:14px;
+/* Number stepper — the native spinner is hidden and replaced with buttons
+   that are reachable on a phone and match the dark theme. */
+.form-row input[type=number]::-webkit-outer-spin-button,
+.form-row input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.form-row input[type=number]{-moz-appearance:textfield;appearance:textfield;}
+.stepper{
+  display:flex;align-items:stretch;
   background:var(--surface2);border:1px solid var(--border2);
-  border-radius:var(--radius);color:var(--text);outline:none;
+  border-radius:var(--radius);overflow:hidden;transition:border-color .12s;
 }
+.stepper:focus-within{border-color:var(--accent2);}
+.stepper input{
+  flex:1;min-width:0;width:100%;height:38px;border:none!important;
+  background:transparent;text-align:center;
+  font:inherit;font-size:16px;color:var(--text);outline:none;padding:0 2px;
+  border-radius:0;
+}
+.step-btn{
+  width:38px;flex-shrink:0;border:none;background:transparent;
+  color:var(--muted);cursor:pointer;font:inherit;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s,color .12s;
+}
+.step-btn:hover{background:var(--surface3);color:var(--text);}
+.step-btn:active{background:var(--surface3);color:#fff;}
+.step-btn i{font-size:15px;}
+
+/* Colour picker */
+.opt-colours{display:flex;gap:6px;flex-wrap:wrap;}
+.cpick{position:relative;flex:1 1 calc(50% - 3px);min-width:118px;}
+.sw-dot{
+  width:14px;height:14px;border-radius:50%;flex-shrink:0;
+  background:var(--sw,transparent);
+  border:1px solid rgba(255,255,255,0.28);
+}
+.cpick-btn{
+  display:flex;align-items:center;gap:7px;width:100%;height:38px;
+  padding:0 8px;font:inherit;font-size:14px;text-align:left;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:var(--radius);color:var(--text);cursor:pointer;
+  transition:border-color .12s;
+}
+.cpick-btn:hover{border-color:var(--border2);background:var(--surface3);}
+.cpick-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cpick-btn > i{font-size:13px;color:var(--muted);flex-shrink:0;}
+.cpick-menu{
+  position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:80;
+  max-height:252px;overflow-y:auto;
+  background:var(--surface3);border:1px solid var(--border2);
+  border-radius:var(--radius);padding:4px;
+  box-shadow:0 10px 28px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;gap:1px;min-width:160px;
+}
+/* display:flex above would otherwise win over the UA's [hidden] rule */
+.cpick-menu[hidden]{display:none;}
+.cpick-menu.up{top:auto;bottom:calc(100% + 4px);}
+.cpick-opt{
+  display:flex;align-items:center;gap:8px;width:100%;
+  padding:8px 8px;min-height:36px;
+  background:transparent;border:none;border-radius:6px;
+  font:inherit;font-size:13px;color:var(--text);
+  cursor:pointer;text-align:left;
+}
+.cpick-opt:hover{background:rgba(255,255,255,0.08);}
+.cpick-opt.on{background:rgba(255,255,255,0.14);font-weight:600;}
+/* Settings — shipping / payment method rows */
+.card-foot{padding:12px 14px;border-top:1px solid var(--border);}
+.method-row{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap;
+}
+.method-row:last-child{border-bottom:none;}
+.method-row input[type=text],.method-row input[type=number],.method-row select{
+  height:36px;padding:0 9px;font:inherit;font-size:16px;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:var(--radius);color:var(--text);outline:none;min-width:0;
+}
+.method-row input:focus,.method-row select:focus{border-color:var(--accent2);}
+.method-name{flex:1;min-width:110px;}
+.method-price{width:88px;flex-shrink:0;text-align:right;}
+.method-icon{width:104px;flex-shrink:0;font-size:12px!important;text-transform:capitalize;}
+.method-preview{font-size:17px;color:var(--muted);width:20px;text-align:center;flex-shrink:0;}
+.method-check{
+  display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);
+  cursor:pointer;white-space:nowrap;
+}
+.method-check input{width:16px;height:16px;accent-color:var(--green);}
+
 .form-line{padding:13px 14px;border-bottom:1px solid var(--border);}
 .form-line:last-child{border-bottom:none;}
 .form-line-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
@@ -465,8 +552,6 @@ td.subtle{font-size:11px;}
   .main{order:1;padding-bottom:calc(var(--navh) + var(--safe-b));height:100%;min-height:0;}
 
   .topbar{height:54px;padding:0 10px;gap:6px;position:sticky;top:0;background:var(--base);z-index:20;}
-  .crumb{font-size:15px;}
-  .crumb small{display:none;}
   .searchbox{width:auto;flex:1;min-width:0;height:36px;}
   .searchbox input{font-size:16px;}   /* stops iOS zooming on focus */
 
@@ -531,6 +616,10 @@ td.subtle{font-size:11px;}
   tbody td .cellrow{justify-content:flex-end;}
   tbody td .bar{flex:1;max-width:60%;}
   tbody td .btn{width:auto;}
+
+  /* method rows: name on its own line above the icon/price controls */
+  .method-name{flex:1 1 100%;order:-1;}
+  .method-row{row-gap:9px;}
 
   .toast{left:12px;right:12px;transform:none;max-width:none;}
   .bm-modal-btns .btn{flex:1;height:40px;}

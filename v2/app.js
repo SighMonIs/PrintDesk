@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -755,9 +755,101 @@ function orderDetail(o) {
       </div>
     </div>
 
-    <p class="readonly-note"><i class="ti ti-info-circle"></i> v2 writes stage and paid only. Everything else is read-only — edit it in the live site.</p>
   </div>`;
 }
+
+/* ── Number stepper ────────────────────────────────────────────────────
+   The browser's own spinner is a tiny light-grey control that can't be
+   themed and doesn't appear on phones at all, so the field gets its own
+   −/+ buttons instead. `step` stays fine-grained for typing; `nudge` is
+   how far a button press moves it. */
+function stepper(id, value, o) {
+  return `<div class="stepper">
+    <button type="button" class="step-btn" tabindex="-1" aria-label="Decrease" onclick="stepNum('${id}',-1)"><i class="ti ti-minus"></i></button>
+    <input type="number" id="${id}" value="${esc(value)}" min="${o.min}" step="${o.step}" data-nudge="${o.nudge}"
+      inputmode="${o.mode}" oninput="syncForm();updateFormTotal()">
+    <button type="button" class="step-btn" tabindex="-1" aria-label="Increase" onclick="stepNum('${id}',1)"><i class="ti ti-plus"></i></button>
+  </div>`;
+}
+
+function stepNum(id, dir) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const nudge = parseFloat(el.dataset.nudge) || parseFloat(el.step) || 1;
+  const min = el.min === '' ? -Infinity : parseFloat(el.min);
+  const dp = (String(nudge).split('.')[1] || '').length;
+  let v = (parseFloat(el.value) || 0) + dir * nudge;
+  if (v < min) v = min;
+  el.value = dp ? v.toFixed(dp) : String(Math.round(v));
+  syncForm();
+  updateFormTotal();
+}
+
+/* ── Colour picker ─────────────────────────────────────────────────────
+   A native <option> can't carry a round swatch (background-color on an
+   option is ignored on macOS and iOS), so this is a button plus a popup
+   list. The value lives in a hidden input keeping the same id the option
+   packer reads, so nothing downstream changes. */
+let openColourMenu = null;
+
+function colourPicker(id, selectedName) {
+  const usable = colours.filter(c => !c.archived);
+  const cur = usable.find(c => c.name === selectedName);
+  return `<div class="cpick" id="w-${id}">
+    <input type="hidden" id="${id}" value="${esc(selectedName || '')}">
+    <button type="button" class="cpick-btn" onclick="toggleColourMenu('${id}')" aria-haspopup="listbox">
+      <span class="sw-dot" style="--sw:${esc(cur ? cur.code : 'transparent')}${cur ? '' : ';border-style:dashed'}"></span>
+      <span class="cpick-name">${esc(selectedName || '—')}</span>
+      <i class="ti ti-chevron-down"></i>
+    </button>
+    <div class="cpick-menu" role="listbox" hidden>
+      <button type="button" class="cpick-opt" role="option" onclick="chooseColour('${id}','')">
+        <span class="sw-dot" style="--sw:transparent;border-style:dashed"></span>none</button>
+      ${usable.map(c => `<button type="button" class="cpick-opt${c.name === selectedName ? ' on' : ''}" role="option"
+        onclick="chooseColour('${id}','${esc(c.name).replace(/'/g, "\\'")}')">
+        <span class="sw-dot" style="--sw:${esc(c.code)}"></span>${esc(c.name)}</button>`).join('')}
+    </div>
+  </div>`;
+}
+
+function toggleColourMenu(id) {
+  const wrap = document.getElementById('w-' + id);
+  const menu = wrap.querySelector('.cpick-menu');
+  const isOpen = !menu.hidden;
+  closeColourMenu();
+  if (isOpen) return;
+  menu.hidden = false;
+  openColourMenu = menu;
+  // Flip above the button when there isn't room below it.
+  const r = wrap.getBoundingClientRect();
+  menu.classList.toggle('up', r.bottom + 240 > window.innerHeight && r.top > 240);
+  const on = menu.querySelector('.cpick-opt.on');
+  if (on) on.scrollIntoView({ block: 'center' });
+}
+
+function closeColourMenu() {
+  if (openColourMenu) { openColourMenu.hidden = true; openColourMenu = null; }
+}
+
+function chooseColour(id, name) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  input.value = name;
+  const c = colours.find(x => x.name === name);
+  const btn = document.querySelector('#w-' + id + ' .cpick-btn');
+  btn.querySelector('.cpick-name').textContent = name || '—';
+  const dot = btn.querySelector('.sw-dot');
+  dot.style.setProperty('--sw', c ? c.code : 'transparent');
+  dot.style.borderStyle = c ? 'solid' : 'dashed';
+  document.querySelectorAll('#w-' + id + ' .cpick-opt').forEach(b => b.classList.remove('on'));
+  closeColourMenu();
+  syncForm();
+}
+
+document.addEventListener('click', e => {
+  if (openColourMenu && !e.target.closest('.cpick')) closeColourMenu();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeColourMenu(); });
 
 /* ── The form ──────────────────────────────────────────────────────── */
 function optionFieldHtml(i, d) {
@@ -771,13 +863,9 @@ function optionFieldHtml(i, d) {
   if (isColourOpt(d)) {
     const n = Number(d.num_colours) || 4;
     const picked = v ? v.split('|') : String(d.default_colours || '').split('|').filter(Boolean);
-    const usable = colours.filter(c => !c.archived);
-    const sel = k => `<select id="optc-${i}-${d.id}-${k}" class="opt-colour">
-      <option value="">—</option>
-      ${usable.map(c => `<option value="${esc(c.name)}"${picked[k] === c.name ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}
-    </select>`;
     return `<div class="form-row"><label>${esc(d.name)}</label>
-      <div class="opt-colours">${Array.from({ length: n }, (_, k) => sel(k)).join('')}</div></div>`;
+      <div class="opt-colours">${Array.from({ length: n }, (_, k) =>
+        colourPicker('optc-' + i + '-' + d.id + '-' + k, picked[k] || '')).join('')}</div></div>`;
   }
 
   if (d.display === 'text') {
@@ -866,9 +954,9 @@ function orderForm() {
                 </select></div>
               <div class="form-row form-row-pair">
                 <div><label for="l-qty-${i}">Qty</label>
-                  <input type="number" id="l-qty-${i}" min="1" step="1" value="${esc(l.qty)}" inputmode="numeric" oninput="syncForm();updateFormTotal()"></div>
+                  ${stepper('l-qty-' + i, l.qty, { min: 1, step: 1, nudge: 1, mode: 'numeric' })}</div>
                 <div><label for="l-price-${i}">Unit price</label>
-                  <input type="number" id="l-price-${i}" min="0" step="0.01" value="${esc(l.price)}" inputmode="decimal" oninput="syncForm();updateFormTotal()"></div>
+                  ${stepper('l-price-' + i, l.price, { min: 0, step: 0.01, nudge: 0.5, mode: 'decimal' })}</div>
               </div>
               ${defs.map(d => optionFieldHtml(i, d)).join('')}
               <div class="form-row"><label for="l-notes-${i}">Notes</label>
@@ -927,8 +1015,10 @@ function viewOrders() {
 
   return `<div class="pane-list">
       <div class="pane-list-hdr">
-        <div class="chipbar">${chips.map(([k, l, n]) =>
-          `<button class="chip ${chip === k ? 'active' : ''}" onclick="setChip('${esc(k)}')">${esc(l)}<span class="n">${n}</span></button>`).join('')}</div>
+        <select class="filter-select" aria-label="Filter orders" onchange="setChip(this.value)">
+          ${chips.map(([k, l, n]) =>
+            `<option value="${esc(k)}"${chip === k ? ' selected' : ''}>${esc(l)} (${n})</option>`).join('')}
+        </select>
       </div>
       <div class="pane-list-scroll">${list.length
         ? list.map(orderCard).join('')
@@ -1103,7 +1193,209 @@ function viewStock() {
   </div></div>`;
 }
 
-/* ── Settings (read-only mirror of what the live site configures) ──── */
+/* ══════════════════════════════════════════════════════════════════════
+   New-order alerts
+
+   While a tab is open this polls for the highest order id and raises a
+   desktop/phone notification when it moves. It deliberately does NOT try
+   to be push: real push with the app closed needs a service worker, VAPID
+   keys and something server-side to send it. This covers "I have the tab
+   open and want to know", with no backend and no new dependency.
+   ══════════════════════════════════════════════════════════════════════ */
+const NOTIFY_KEY = 'v2_notify_orders';
+const SEEN_KEY = 'v2_last_seen_order';
+const POLL_MS = 60000;
+let pollTimer = null;
+
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } };
+
+const notifyOn = () => lsGet(NOTIFY_KEY) === '1';
+const orderNum = id => { const m = String(id).match(/^O?0*(\d+)$/); return m ? parseInt(m[1], 10) : 0; };
+const highestOrder = () => orders.reduce((m, o) => Math.max(m, orderNum(o.id)), 0);
+
+const notifyState = () => {
+  if (!('Notification' in window)) return 'unsupported';
+  if (!window.isSecureContext) return 'insecure';
+  if (Notification.permission === 'denied') return 'blocked';
+  if (!notifyOn()) return 'off';
+  return Notification.permission === 'granted' ? 'on' : 'needs-permission';
+};
+
+async function toggleNotifications() {
+  if (notifyOn()) {
+    lsSet(NOTIFY_KEY, '0');
+    stopPolling();
+    toast('New-order alerts off');
+    render();
+    return;
+  }
+  let perm = Notification.permission;
+  if (perm !== 'granted') perm = await Notification.requestPermission();
+  if (perm !== 'granted') { toast('Your browser blocked notifications', 'err'); render(); return; }
+  lsSet(NOTIFY_KEY, '1');
+  lsSet(SEEN_KEY, String(highestOrder()));   // only alert on what arrives from now on
+  startPolling();
+  toast('New-order alerts on');
+  render();
+}
+
+function startPolling() {
+  stopPolling();
+  if (!notifyOn()) return;
+  pollTimer = setInterval(checkForNewOrders, POLL_MS);
+}
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+async function checkForNewOrders() {
+  if (!notifyOn()) return;
+  try {
+    const latest = await sbGet('orders', '?deleted=eq.false&select=order_id,customer&order=order_id.desc&limit=1');
+    if (!Array.isArray(latest) || !latest.length) return;
+    const top = orderNum(latest[0].order_id);
+    const seen = parseInt(lsGet(SEEN_KEY) || '0', 10) || 0;
+    if (top <= seen) return;
+    lsSet(SEEN_KEY, String(top));
+    const who = latest[0].customer || 'someone';
+    const label = 'New order ' + orderNo(latest[0].order_id);
+    toast(label + ' from ' + who);
+    if (Notification.permission === 'granted') {
+      const n = new Notification(label, { body: who, tag: 'v2-order-' + top, icon: '../Logo2.svg' });
+      n.onclick = () => { window.focus(); pick(String(latest[0].order_id)); };
+    }
+    await loadAll();
+  } catch (e) {
+    console.warn('Order check failed:', e.message);
+  }
+}
+
+function notificationsCard() {
+  const state = notifyState();
+  const copy = {
+    on: ['On', 'Checking every minute while this tab is open.'],
+    off: ['Off', 'Get a notification when a new order arrives.'],
+    'needs-permission': ['Needs permission', 'Your browser has not granted notification permission yet.'],
+    blocked: ['Blocked', 'Notifications are blocked for this site — allow them in your browser settings first.'],
+    unsupported: ['Not supported', 'This browser has no Notification API.'],
+    insecure: ['Needs HTTPS', 'Notifications only work on the live site, not over plain http.']
+  }[state];
+  const canToggle = state === 'on' || state === 'off' || state === 'needs-permission';
+
+  return `<div class="card settings-card">
+    <div class="card-hdr"><i class="ti ti-bell"></i><h3>New-order alerts</h3>
+      <div class="right"><span class="pill" style="--pc:var(${state === 'on' ? '--green' : state === 'blocked' || state === 'unsupported' || state === 'insecure' ? '--red' : '--muted'})">${esc(copy[0])}</span></div>
+    </div>
+    <div class="card-body">
+      <p class="subtle" style="font-size:12px;line-height:1.5">${esc(copy[1])}</p>
+      ${canToggle ? `<button class="btn ${state === 'on' ? '' : 'primary'}" style="margin-top:11px" onclick="toggleNotifications()">
+        <i class="ti ${state === 'on' ? 'ti-bell-off' : 'ti-bell'}"></i> ${state === 'on' ? 'Turn off' : 'Turn on'}</button>` : ''}
+      <p class="readonly-note" style="margin-top:11px"><i class="ti ti-info-circle"></i>
+        Only fires while this tab is open. Alerts with the app closed would need a service worker and something server-side to send the push.</p>
+    </div>
+  </div>`;
+}
+
+/* ── Shipping and payment methods ──────────────────────────────────────
+   Edited in place and upserted row by row. Removing archives the row the
+   way the rest of the app soft-deletes, so historic orders that reference
+   a retired method keep resolving. */
+const DELIVERY_ICON_PACK = [
+  'ti-mail', 'ti-hand-stop', 'ti-truck-delivery', 'ti-package', 'ti-box',
+  'ti-walk', 'ti-bike', 'ti-car', 'ti-plane', 'ti-ship', 'ti-train', 'ti-rocket',
+  'ti-building-store', 'ti-home', 'ti-map-pin', 'ti-send', 'ti-forklift',
+  'ti-parking', 'ti-door', 'ti-gift', 'ti-shopping-bag', 'ti-clock', 'ti-calendar-event'
+];
+
+function nextMethodId(list, prefix) {
+  const ns = list.map(x => String(x.id)).filter(id => id.startsWith(prefix))
+    .map(id => parseInt(id.slice(prefix.length), 10)).filter(n => !isNaN(n));
+  return prefix + padN((ns.length ? Math.max(...ns) : 0) + 1, 4);
+}
+
+function addMethod(kind) {
+  if (kind === 'delivery') deliveryOptions.push({ id: nextMethodId(deliveryOptions, 'DEL'), name: '', price: 0, icon: 'ti-truck-delivery', archived: false });
+  else paymentOptions.push({ id: nextMethodId(paymentOptions, 'PAY'), name: '', show_revenue: false, archived: false });
+  render();
+}
+
+async function archiveMethod(kind, id) {
+  const table = kind === 'delivery' ? 'delivery_options' : 'payment_options';
+  const list = kind === 'delivery' ? deliveryOptions : paymentOptions;
+  const row = list.find(x => String(x.id) === String(id));
+  if (!row) return;
+  const used = kind === 'delivery'
+    ? orders.filter(o => o.delivery === row.name).length
+    : orders.filter(o => o.payment === row.name).length;
+  const ok = await askConfirm('Remove "' + (row.name || 'this method') + '"?'
+    + (used ? '\n\n' + used + ' existing ' + (used === 1 ? 'order uses' : 'orders use') + ' it. They keep their value — the method is just hidden from new orders.' : ''), 'Remove');
+  if (!ok) return;
+  const i = list.indexOf(row);
+  list.splice(i, 1);
+  render();
+  const err = await sbPatch(table, '?id=eq.' + encodeURIComponent(id), { archived: true });
+  if (err) { list.splice(i, 0, row); render(); toast('Could not remove: ' + (err.message || ''), 'err'); }
+  else toast('Removed ' + (row.name || 'method'));
+}
+
+async function saveMethods(kind) {
+  const table = kind === 'delivery' ? 'delivery_options' : 'payment_options';
+  const list = kind === 'delivery' ? deliveryOptions : paymentOptions;
+  const rows = list.map((m, i) => kind === 'delivery' ? {
+    id: m.id, name: val('m-del-name-' + m.id).trim(), price: parseFloat(val('m-del-price-' + m.id)) || 0,
+    icon: val('m-del-icon-' + m.id) || 'ti-truck-delivery', archived: false, sort_order: i
+  } : {
+    id: m.id, name: val('m-pay-name-' + m.id).trim(),
+    show_revenue: !!(document.getElementById('m-pay-rev-' + m.id) || {}).checked,
+    archived: false, sort_order: i
+  });
+  if (rows.some(r => !r.name)) { toast('Every method needs a name', 'err'); return; }
+
+  const btn = document.getElementById('save-' + kind);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Saving…'; }
+  try {
+    for (const r of rows) await sbUpsert(table, r);
+    rows.forEach((r, i) => Object.assign(list[i], r));
+    toast(kind === 'delivery' ? 'Shipping methods saved' : 'Payment methods saved');
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
+  } finally {
+    render();
+  }
+}
+
+function methodsCard(kind) {
+  const isDel = kind === 'delivery';
+  const list = isDel ? deliveryOptions : paymentOptions;
+  return `<div class="card settings-card">
+    <div class="card-hdr"><i class="ti ${isDel ? 'ti-truck' : 'ti-credit-card'}"></i>
+      <h3>${isDel ? 'Shipping methods' : 'Payment methods'}</h3>
+      <div class="right"><button class="btn sm" onclick="addMethod('${kind}')"><i class="ti ti-plus"></i> Add</button></div>
+    </div>
+    <div class="card-body flush">
+      ${list.length ? list.map(m => isDel ? `
+        <div class="method-row">
+          <i class="ti ${esc(m.icon || 'ti-truck-delivery')} method-preview" id="m-del-prev-${esc(m.id)}"></i>
+          <select id="m-del-icon-${esc(m.id)}" class="method-icon" aria-label="Icon for ${esc(m.name)}"
+            onchange="document.getElementById('m-del-prev-${esc(m.id)}').className='ti '+this.value+' method-preview'">
+            ${DELIVERY_ICON_PACK.map(ic => `<option value="${ic}"${(m.icon || '') === ic ? ' selected' : ''}>${ic.replace('ti-', '').replace(/-/g, ' ')}</option>`).join('')}
+          </select>
+          <input type="text" id="m-del-name-${esc(m.id)}" value="${esc(m.name)}" placeholder="Method name" class="method-name">
+          <input type="number" id="m-del-price-${esc(m.id)}" value="${esc(m.price || 0)}" min="0" step="0.01" inputmode="decimal" class="method-price" aria-label="Price">
+          <button class="btn icon ghost" onclick="archiveMethod('${kind}','${esc(m.id)}')" aria-label="Remove ${esc(m.name)}"><i class="ti ti-trash"></i></button>
+        </div>` : `
+        <div class="method-row">
+          <input type="text" id="m-pay-name-${esc(m.id)}" value="${esc(m.name)}" placeholder="Method name" class="method-name">
+          <label class="method-check"><input type="checkbox" id="m-pay-rev-${esc(m.id)}" ${m.show_revenue ? 'checked' : ''}> counts as revenue</label>
+          <button class="btn icon ghost" onclick="archiveMethod('${kind}','${esc(m.id)}')" aria-label="Remove ${esc(m.name)}"><i class="ti ti-trash"></i></button>
+        </div>`).join('') : `<div class="method-row"><span class="subtle">None yet — add one.</span></div>`}
+    </div>
+    ${list.length ? `<div class="card-foot">
+      <button class="btn primary" id="save-${kind}" onclick="saveMethods('${kind}')"><i class="ti ti-check"></i> Save ${isDel ? 'shipping' : 'payment'} methods</button>
+    </div>` : ''}
+  </div>`;
+}
+
+/* ── Settings ──────────────────────────────────────────────────────── */
 function viewSettings() {
   const group = (title, icon, items) => `<div class="card settings-card">
     <div class="card-hdr"><i class="ti ${icon}"></i><h3>${esc(title)}</h3></div>
@@ -1118,12 +1410,9 @@ function viewSettings() {
       ['Stored as', FLOW.map(f => `<code>${esc(f.k)}</code>`).join(', ')],
       ['Ageing after', AGEING_DAYS + ' days open']
     ])}
-    ${group('Shipping methods', 'ti-truck', deliveryOptions.length
-      ? deliveryOptions.map(d => [d.name, `<i class="ti ${esc(d.icon || 'ti-package')}"></i> <span class="mono">${money(d.price)}</span>`])
-      : [['None configured', '—']])}
-    ${group('Payment methods', 'ti-credit-card', paymentOptions.length
-      ? paymentOptions.map(p => [p.name, p.show_revenue ? '<span class="subtle">counts as revenue</span>' : '<span class="subtle">—</span>'])
-      : [['None configured', '—']])}
+    ${methodsCard('delivery')}
+    ${methodsCard('payment')}
+    ${notificationsCard()}
     ${group('Workspace', 'ti-building', [
       ['Signed in as', esc((typeof currentUser !== 'undefined' && currentUser && currentUser.email) || '—')],
       ['Database', esc(String(window.CONFIG.SUPABASE_URL || '').replace(/^https?:\/\//, ''))],
@@ -1131,7 +1420,6 @@ function viewSettings() {
       ['Products', cats.length], ['Customers', customers.length],
       ['Version', 'v' + VERSION]
     ])}
-    <p class="readonly-note"><i class="ti ti-info-circle"></i> These are read from the live database. Change them in the main site; v2 only reflects them.</p>
   </div></div>`;
 }
 
@@ -1142,8 +1430,6 @@ const RENDER = {
 };
 
 function render() {
-  const v = VIEWS.find(x => x.k === view) || VIEWS[0];
-
   document.getElementById('railNav').innerHTML = VIEWS.filter(x => x.k !== 'settings').map(x => {
     const n = x.k === 'orders' ? orders.filter(isOpen).length
             : x.k === 'queue' ? orders.filter(o => isOpen(o) && o.status !== 'On Hold').length
@@ -1156,7 +1442,6 @@ function render() {
   }).join('');
   document.getElementById('railSettings').classList.toggle('active', view === 'settings');
 
-  document.getElementById('crumb').innerHTML = `${esc(v.label)}<small>${esc(v.sub)}</small>`;
   document.getElementById('userChip').textContent =
     initials((typeof currentUser !== 'undefined' && currentUser && currentUser.email) || '?');
 
@@ -1176,7 +1461,7 @@ function showApp() {
   document.getElementById('appScreen').style.display = '';
   document.getElementById('railVer').textContent = 'v' + VERSION;
   render();
-  loadAll();
+  loadAll().then(startPolling);
 }
 
 (async function boot() {
