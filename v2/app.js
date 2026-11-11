@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -90,8 +90,7 @@ function toast(msg, kind) {
 }
 
 /* ── Load ──────────────────────────────────────────────────────────── */
-async function loadAll(manual) {
-  if (manual) document.getElementById('refreshIcon').classList.add('spin');
+async function loadAll() {
   try {
     const [o, c, op, col, cu, del, pay, ii, ir, ic] = await Promise.all([
       sbGet('orders', '?deleted=eq.false&order=order_id.desc&limit=10000'),
@@ -119,12 +118,10 @@ async function loadAll(manual) {
     invConsumption = ic || [];
     group();
     loading = false;
-    if (manual) toast('Refreshed — ' + orders.length + ' orders');
   } catch (e) {
     loading = false;
     toast('Load failed: ' + e.message, 'err');
   } finally {
-    if (manual) document.getElementById('refreshIcon').classList.remove('spin');
     render();
   }
 }
@@ -1194,6 +1191,128 @@ function viewStock() {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   Users
+
+   Goes through the admin-users Edge Function exactly as the main site
+   does — it holds the service-role key server-side and checks the
+   caller's own access token. Nothing privileged is done in the browser.
+   ══════════════════════════════════════════════════════════════════════ */
+let users = null;        // null = not fetched yet
+let usersError = '';
+
+async function sbAdminCall(method, path, body) {
+  return fetch(window.CONFIG.SUPABASE_URL + '/functions/v1/admin-users', {
+    method: 'POST',
+    headers: {
+      'apikey': window.CONFIG.SUPABASE_KEY,
+      'Authorization': 'Bearer ' + (sbToken || window.CONFIG.SUPABASE_KEY),
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ method, path, body })
+  });
+}
+
+async function loadUsers() {
+  try {
+    const res = await sbAdminCall('GET', 'users');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || data.message || 'Could not list users');
+    users = data.users || [];
+    usersError = '';
+  } catch (e) {
+    users = [];
+    usersError = e.message;
+  }
+  render();
+}
+
+async function inviteUser() {
+  const email = (val('u-email') || '').trim();
+  const name = (val('u-name') || '').trim();
+  if (!email) { toast('An email address is required', 'err'); return; }
+  const btn = document.getElementById('u-invite');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Inviting…'; }
+  try {
+    const res = await sbAdminCall('POST', 'invite', {
+      email, data: { display_name: name || email.split('@')[0] },
+      redirect_to: location.origin + '/v2/'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || data.message || data.error_description || 'Invite failed');
+    toast('Invite sent to ' + email);
+    await loadUsers();
+  } catch (e) {
+    toast(e.message, 'err');
+    render();
+  }
+}
+
+async function renameUser(id, current) {
+  const name = await askText('Display name for this user:', current || '');
+  if (name === null) return;
+  const res = await sbAdminCall('PUT', 'users/' + id, { data: { display_name: name } });
+  if (!res.ok) { toast('Could not rename', 'err'); return; }
+  toast('Name updated');
+  await loadUsers();
+}
+
+async function removeUser(id, email) {
+  if (currentUser && currentUser.id === id) { toast('You cannot remove your own account here', 'err'); return; }
+  const typed = await askText('Type the email address to confirm removing this user:\n\n"' + email + '"', '');
+  if (typed === null) return;
+  if (typed.trim().toLowerCase() !== String(email).trim().toLowerCase()) { toast('Email did not match — nothing removed', 'err'); return; }
+  const res = await sbAdminCall('DELETE', 'users/' + id);
+  if (!res.ok) { toast('Could not remove user', 'err'); return; }
+  toast('Removed ' + email);
+  await loadUsers();
+}
+
+function usersCard() {
+  let body;
+  if (users === null) {
+    body = `<div class="card-body"><button class="btn" onclick="loadUsers()"><i class="ti ti-users"></i> Load users</button></div>`;
+  } else if (usersError) {
+    body = `<div class="card-body"><p class="subtle" style="font-size:12px;line-height:1.5">${esc(usersError)}</p>
+      <button class="btn" style="margin-top:10px" onclick="loadUsers()"><i class="ti ti-refresh"></i> Try again</button></div>`;
+  } else {
+    body = `<div class="card-body flush">
+      ${users.map(u => {
+        const name = (u.user_metadata && u.user_metadata.display_name) || String(u.email || '').split('@')[0] || 'Unknown';
+        const signedIn = !!u.last_sign_in_at;
+        const when = u[signedIn ? 'created_at' : 'invited_at'] || u.created_at;
+        const isMe = currentUser && currentUser.id === u.id;
+        return `<div class="user-row">
+          ${avatar(name)}
+          <div class="user-main">
+            <div class="user-name">${esc(name)}${isMe ? ' <span class="pill" style="--pc:var(--blue)">you</span>' : ''}</div>
+            <div class="subtle">${esc(u.email || '—')}</div>
+            <div class="subtle">${signedIn ? 'Joined' : 'Invited'} ${when ? esc(new Date(when).toLocaleDateString('en-AU')) : '—'}${signedIn ? '' : ' · not signed in yet'}</div>
+          </div>
+          <div class="user-actions">
+            <button class="btn icon ghost" onclick="renameUser('${esc(u.id)}','${esc(name).replace(/'/g, "\\'")}')" aria-label="Rename ${esc(name)}"><i class="ti ti-pencil"></i></button>
+            ${isMe ? '' : `<button class="btn icon ghost" onclick="removeUser('${esc(u.id)}','${esc(u.email)}')" aria-label="Remove ${esc(name)}"><i class="ti ti-trash"></i></button>`}
+          </div>
+        </div>`;
+      }).join('') || '<div class="method-row"><span class="subtle">No users returned.</span></div>'}
+    </div>
+    <div class="card-foot form-grid">
+      <div class="form-row-pair form-row">
+        <div><label for="u-name">Name</label><input type="text" id="u-name" placeholder="Their name"></div>
+        <div><label for="u-email">Email</label><input type="email" id="u-email" placeholder="them@example.com" inputmode="email"></div>
+      </div>
+      <button class="btn primary" id="u-invite" onclick="inviteUser()"><i class="ti ti-mail-forward"></i> Send invite</button>
+    </div>`;
+  }
+
+  return `<div class="card settings-card">
+    <div class="card-hdr"><i class="ti ti-users"></i><h3>Users</h3>
+      ${users !== null && !usersError ? `<div class="right"><span class="subtle">${users.length}</span></div>` : ''}
+    </div>
+    ${body}
+  </div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    New-order alerts
 
    While a tab is open this polls for the highest order id and raises a
@@ -1412,6 +1531,7 @@ function viewSettings() {
     ])}
     ${methodsCard('delivery')}
     ${methodsCard('payment')}
+    ${usersCard()}
     ${notificationsCard()}
     ${group('Workspace', 'ti-building', [
       ['Signed in as', esc((typeof currentUser !== 'undefined' && currentUser && currentUser.email) || '—')],
@@ -1442,8 +1562,11 @@ function render() {
   }).join('');
   document.getElementById('railSettings').classList.toggle('active', view === 'settings');
 
-  document.getElementById('userChip').textContent =
-    initials((typeof currentUser !== 'undefined' && currentUser && currentUser.email) || '?');
+  const who = (typeof currentUser !== 'undefined' && currentUser) || null;
+  const label = (who && (who.user_metadata && who.user_metadata.display_name)) || (who && who.email) || '?';
+  document.getElementById('userChip').textContent = initials(label);
+  document.getElementById('userChipMobile').textContent = initials(label);
+  document.getElementById('userName').textContent = label;
 
   const root = document.getElementById('viewRoot');
   root.className = 'body' + (view === 'orders' && showDetail ? ' show-detail' : '');
