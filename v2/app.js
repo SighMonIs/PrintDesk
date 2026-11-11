@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.3.0';
+const VERSION = '2.4.0';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -272,10 +272,16 @@ async function nextOrderIdChecked() {
   }
   return id;
 }
-function nextInvConsumptionId() {
-  const ns = invConsumption.map(c => String(c.id)).filter(id => /^IC\d+$/.test(id)).map(id => parseInt(id.slice(2), 10));
-  return 'IC' + padN((ns.length ? Math.max(...ns) : 0) + 1, 6);
+// One generator for every sequential id in the schema. The prefixes and
+// widths are the main site's, so ids stay consistent whichever app wrote
+// the row: CUST0001, COL0001, C0001, O0001, INV0001, RCPT0001, CONS0001.
+function seqId(list, prefix, width) {
+  const re = new RegExp('^' + prefix + '(\\d+)$');
+  const ns = (list || []).map(x => String(x.id)).map(id => (id.match(re) || [])[1])
+    .filter(Boolean).map(n => parseInt(n, 10));
+  return prefix + padN((ns.length ? Math.max(...ns) : 0) + 1, width);
 }
+const nextInvConsumptionId = () => seqId(invConsumption, 'CONS', 4);
 
 /* ── Inventory ─────────────────────────────────────────────────────── */
 // The main site links stock by name: an option *value* that matches an
@@ -582,7 +588,7 @@ async function maybeAdvance(orderId) {
 }
 
 /* ── Navigation ────────────────────────────────────────────────────── */
-function go(v) { view = v; showDetail = false; editing = null; window.scrollTo(0, 0); render(); }
+function go(v) { view = v; showDetail = false; editing = null; record = null; window.scrollTo(0, 0); render(); }
 function pick(id) { selected = id; showDetail = true; editing = null; if (view !== 'orders') view = 'orders'; render(); }
 function closeDetail() { if (editing) { editing = null; } else { showDetail = false; } render(); }
 function setChip(c) { chip = c; render(); }
@@ -1119,11 +1125,13 @@ function viewCustomers() {
   const q = query();
   const list = customers.filter(c => !q || (c.name + ' ' + (c.email || '') + ' ' + (c.id || '')).toLowerCase().includes(q));
   const ordersOf = c => orders.filter(o => o.customerId === String(c.id) || o.customer === c.name);
+  if (record) return `<div class="page">${recordForm()}</div>`;
   return `<div class="page"><div class="page-inner">
-    <div class="section-title">Customers <span class="subtle">${list.length}</span></div>
+    <div class="section-title">Customers <span class="subtle">${list.length}</span>
+      <span class="right"><button class="btn sm" onclick="openRecord('customer')"><i class="ti ti-plus"></i> Add customer</button></span></div>
     ${table(
       [{ h: 'Customer' }, { h: 'Contact' }, { h: 'Address', cls: 'subtle' },
-       { h: 'Orders', cls: 'num mono' }, { h: 'Lifetime', cls: 'num mono' }, { h: 'Open' }],
+       { h: 'Orders', cls: 'num mono' }, { h: 'Lifetime', cls: 'num mono' }, { h: 'Open' }, { h: '', cls: 'num' }],
       list.map(c => {
         const os = ordersOf(c), open = os.filter(isOpen);
         return { cells: [
@@ -1133,7 +1141,8 @@ function viewCustomers() {
           esc(c.address || '—'),
           String(os.length),
           money(os.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + o.total, 0)),
-          open.length ? open.slice(0, 3).map(o => `<a href="#" onclick="event.preventDefault();pick('${esc(o.id)}')">${pill(o.status)}</a>`).join(' ') : '<span class="subtle">—</span>'
+          open.length ? open.slice(0, 3).map(o => `<a href="#" onclick="event.preventDefault();pick('${esc(o.id)}')">${pill(o.status)}</a>`).join(' ') : '<span class="subtle">—</span>',
+          `<button class="btn sm ghost" onclick="openRecord('customer','${esc(c.id)}')"><i class="ti ti-pencil"></i></button>`
         ] };
       })
     )}
@@ -1142,26 +1151,45 @@ function viewCustomers() {
 
 /* ── Products ──────────────────────────────────────────────────────── */
 function viewProducts() {
+  if (record) return `<div class="page">${recordForm()}</div>`;
   const live = orders.filter(o => o.status !== 'Cancelled').flatMap(o => o.lines);
   return `<div class="page"><div class="page-inner">
-    <div class="section-title">Catalogue <span class="subtle">${cats.length}</span></div>
+    <div class="section-title">Catalogue <span class="subtle">${cats.length}</span>
+      <span class="right"><button class="btn sm" onclick="openRecord('product')"><i class="ti ti-plus"></i> New product</button></span></div>
     ${table(
       [{ h: 'Product' }, { h: 'Price', cls: 'num mono' }, { h: 'Options', cls: 'subtle' },
-       { h: 'Sold', cls: 'num mono' }, { h: 'Revenue', cls: 'num mono' }, { h: 'Open now', cls: 'num mono' }],
+       { h: 'Sold', cls: 'num mono' }, { h: 'Revenue', cls: 'num mono' }, { h: 'Open now', cls: 'num mono' }, { h: '', cls: 'num' }],
       cats.map(c => {
         const ls = live.filter(l => String(l.cat_id) === String(c.id));
         const openLs = orders.filter(isOpen).flatMap(o => o.lines).filter(l => String(l.cat_id) === String(c.id));
         return { cells: [
-          esc(c.name),
+          esc(c.name) + (c.shop_visible === false ? ' <span class="pill" style="--pc:var(--muted)">hidden</span>' : ''),
           money(c.price),
           opts.filter(o => String(o.cat_id) === String(c.id)).map(o => esc(o.name)).join(', ') || '—',
           String(ls.reduce((s, l) => s + (Number(l.qty) || 0), 0)),
           money(ls.reduce((s, l) => s + (Number(l.total) || 0), 0)),
-          String(openLs.reduce((s, l) => s + (Number(l.qty) || 0), 0))
+          String(openLs.reduce((s, l) => s + (Number(l.qty) || 0), 0)),
+          `<button class="btn sm ghost" onclick="openRecord('product','${esc(c.id)}')" aria-label="Edit ${esc(c.name)}"><i class="ti ti-pencil"></i></button>`
         ] };
       })
     )}
+    ${coloursSection()}
   </div></div>`;
+}
+
+// The colour library lives under Products: it is only ever used by product
+// options, so it does not need a tab of its own.
+function coloursSection() {
+  const usable = colours.filter(c => !c.archived);
+  return `<div class="section-title">Colour library <span class="subtle">${usable.length}</span>
+      <span class="right"><button class="btn sm" onclick="openRecord('colour')"><i class="ti ti-plus"></i> Add colour</button></span></div>
+    <div class="swatch-grid">
+      ${usable.map(c => `<button class="swatch-cell" onclick="openRecord('colour','${esc(c.id)}')" title="${esc(c.code)}">
+        <span class="sw-dot" style="--sw:${esc(c.code)}"></span>
+        <span class="swatch-name">${esc(c.name)}</span>
+        ${c.available === false ? '<span class="pill" style="--pc:var(--muted)">off</span>' : ''}
+      </button>`).join('') || '<span class="subtle">No colours yet.</span>'}
+    </div>`;
 }
 
 /* ── Stock ─────────────────────────────────────────────────────────── */
@@ -1170,11 +1198,13 @@ function viewStock() {
   const used = id => invConsumption.filter(c => String(c.item_id) === String(id)).reduce((s, c) => s + (Number(c.qty) || 0), 0);
   const spent = id => invReceipts.filter(r => String(r.item_id) === String(id)).reduce((s, r) => s + (Number(r.cost) || 0), 0);
 
+  if (record) return `<div class="page">${recordForm()}</div>`;
   return `<div class="page"><div class="page-inner">
-    <div class="section-title">Stock on hand <span class="subtle">${invItems.length} items</span></div>
+    <div class="section-title">Stock on hand <span class="subtle">${invItems.length} items</span>
+      <span class="right"><button class="btn sm" onclick="openRecord('invitem')"><i class="ti ti-plus"></i> Add item</button></span></div>
     ${table(
       [{ h: 'Item' }, { h: 'Received', cls: 'num mono' }, { h: 'Used', cls: 'num mono' },
-       { h: 'On hand', cls: 'num mono' }, { h: 'Spend', cls: 'num mono' }, { h: 'Level' }],
+       { h: 'On hand', cls: 'num mono' }, { h: 'Spend', cls: 'num mono' }, { h: 'Level' }, { h: '', cls: 'num' }],
       invItems.map(i => {
         const rec = received(i.id), use = used(i.id), left = rec - use;
         const col = left <= 0 ? '--red' : left < rec * 0.2 ? '--amber' : '--green';
@@ -1183,11 +1213,331 @@ function viewStock() {
           String(rec), String(use),
           `<span style="color:var(${col})">${left}</span>`,
           money(spent(i.id)),
-          `<div class="bar" style="--bc:var(${col})"><i style="width:${rec ? Math.max(0, Math.min(100, left / rec * 100)) : 0}%"></i></div>`
+          `<div class="bar" style="--bc:var(${col})"><i style="width:${rec ? Math.max(0, Math.min(100, left / rec * 100)) : 0}%"></i></div>`,
+          `<button class="btn sm ghost" onclick="openRecord('invitem','${esc(i.id)}')" aria-label="Edit ${esc(i.name)}"><i class="ti ti-pencil"></i></button>`
         ] };
       })
     )}
+    ${invItems.length ? '' : `<p class="readonly-note"><i class="ti ti-info-circle"></i> Name an item exactly as an option value — "Magnet", say — and completed orders draw it down on their own.</p>`}
   </div></div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Record editor
+
+   Customers, colours, inventory items and products are all "a row with a
+   few fields", so they share one form rather than getting four bespoke
+   editors. Each entry below says which table it writes, how to mint an
+   id, and what fields to show. Removing archives rather than deletes,
+   matching the soft-delete pattern used everywhere else.
+   ══════════════════════════════════════════════════════════════════════ */
+const FORMS = {
+  customer: {
+    table: 'customers', title: 'Customer', prefix: 'CUST', width: 4,
+    list: () => customers, back: 'customers',
+    fields: [
+      { k: 'name', label: 'Name', required: true },
+      { k: 'email', label: 'Email', type: 'email' },
+      { k: 'phone', label: 'Phone', type: 'tel' },
+      { k: 'address', label: 'Address', type: 'textarea' },
+      { k: 'notes', label: 'Notes', type: 'textarea' }
+    ]
+  },
+  colour: {
+    table: 'colours', title: 'Colour', prefix: 'COL', width: 4,
+    list: () => colours, back: 'products',   // the library lives on the Products page
+    fields: [
+      { k: 'name', label: 'Name', required: true },
+      { k: 'code', label: 'Hex code', type: 'colour', def: '#cccccc' },
+      { k: 'available', label: 'In stock / selectable', type: 'check', def: true }
+    ]
+  },
+  invitem: {
+    table: 'inventory_items', title: 'Stock item', prefix: 'INV', width: 4,
+    list: () => invItems, back: 'stock',
+    fields: [
+      { k: 'name', label: 'Name', required: true, hint: 'Match an option value exactly (e.g. "Magnet") and completed orders draw it down automatically.' },
+      { k: 'notes', label: 'Notes', type: 'textarea' }
+    ]
+  },
+  product: {
+    table: 'categories', title: 'Product', prefix: 'C', width: 4,
+    list: () => cats, back: 'products',
+    fields: [
+      { k: 'name', label: 'Name', required: true },
+      { k: 'price', label: 'Default price', type: 'number', def: 0 },
+      { k: 'shop_visible', label: 'Show in the online shop', type: 'check', def: true }
+    ]
+  }
+};
+
+let record = null;   // {kind, id|null, data:{}, opts:[] for products}
+
+function openRecord(kind, id) {
+  const spec = FORMS[kind];
+  const existing = id ? spec.list().find(x => String(x.id) === String(id)) : null;
+  const data = {};
+  spec.fields.forEach(f => {
+    data[f.k] = existing ? existing[f.k] : (f.def !== undefined ? f.def : '');
+    if (data[f.k] === null || data[f.k] === undefined) data[f.k] = f.def !== undefined ? f.def : '';
+  });
+  record = { kind, id: id || null, data };
+  view = spec.back;   // the form renders inside that view's page
+  if (kind === 'product') {
+    record.opts = id
+      ? opts.filter(o => String(o.cat_id) === String(id)).map(o => ({ ...o }))
+      : [];
+  }
+  showDetail = true;
+  render();
+}
+
+function closeRecord() { record = null; render(); }
+
+function readRecord() {
+  const spec = FORMS[record.kind];
+  spec.fields.forEach(f => {
+    const el = document.getElementById('r-' + f.k);
+    if (!el) return;
+    record.data[f.k] = f.type === 'check' ? el.checked
+      : f.type === 'number' ? (parseFloat(el.value) || 0)
+      : el.value.trim();
+  });
+  if (record.kind === 'product') {
+    record.opts.forEach((o, i) => {
+      o.name = (val('o-name-' + i) || '').trim();
+      o.display = val('o-display-' + i) || 'text';
+      o.options = (val('o-values-' + i) || '').trim();
+      o.num_colours = parseInt(val('o-num-' + i), 10) || 4;
+      o.default_colours = (val('o-def-' + i) || '').trim();
+      o.force_caps = !!(document.getElementById('o-caps-' + i) || {}).checked;
+      o.multi_item = !!(document.getElementById('o-multi-' + i) || {}).checked;
+    });
+  }
+}
+
+async function saveRecord() {
+  readRecord();
+  const spec = FORMS[record.kind];
+  const missing = spec.fields.filter(f => f.required && !record.data[f.k]);
+  if (missing.length) { toast(missing[0].label + ' is required', 'err'); return; }
+  if (record.kind === 'product' && record.opts.some(o => !o.name)) { toast('Every option needs a name', 'err'); return; }
+
+  const btn = document.getElementById('recSave');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Saving…'; }
+  try {
+    const id = record.id || seqId(spec.list(), spec.prefix, spec.width);
+    const row = { id, ...record.data, archived: false };
+    await sbUpsert(spec.table, row);
+
+    if (record.kind === 'product') {
+      for (let i = 0; i < record.opts.length; i++) {
+        const o = record.opts[i];
+        await sbUpsert('options', {
+          id: o.id || seqId(opts.concat(record.opts.filter(x => x.id)), 'O', 4),
+          cat_id: id, name: o.name, display: o.display, options: o.options || '',
+          sort_order: i, num_colours: o.num_colours || 4,
+          force_caps: !!o.force_caps, multi_item: !!o.multi_item,
+          sortable: !!o.sortable, archived: false,
+          default_colours: o.default_colours || ''
+        });
+      }
+    }
+
+    const back = spec.back;
+    record = null;
+    await loadAll();
+    view = back; showDetail = false;
+    toast(spec.title + ' saved');
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
+  } finally {
+    render();
+  }
+}
+
+async function archiveRecord(kind, id, label) {
+  const spec = FORMS[kind];
+  const ok = await askConfirm('Remove "' + (label || 'this record') + '"?\n\nIt is hidden rather than deleted, so anything already referring to it keeps working.', 'Remove');
+  if (!ok) return;
+  const err = await sbPatch(spec.table, '?id=eq.' + encodeURIComponent(id), { archived: true });
+  if (err) { toast('Could not remove: ' + (err.message || ''), 'err'); return; }
+  toast('Removed ' + (label || spec.title));
+  record = null;
+  await loadAll();
+}
+
+function addProductOption() {
+  readRecord();
+  record.opts.push({ id: '', name: '', display: 'text', options: '', num_colours: 4, default_colours: '', force_caps: false, multi_item: false });
+  render();
+}
+function removeProductOption(i) {
+  readRecord();
+  const o = record.opts[i];
+  if (o.id) sbPatch('options', '?id=eq.' + encodeURIComponent(o.id), { archived: true });
+  record.opts.splice(i, 1);
+  render();
+}
+
+function recordForm() {
+  const spec = FORMS[record.kind];
+  const d = record.data;
+
+  const field = f => {
+    const v = d[f.k];
+    if (f.type === 'check') {
+      return `<div class="form-row"><label class="method-check" style="font-size:13px">
+        <input type="checkbox" id="r-${f.k}" ${v ? 'checked' : ''}> ${esc(f.label)}</label></div>`;
+    }
+    if (f.type === 'textarea') {
+      return `<div class="form-row"><label for="r-${f.k}">${esc(f.label)}</label>
+        <textarea id="r-${f.k}" rows="2">${esc(v)}</textarea></div>`;
+    }
+    if (f.type === 'colour') {
+      return `<div class="form-row"><label for="r-${f.k}">${esc(f.label)}</label>
+        <div class="hexrow">
+          <input type="color" id="r-${f.k}-pick" value="${esc(/^#[0-9a-f]{6}$/i.test(v) ? v : '#cccccc')}"
+            oninput="document.getElementById('r-${f.k}').value=this.value">
+          <input type="text" id="r-${f.k}" value="${esc(v)}" placeholder="#rrggbb"
+            oninput="if(/^#[0-9a-f]{6}$/i.test(this.value))document.getElementById('r-${f.k}-pick').value=this.value">
+        </div></div>`;
+    }
+    const type = f.type === 'number' ? 'number' : f.type || 'text';
+    const extra = f.type === 'number' ? ' min="0" step="0.01" inputmode="decimal"'
+      : f.type === 'email' ? ' inputmode="email"' : f.type === 'tel' ? ' inputmode="tel"' : '';
+    return `<div class="form-row"><label for="r-${f.k}">${esc(f.label)}</label>
+      <input type="${type}" id="r-${f.k}" value="${esc(v)}"${extra}>
+      ${f.hint ? `<span class="field-hint">${esc(f.hint)}</span>` : ''}</div>`;
+  };
+
+  return `<div class="detail">
+    <div class="detail-hdr">
+      <div class="detail-hdr-main">
+        <div class="detail-title">${record.id ? 'Edit ' : 'New '}${esc(spec.title.toLowerCase())}</div>
+        ${record.id ? `<div class="detail-sub"><span class="mono">${esc(record.id)}</span></div>` : ''}
+      </div>
+      <div class="detail-actions">
+        <button class="btn" onclick="closeRecord()">Cancel</button>
+        <button class="btn primary" id="recSave" onclick="saveRecord()"><i class="ti ti-check"></i> Save</button>
+      </div>
+    </div>
+
+    <div class="card"><div class="card-body form-grid">
+      ${spec.fields.map(field).join('')}
+    </div></div>
+
+    ${record.kind === 'product' ? productOptionsEditor() : ''}
+    ${record.kind === 'invitem' && record.id ? receiptsEditor() : ''}
+
+    ${record.id ? `<div class="card">
+      <div class="card-hdr"><i class="ti ti-trash"></i><h3>Remove</h3></div>
+      <div class="card-body">
+        <button class="btn danger" onclick="archiveRecord('${record.kind}','${esc(record.id)}','${esc(d.name || '').replace(/'/g, "\\'")}')">
+          <i class="ti ti-trash"></i> Remove ${esc(spec.title.toLowerCase())}</button>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+function productOptionsEditor() {
+  return `<div class="card">
+    <div class="card-hdr"><i class="ti ti-adjustments"></i><h3>Options</h3>
+      <div class="right"><button class="btn sm" onclick="addProductOption()"><i class="ti ti-plus"></i> Add option</button></div>
+    </div>
+    <div class="card-body flush">
+      ${record.opts.length ? record.opts.map((o, i) => {
+        const isColour = o.display === 'colour';
+        return `<div class="form-line">
+          <div class="form-line-hdr">
+            <span class="form-line-n">Option ${i + 1}</span>
+            <button class="btn sm ghost" onclick="removeProductOption(${i})" aria-label="Remove option ${i + 1}"><i class="ti ti-trash"></i></button>
+          </div>
+          <div class="form-grid">
+            <div class="form-row form-row-pair">
+              <div><label for="o-name-${i}">Name</label><input type="text" id="o-name-${i}" value="${esc(o.name)}" placeholder="e.g. Backing"></div>
+              <div><label for="o-display-${i}">Type</label>
+                <select id="o-display-${i}" onchange="readRecord();render()">
+                  <option value="text"${o.display === 'text' ? ' selected' : ''}>Free text</option>
+                  <option value="select"${o.display !== 'text' && o.display !== 'colour' ? ' selected' : ''}>Dropdown</option>
+                  <option value="colour"${isColour ? ' selected' : ''}>Colours</option>
+                </select></div>
+            </div>
+            ${o.display === 'text' ? `
+              <div class="form-row"><label class="method-check" style="font-size:13px">
+                <input type="checkbox" id="o-caps-${i}" ${o.force_caps ? 'checked' : ''}> Force capitals</label></div>
+              <div class="form-row"><label class="method-check" style="font-size:13px">
+                <input type="checkbox" id="o-multi-${i}" ${o.multi_item ? 'checked' : ''}> Comma-separated values make one item each</label></div>`
+            : isColour ? `
+              <div class="form-row form-row-pair">
+                <div><label for="o-num-${i}">How many colours</label>
+                  <input type="number" id="o-num-${i}" value="${esc(o.num_colours || 4)}" min="1" max="8" step="1" inputmode="numeric"></div>
+                <div><label for="o-def-${i}">Default</label>
+                  <input type="text" id="o-def-${i}" value="${esc(o.default_colours || '')}" placeholder="Red|Yellow|Black"></div>
+              </div>
+              <span class="field-hint">Colour names separated by | — they must match the colour library.</span>`
+            : `
+              <div class="form-row"><label for="o-values-${i}">Choices</label>
+                <input type="text" id="o-values-${i}" value="${esc(o.options || '')}" placeholder="Pin, Magnet, Keychain">
+                <span class="field-hint">Comma separated. The order form also offers a Custom box.</span></div>`}
+          </div>
+        </div>`;
+      }).join('') : '<div class="method-row"><span class="subtle">No options — this product is ordered as-is.</span></div>'}
+    </div>
+  </div>`;
+}
+
+/* ── Stock receipts ────────────────────────────────────────────────── */
+async function addReceipt() {
+  const qty = parseFloat(val('rc-qty')) || 0;
+  const cost = parseFloat(val('rc-cost')) || 0;
+  const date = val('rc-date') || todayISO();
+  if (!qty) { toast('Enter a quantity', 'err'); return; }
+  try {
+    const rec = { id: seqId(invReceipts, 'RCPT', 4), item_id: record.id, qty, cost, date };
+    await sbUpsert('inventory_receipts', rec);
+    invReceipts.push(rec);
+    toast('Stock received');
+  } catch (e) { toast('Could not save: ' + e.message, 'err'); }
+  render();
+}
+
+async function removeReceipt(id) {
+  const ok = await askConfirm('Delete this stock receipt? It changes what the item shows as received.', 'Delete');
+  if (!ok) return;
+  const err = await sbDelete('inventory_receipts', '?id=eq.' + encodeURIComponent(id));
+  if (err) { toast('Could not delete', 'err'); return; }
+  invReceipts = invReceipts.filter(r => String(r.id) !== String(id));
+  toast('Receipt deleted');
+  render();
+}
+
+function receiptsEditor() {
+  const mine = invReceipts.filter(r => String(r.item_id) === String(record.id))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const used = invConsumption.filter(c => String(c.item_id) === String(record.id)).reduce((s, c) => s + (Number(c.qty) || 0), 0);
+  const got = mine.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+  return `<div class="card">
+    <div class="card-hdr"><i class="ti ti-package-import"></i><h3>Stock received</h3>
+      <div class="right subtle">${got} in · ${used} used · <strong>${got - used} on hand</strong></div>
+    </div>
+    <div class="card-body flush">
+      ${mine.map(r => `<div class="method-row">
+        <span class="mono" style="flex:1">${esc(fmtDate(r.date))}</span>
+        <span class="mono">${esc(r.qty)}</span>
+        <span class="mono subtle">${money(r.cost)}</span>
+        <button class="btn icon ghost" onclick="removeReceipt('${esc(r.id)}')" aria-label="Delete receipt"><i class="ti ti-trash"></i></button>
+      </div>`).join('') || '<div class="method-row"><span class="subtle">Nothing received yet.</span></div>'}
+    </div>
+    <div class="card-foot form-grid">
+      <div class="form-row form-row-pair">
+        <div><label for="rc-qty">Quantity</label><input type="number" id="rc-qty" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+        <div><label for="rc-cost">Total cost</label><input type="number" id="rc-cost" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      </div>
+      <div class="form-row"><label for="rc-date">Date</label><input type="date" id="rc-date" value="${todayISO()}"></div>
+      <button class="btn" onclick="addReceipt()"><i class="ti ti-plus"></i> Add stock</button>
+    </div>
+  </div>`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1425,15 +1775,9 @@ const DELIVERY_ICON_PACK = [
   'ti-parking', 'ti-door', 'ti-gift', 'ti-shopping-bag', 'ti-clock', 'ti-calendar-event'
 ];
 
-function nextMethodId(list, prefix) {
-  const ns = list.map(x => String(x.id)).filter(id => id.startsWith(prefix))
-    .map(id => parseInt(id.slice(prefix.length), 10)).filter(n => !isNaN(n));
-  return prefix + padN((ns.length ? Math.max(...ns) : 0) + 1, 4);
-}
-
 function addMethod(kind) {
-  if (kind === 'delivery') deliveryOptions.push({ id: nextMethodId(deliveryOptions, 'DEL'), name: '', price: 0, icon: 'ti-truck-delivery', archived: false });
-  else paymentOptions.push({ id: nextMethodId(paymentOptions, 'PAY'), name: '', show_revenue: false, archived: false });
+  if (kind === 'delivery') deliveryOptions.push({ id: seqId(deliveryOptions, 'DEL', 4), name: '', price: 0, icon: 'ti-truck-delivery', archived: false });
+  else paymentOptions.push({ id: seqId(paymentOptions, 'PAY', 4), name: '', show_revenue: false, archived: false });
   render();
 }
 
@@ -1619,6 +1963,13 @@ function _selftest() {
   console.assert(makeRowId('O0000000014', 2) === 'O14-3', 'row ids are 1-based');
   console.assert(toDMY('2026-01-05') === '05/01/2026', 'dates are written dd/mm/yyyy');
   console.assert(toDMY('5/1/2026') === '05/01/2026', 'already-DMY dates round-trip');
+
+  // Sequential ids must match the main site's prefixes and widths exactly.
+  console.assert(seqId([{ id: 'CUST0019' }], 'CUST', 4) === 'CUST0020', 'customer ids');
+  console.assert(seqId([{ id: 'COL0009' }, { id: 'COL0030' }], 'COL', 4) === 'COL0031', 'colour ids take the max, not the last');
+  console.assert(seqId([], 'INV', 4) === 'INV0001', 'first id in an empty table');
+  console.assert(seqId([{ id: 'CONS0007' }], 'CONS', 4) === 'CONS0008', 'consumption ids');
+  console.assert(seqId([{ id: 'C0003' }, { id: 'CUST0099' }], 'C', 4) === 'C0004', 'a longer prefix does not leak into a shorter one');
 
   const saveInv = invItems;
   invItems = [{ id: 'I1', name: 'Magnet' }, { id: 'I2', name: 'Gold' }];

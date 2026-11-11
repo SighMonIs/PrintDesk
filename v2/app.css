@@ -310,6 +310,8 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
 .form-grid{display:flex;flex-direction:column;gap:11px;}
 .form-row{display:flex;flex-direction:column;gap:5px;min-width:0;}
 .form-row label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+/* inline checkbox labels are sentences, not field captions */
+.form-row label.method-check{text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);}
 .form-row input,.form-row select,.form-row textarea{
   height:38px;padding:0 10px;font:inherit;font-size:16px;
   background:var(--surface2);border:1px solid var(--border2);
@@ -408,6 +410,27 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
   cursor:pointer;white-space:nowrap;
 }
 .method-check input{width:16px;height:16px;accent-color:var(--green);}
+
+.field-hint{font-size:10.5px;color:var(--muted);line-height:1.45;}
+.hexrow{display:flex;gap:8px;align-items:center;}
+.hexrow input[type=color]{
+  width:46px;height:38px;padding:2px;flex-shrink:0;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:var(--radius);cursor:pointer;
+}
+.hexrow input[type=text]{flex:1;min-width:0;font-family:var(--mono);}
+
+.swatch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;}
+.swatch-cell{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 11px;min-height:40px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--text);
+  font:inherit;font-size:12.5px;cursor:pointer;text-align:left;
+  transition:border-color .12s;
+}
+.swatch-cell:hover{border-color:var(--border2);}
+.swatch-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 .user-row{
   display:flex;align-items:center;gap:11px;
