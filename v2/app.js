@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.8.0';
+const VERSION = '2.8.1';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -605,7 +605,15 @@ async function maybeAdvance(orderId) {
 
 /* ── Navigation ────────────────────────────────────────────────────── */
 function go(v) { view = v; showDetail = false; editing = null; record = null; window.scrollTo(0, 0); render(); }
-function pick(id) { selected = id; showDetail = true; editing = null; if (view !== 'orders') view = 'orders'; render(); }
+function pick(id) {
+  selected = id; showDetail = true; editing = null; record = null;
+  if (view !== 'orders') view = 'orders';
+  // If the current filter hides this order the list would quietly select a
+  // different one, so following a link to a completed order while filtered
+  // to Open landed you on someone else's order entirely.
+  if (!filtered().some(o => o.id === id)) chip = 'all';
+  render();
+}
 function closeDetail() { if (editing) { editing = null; } else { showDetail = false; } render(); }
 // The chosen filter is remembered, which is what the main site's
 // "save as default filter" amounts to in a single-select world.
@@ -1897,6 +1905,7 @@ function recordForm() {
 
     ${record.kind === 'product' ? productOptionsEditor() : ''}
     ${record.kind === 'invitem' && record.id ? receiptsEditor() : ''}
+    ${record.kind === 'customer' && record.id ? customerOrdersCard() : ''}
 
     ${record.id ? `<div class="card">
       <div class="card-hdr"><i class="ti ti-trash"></i><h3>Remove</h3></div>
@@ -1905,6 +1914,26 @@ function recordForm() {
           <i class="ti ti-trash"></i> Remove ${esc(spec.title.toLowerCase())}</button>
       </div>
     </div>` : ''}
+  </div>`;
+}
+
+// The same list the order detail shows, on the customer's own record.
+function customerOrdersCard() {
+  const name = String(record.data.name || '').trim().toLowerCase();
+  const theirs = orders.filter(o => o.customerId === String(record.id)
+    || (!o.customerId && o.customer.trim().toLowerCase() === name));
+  const spent = theirs.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + o.total, 0);
+  return `<div class="card">
+    <div class="card-hdr"><i class="ti ti-receipt"></i><h3>Their orders</h3>
+      <div class="right subtle">${theirs.length}${theirs.length ? ' · ' + money(spent) : ''}</div></div>
+    ${theirs.length ? `<div class="card-body flush related-scroll">
+      ${theirs.map(o => `<button class="related-row" onclick="pick('${esc(o.id)}')">
+        <span class="mono">${esc(o.no)}</span>
+        <span class="subtle">${esc(fmtDate(o.date))}</span>
+        ${pill(o.status)}
+        <span class="mono related-total">${money(o.total)}</span>
+      </button>`).join('')}
+    </div>` : '<div class="card-body"><span class="subtle">No orders yet.</span></div>'}
   </div>`;
 }
 
