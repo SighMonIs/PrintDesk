@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.6.0';
+const VERSION = '2.6.1';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -701,7 +701,6 @@ function orderDetail(o) {
         <button class="btn ${o.paid ? '' : 'primary'}" onclick="togglePaid('${esc(o.id)}')">
           <i class="ti ${o.paid ? 'ti-rotate-2' : 'ti-cash'}"></i> ${o.paid ? 'Mark unpaid' : 'Mark paid'}</button>
         <button class="btn" onclick="openEditOrder('${esc(o.id)}')"><i class="ti ti-pencil"></i> Edit</button>
-        ${badgeItemsFor(o).length ? `<button class="btn" onclick="openBadgeBatch('${esc(o.id)}')"><i class="ti ti-badges"></i> Badges</button>` : ''}
         <button class="btn icon ghost" onclick="generateInvoice('${esc(o.id)}')" title="Invoice PDF" aria-label="Invoice PDF"><i class="ti ti-file-invoice"></i></button>
         <button class="btn icon ghost" onclick="printShippingLabel('${esc(o.id)}')" title="Shipping label" aria-label="Shipping label"><i class="ti ti-tag"></i></button>
         <button class="btn icon ghost" onclick="deleteOrder('${esc(o.id)}')" title="Delete order" aria-label="Delete order"><i class="ti ti-trash"></i></button>
@@ -741,7 +740,11 @@ function orderDetail(o) {
     ${relatedOrders(o)}
 
     <div class="card">
-      <div class="card-hdr"><i class="ti ti-list-details"></i><h3>Line items</h3></div>
+      <div class="card-hdr"><i class="ti ti-list-details"></i><h3>Line items</h3>
+        ${badgeItemsFor(o).length ? `<div class="right">
+          <button class="btn sm" onclick="openBadgeBatch('${esc(o.id)}')"><i class="ti ti-badges"></i> All badges</button>
+        </div>` : ''}
+      </div>
       <div class="card-body flush">
         <div class="lines">${o.lines.map(l => {
           const attrs = parseOpts(l);
