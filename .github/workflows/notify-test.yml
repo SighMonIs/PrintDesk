@@ -51,7 +51,10 @@ jobs:
           req = urllib.request.Request(
               'https://api.resend.com/emails', data=payload,
               headers={'Authorization': f'Bearer {RESEND}',
-                       'Content-Type': 'application/json'}
+                       'Content-Type': 'application/json',
+                       # Cloudflare fronts api.resend.com and rejects the default
+                       # Python-urllib agent with a 1010 browser-integrity error.
+                       'User-Agent': 'PrintDesk/1.0'}
           )
           try:
               with urllib.request.urlopen(req) as r:
