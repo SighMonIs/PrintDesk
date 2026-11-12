@@ -9,12 +9,20 @@
 \set ON_ERROR_STOP on
 
 -- Pick one real uid of each kind. A staff member is a row in staff; a shop
--- customer is an auth user linked from customers.auth_user_id.
+-- customer is an auth user linked from customers.auth_user_id — and must NOT
+-- also be staff, or the test proves nothing. At least one account here is
+-- both: a staff login that has also been through the shop.
 select set_config('v.staff', (select user_id::text from staff
                                order by user_id limit 1), false) is not null as got_staff,
-       set_config('v.shopper', (select auth_user_id::text from customers
-                                 where auth_user_id is not null
-                                 order by auth_user_id limit 1), false) is not null as got_shopper;
+       set_config('v.shopper', (select c.auth_user_id::text from customers c
+                                 where c.auth_user_id is not null
+                                   and not exists (select 1 from staff s
+                                                    where s.user_id = c.auth_user_id)
+                                 order by c.auth_user_id limit 1), false) is not null as got_shopper,
+       (select count(*) from customers c
+         where c.auth_user_id is not null
+           and exists (select 1 from staff s where s.user_id = c.auth_user_id))
+         as accounts_that_are_both;
 
 \echo ''
 \echo '=== as a STAFF member: should see everything ==='
