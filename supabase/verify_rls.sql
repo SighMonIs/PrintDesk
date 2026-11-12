@@ -14,11 +14,16 @@
 -- both: a staff login that has also been through the shop.
 select set_config('v.staff', (select user_id::text from staff
                                order by user_id limit 1), false) is not null as got_staff,
-       set_config('v.shopper', (select c.auth_user_id::text from customers c
+       set_config('v.shopper', coalesce((select c.auth_user_id::text from customers c
                                  where c.auth_user_id is not null
                                    and not exists (select 1 from staff s
                                                     where s.user_id = c.auth_user_id)
-                                 order by c.auth_user_id limit 1), false) is not null as got_shopper,
+                                 order by c.auth_user_id limit 1),
+                                 -- Both shop-linked logins are also staff, so
+                                 -- there is no pure customer to borrow. A uid
+                                 -- that is in neither table is the stricter
+                                 -- test anyway: signed in, entitled to nothing.
+                                 gen_random_uuid()::text), false) is not null as got_shopper,
        (select count(*) from customers c
          where c.auth_user_id is not null
            and exists (select 1 from staff s where s.user_id = c.auth_user_id))
@@ -48,13 +53,13 @@ reset role;
 select set_config('request.jwt.claims', null, true);
 
 \echo ''
-\echo '=== as a SHOP CUSTOMER: own row and own orders, nothing else ==='
+\echo '=== as a SIGNED-IN NON-STAFF user: nothing but the catalogue ==='
 set local role authenticated;
 select set_config('request.jwt.claims',
                   json_build_object('sub', current_setting('v.shopper'),
                                     'role', 'authenticated')::text, true);
-select (select count(*) from customers)       as customers_visible_should_be_1,
-       (select count(*) from orders)          as orders_visible_only_own,
+select (select count(*) from customers)       as customers_should_be_0,
+       (select count(*) from orders)          as orders_should_be_0,
        (select count(*) from colours)         as colours_should_be_all,
        (select count(*) from app_settings)    as app_settings_should_be_0,
        (select count(*) from inventory_items) as inventory_should_be_0,
@@ -62,6 +67,20 @@ select (select count(*) from customers)       as customers_visible_should_be_1,
 
 reset role;
 select set_config('request.jwt.claims', null, true);
+
+\echo ''
+\echo '=== what the own-orders policy would expose, per shop login ==='
+-- Checked as the owner rather than by impersonation, because every shop-linked
+-- login here is also staff. 0 everywhere means no order has ever been claimed
+-- by a shop account, so the policy is correct but currently exposes nothing.
+select count(*) filter (where o.customer_id is not null) as orders_claimable,
+       (select count(*) from customers where auth_user_id is not null) as shop_logins,
+       (select count(*) from customers c
+         where c.auth_user_id is not null
+           and exists (select 1 from staff s where s.user_id = c.auth_user_id))
+         as of_which_also_staff
+  from orders o
+ where o.customer_id in (select id from customers where auth_user_id is not null);
 
 \echo ''
 \echo '=== as ANON (signed out shop): catalogue only ==='
