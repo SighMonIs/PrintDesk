@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.7.2';
+const VERSION = '2.7.3';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -747,9 +747,13 @@ function orderDetail(o) {
             <div class="line-qty"><b>${esc(l.qty)}</b><small>qty</small></div>
             <div class="line-main">
               <div class="line-name">${esc(catName(l.cat_id))}</div>
-              ${attrs.length ? `<div class="line-attrs">${attrs.map(a => a.colours
-                ? `<span class="attr">${esc(a.name)} ${a.colours.map(n => `<span class="sw" style="--sw:${esc(colourCode(n))}" title="${esc(n)}"></span>`).join('')}</span>`
-                : `<span class="attr">${esc(a.name)} <b>${esc(a.value)}</b></span>`).join('')}</div>` : ''}
+              ${attrs.length || hasBadgeTemplate(l.cat_id) ? `<div class="line-attrs">
+                ${attrs.map(a => a.colours
+                  ? `<span class="attr">${esc(a.name)} ${a.colours.map(n => `<span class="sw" style="--sw:${esc(colourCode(n))}" title="${esc(n)}"></span>`).join('')}</span>`
+                  : `<span class="attr">${esc(a.name)} <b>${esc(a.value)}</b></span>`).join('')}
+                ${hasBadgeTemplate(l.cat_id) ? `<button class="btn sm ghost badge-btn" onclick="generateBadge('${esc(o.id)}','${esc(l.id)}')" title="Download .3mf">
+                  <i class="ti ti-badge"></i> 3MF</button>` : ''}
+              </div>` : ''}
               ${l.notes ? `<div class="line-note"><i class="ti ti-note"></i>${esc(l.notes)}</div>` : ''}
             </div>
             <div class="line-money">
@@ -759,8 +763,6 @@ function orderDetail(o) {
                 <input type="checkbox" ${l.printed ? 'checked' : ''}
                   onchange="toggleLinePrinted('${esc(o.id)}','${esc(l.id)}',this.checked)"> made
               </label>
-              ${hasBadgeTemplate(l.cat_id) ? `<button class="btn sm ghost badge-btn" onclick="generateBadge('${esc(o.id)}','${esc(l.id)}')" title="Download .3mf">
-                <i class="ti ti-badge"></i> 3MF</button>` : ''}
             </div>
           </div>`;
         }).join('')}</div>
