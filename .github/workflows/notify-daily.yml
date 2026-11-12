@@ -12,43 +12,38 @@ jobs:
       - name: Send daily badge digest
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          SUPABASE_URL: https://brcwodrrpkxerxlpfgkd.supabase.co
-          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyY3dvZHJycGt4ZXJ4bHBmZ2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDA3MzgsImV4cCI6MjA5NTkxNjczOH0.T9m0gtP1Xp9PB8u8FnS0-9_a2Z2EHYrW4-NQbU6Z9tI
+          # Reads the database directly rather than through the public REST
+          # API — see notify-threshold.yml.
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          psql "$DB_URL" --no-align --tuples-only --variable ON_ERROR_STOP=1 \
+            --command "
+              select json_build_object(
+                'cfg', coalesce((select json_object_agg(key, value)
+                                   from app_settings where key like 'notify_%'), '{}'::json),
+                'orders', coalesce((select json_agg(json_build_object(
+                                      'order_id', o.order_id, 'customer', o.customer, 'qty', o.qty))
+                                      from orders o
+                                      join categories c on c.id = o.cat_id
+                                     where c.archived = false
+                                       and lower(c.name) like '%badge%'
+                                       and o.created_at >= now() - interval '24 hours'
+                                       and coalesce(o.deleted, false) = false), '[]'::json))
+            " > payload.json
+
           python3 << 'PYEOF'
           import json, os, urllib.request, urllib.error
-          from datetime import datetime, timezone, timedelta
 
-          SB_URL  = os.environ['SUPABASE_URL']
-          SB_KEY  = os.environ['SUPABASE_KEY']
-          RESEND  = os.environ.get('RESEND_API_KEY', '')
-          HEADERS = {'apikey': SB_KEY, 'Authorization': f'Bearer {SB_KEY}'}
-
-          def sb(path):
-              req = urllib.request.Request(f"{SB_URL}/rest/v1/{path}", headers=HEADERS)
-              with urllib.request.urlopen(req) as r:
-                  return json.loads(r.read())
-
-          # Load settings
-          rows = sb('app_settings?key=in.(notify_email,notify_daily_enabled)')
-          cfg  = {r['key']: r['value'] for r in rows}
+          RESEND = os.environ.get('RESEND_API_KEY', '')
+          data   = json.load(open('payload.json'))
+          cfg    = data['cfg'] or {}
+          orders = data['orders'] or []
 
           if cfg.get('notify_daily_enabled') != 'true':
               print('Daily digest disabled — skipping'); exit(0)
           email = cfg.get('notify_email', '')
           if not email:
               print('No notification email set — skipping'); exit(0)
-
-          # Find badge category IDs
-          cats      = sb('categories?archived=eq.false')
-          badge_ids = [c['id'] for c in cats if 'badge' in c['name'].lower()]
-          if not badge_ids:
-              print('No badge categories found — skipping'); exit(0)
-
-          # Orders in last 24 hours
-          since    = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')
-          id_list  = ','.join(str(i) for i in badge_ids)
-          orders   = sb(f'orders?cat_id=in.({id_list})&created_at=gte.{since}&order=order_id.desc')
 
           # Deduplicate by order_id and count total items
           seen, unique, total_qty = set(), [], 0
@@ -74,7 +69,9 @@ jobs:
               f"View all orders: https://simonreid.space\n"
           )
 
-          print(body)
+          # This repo is public and so is this log — the names go in the email,
+          # not here.
+          print(f'{n} badge orders, {total_qty} items — sending digest')
 
           if not RESEND:
               print('No RESEND_API_KEY secret — email not sent'); exit(0)
@@ -91,7 +88,8 @@ jobs:
           )
           try:
               with urllib.request.urlopen(req) as r:
-                  print('Email sent:', r.read().decode())
+                  r.read()
+                  print('Email sent')
           except urllib.error.HTTPError as e:
               print('Resend error:', e.read().decode()); exit(1)
           PYEOF

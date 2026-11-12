@@ -12,39 +12,32 @@ jobs:
       - name: Check item threshold and alert
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          SUPABASE_URL: https://brcwodrrpkxerxlpfgkd.supabase.co
-          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyY3dvZHJycGt4ZXJ4bHBmZ2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDA3MzgsImV4cCI6MjA5NTkxNjczOH0.T9m0gtP1Xp9PB8u8FnS0-9_a2Z2EHYrW4-NQbU6Z9tI
+          # Row level security closed the REST API to the public anon key, so
+          # this reads the database directly with the same secret db-backup
+          # already uses. No anon key in CI, and nothing here is reachable
+          # from the internet.
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          psql "$DB_URL" --no-align --tuples-only --variable ON_ERROR_STOP=1 \
+            --command "
+              select json_build_object(
+                'cfg', coalesce((select json_object_agg(key, value)
+                                   from app_settings where key like 'notify_%'), '{}'::json),
+                'orders', coalesce((select json_agg(json_build_object(
+                                      'order_id', order_id, 'customer', customer, 'qty', qty))
+                                      from orders
+                                     where created_at >= now() - interval '20 minutes'
+                                       and coalesce(deleted, false) = false), '[]'::json))
+            " > payload.json
+
           python3 << 'PYEOF'
-          import json, os, urllib.request, urllib.error
-          from datetime import datetime, timezone, timedelta
+          import json, os, subprocess, urllib.request, urllib.error
+          from datetime import datetime, timezone
 
-          SB_URL  = os.environ['SUPABASE_URL']
-          SB_KEY  = os.environ['SUPABASE_KEY']
-          RESEND  = os.environ.get('RESEND_API_KEY', '')
-          HEADERS = {'apikey': SB_KEY, 'Authorization': f'Bearer {SB_KEY}'}
-
-          def sb_get(path):
-              req = urllib.request.Request(f"{SB_URL}/rest/v1/{path}", headers=HEADERS)
-              try:
-                  with urllib.request.urlopen(req) as r:
-                      return json.loads(r.read())
-              except urllib.error.HTTPError as e:
-                  print(f'Supabase error on {path}: {e.code} {e.reason} — {e.read().decode()}'); exit(0)
-
-          def sb_upsert(row):
-              payload = json.dumps(row).encode()
-              req = urllib.request.Request(
-                  f"{SB_URL}/rest/v1/app_settings", data=payload, method='POST',
-                  headers={**HEADERS, 'Content-Type': 'application/json',
-                           'Prefer': 'resolution=merge-duplicates'}
-              )
-              with urllib.request.urlopen(req) as r:
-                  return r.read()
-
-          # Load settings
-          rows = sb_get('app_settings?key=in.(notify_email,notify_threshold_enabled,notify_threshold_count,notify_threshold_last_sent)')
-          cfg  = {r['key']: r['value'] for r in rows}
+          RESEND = os.environ.get('RESEND_API_KEY', '')
+          data   = json.load(open('payload.json'))
+          cfg    = data['cfg'] or {}
+          orders = data['orders'] or []
 
           if cfg.get('notify_threshold_enabled') != 'true':
               print('Threshold alerts disabled — skipping'); exit(0)
@@ -59,14 +52,9 @@ jobs:
           if last_sent_str:
               last_sent = datetime.fromisoformat(last_sent_str.replace('Z', '+00:00'))
               if (datetime.now(timezone.utc) - last_sent).total_seconds() < 3600:
-                  print(f'Sent less than 1 hour ago — skipping'); exit(0)
-
-          # Items added in last 20 minutes (slightly more than 15-min cron interval)
-          since  = (datetime.now(timezone.utc) - timedelta(minutes=20)).strftime('%Y-%m-%dT%H:%M:%SZ')
-          orders = sb_get(f'orders?created_at=gte.{since}&order=order_id.desc')
+                  print('Sent less than 1 hour ago — skipping'); exit(0)
 
           total_qty = sum(int(o.get('qty') or 1) for o in orders)
-
           if total_qty < threshold:
               print(f'{total_qty} items in last 20 min — below threshold of {threshold}'); exit(0)
 
@@ -90,7 +78,9 @@ jobs:
               f"View all orders: https://simonreid.space\n"
           )
 
-          print(body)
+          # This repo is public and so is this log — the names go in the email,
+          # not here.
+          print(f'{total_qty} items across {len(unique)} orders — sending alert')
 
           if not RESEND:
               print('No RESEND_API_KEY secret — email not sent'); exit(0)
@@ -107,10 +97,17 @@ jobs:
           )
           try:
               with urllib.request.urlopen(req) as r:
-                  print('Alert sent:', r.read().decode())
-                  # Record send time to prevent spam
-                  sb_upsert({'key': 'notify_threshold_last_sent',
-                             'value': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')})
+                  r.read()
+                  print('Alert sent')
           except urllib.error.HTTPError as e:
               print('Resend error:', e.read().decode()); exit(1)
+
+          # Record send time to prevent spam
+          subprocess.run(
+              ['psql', os.environ['DB_URL'], '--variable', 'ON_ERROR_STOP=1', '--command',
+               "insert into app_settings (key, value) "
+               "values ('notify_threshold_last_sent', to_char(now() at time zone 'utc', "
+               "'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')) "
+               "on conflict (key) do update set value = excluded.value"],
+              check=True)
           PYEOF
