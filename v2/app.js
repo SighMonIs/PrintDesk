@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.7.3';
+const VERSION = '2.7.4';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -681,7 +681,11 @@ function orderCard(o) {
 function orderDetail(o) {
   if (!o) return `<div class="empty"><i class="ti ti-receipt"></i><p>Select an order</p></div>`;
   const ship = delivery(o.delivery);
-  const c = customers.find(x => String(x.id) === o.customerId) || {};
+  // Older orders predate customer_id, so fall back to matching on name —
+  // otherwise their customer card would have nothing to link to.
+  const c = customers.find(x => String(x.id) === o.customerId)
+    || customers.find(x => x.name.trim().toLowerCase() === String(o.customer || '').trim().toLowerCase())
+    || {};
   const cur = stageIdx(o.status);
   const next = cur < 0 ? FLOW[1] : FLOW[cur + 1];
   const age = ageDays(o);
@@ -710,7 +714,9 @@ function orderDetail(o) {
         <div class="card-body kv">
           <div class="kv-row"><div class="k">Order</div><div class="v">${esc(o.no)} <span class="detail-id">${esc(o.id)}</span></div></div>
           <div class="kv-row"><div class="k">Ordered</div><div class="v">${esc(fmtDate(o.date))}${age != null ? ` <span class="subtle">· ${age}d ago</span>` : ''}</div></div>
-          <div class="kv-row"><div class="k">Name</div><div class="v">${esc(o.customer || '—')}</div></div>
+          <div class="kv-row"><div class="k">Name</div><div class="v">${c.id
+            ? `<a href="#" class="record-link" onclick="event.preventDefault();openRecord('customer','${esc(c.id)}')">${esc(o.customer)}<i class="ti ti-arrow-up-right"></i></a>`
+            : esc(o.customer || '—')}</div></div>
           ${c.email ? `<div class="kv-row"><div class="k">Email</div><div class="v"><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div></div>` : ''}
           ${c.phone ? `<div class="kv-row"><div class="k">Phone</div><div class="v"><a href="tel:${esc(String(c.phone).replace(/\s/g, ''))}">${esc(c.phone)}</a></div></div>` : ''}
           <div class="kv-row"><div class="k">Ship to</div><div class="v">${o.address
@@ -1728,7 +1734,9 @@ function openRecord(kind, id) {
     data[f.k] = existing ? existing[f.k] : (f.def !== undefined ? f.def : '');
     if (data[f.k] === null || data[f.k] === undefined) data[f.k] = f.def !== undefined ? f.def : '';
   });
-  record = { kind, id: id || null, data };
+  // Remember where this was opened from, so Cancel goes back there rather
+  // than dumping you in the list — you may have arrived from an order.
+  record = { kind, id: id || null, data, ret: { view, selected, showDetail } };
   view = spec.back;   // the form renders inside that view's page
   if (kind === 'product') {
     record.opts = id
@@ -1739,7 +1747,12 @@ function openRecord(kind, id) {
   render();
 }
 
-function closeRecord() { record = null; render(); }
+function closeRecord() {
+  const ret = record && record.ret;
+  record = null;
+  if (ret) { view = ret.view; selected = ret.selected; showDetail = ret.showDetail; }
+  render();
+}
 
 function readRecord() {
   const spec = FORMS[record.kind];
