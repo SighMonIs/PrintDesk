@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.5.0';
+const VERSION = '2.6.0';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -44,6 +44,7 @@ let orders = [];        // grouped by order_id
 let cats = [], opts = [], colours = [], customers = [];
 let deliveryOptions = [], paymentOptions = [];
 let invItems = [], invReceipts = [], invConsumption = [];
+let bmModels = [];      // BadgeMak3r models linked to a product
 
 let view = 'dashboard';
 let selected = null;
@@ -117,6 +118,11 @@ async function loadAll() {
     invItems = (ii || []).filter(x => !x.archived);
     invReceipts = ir || [];
     invConsumption = ic || [];
+    // Non-fatal: the category_id column only exists once the BadgeMak3r
+    // migration has run, and a product with no linked model simply gets no
+    // badge button.
+    bmModels = await sbGet('badgemaker_models', '?archived=eq.false&category_id=not.is.null&select=id,name,category_id')
+      .then(r => Array.isArray(r) ? r : []).catch(() => []);
     group();
     loading = false;
   } catch (e) {
@@ -695,6 +701,7 @@ function orderDetail(o) {
         <button class="btn ${o.paid ? '' : 'primary'}" onclick="togglePaid('${esc(o.id)}')">
           <i class="ti ${o.paid ? 'ti-rotate-2' : 'ti-cash'}"></i> ${o.paid ? 'Mark unpaid' : 'Mark paid'}</button>
         <button class="btn" onclick="openEditOrder('${esc(o.id)}')"><i class="ti ti-pencil"></i> Edit</button>
+        ${badgeItemsFor(o).length ? `<button class="btn" onclick="openBadgeBatch('${esc(o.id)}')"><i class="ti ti-badges"></i> Badges</button>` : ''}
         <button class="btn icon ghost" onclick="generateInvoice('${esc(o.id)}')" title="Invoice PDF" aria-label="Invoice PDF"><i class="ti ti-file-invoice"></i></button>
         <button class="btn icon ghost" onclick="printShippingLabel('${esc(o.id)}')" title="Shipping label" aria-label="Shipping label"><i class="ti ti-tag"></i></button>
         <button class="btn icon ghost" onclick="deleteOrder('${esc(o.id)}')" title="Delete order" aria-label="Delete order"><i class="ti ti-trash"></i></button>
@@ -754,6 +761,8 @@ function orderDetail(o) {
                 <input type="checkbox" ${l.printed ? 'checked' : ''}
                   onchange="toggleLinePrinted('${esc(o.id)}','${esc(l.id)}',this.checked)"> made
               </label>
+              ${hasBadgeTemplate(l.cat_id) ? `<button class="btn sm ghost badge-btn" onclick="generateBadge('${esc(o.id)}','${esc(l.id)}')" title="Download .3mf">
+                <i class="ti ti-badge"></i> 3MF</button>` : ''}
             </div>
           </div>`;
         }).join('')}</div>
@@ -1246,6 +1255,252 @@ function viewStock() {
     )}
     ${invItems.length ? '' : `<p class="readonly-note"><i class="ti ti-info-circle"></i> Name an item exactly as an option value — "Magnet", say — and completed orders draw it down on their own.</p>`}
   </div></div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Badge generation
+
+   Each order badge is built from the BadgeMak3r model linked to its
+   product. The geometry and 3MF writing already exist in
+   ../badgemaker/geometry.js and ../shared/3mf.js, so this loads those
+   rather than carrying a second copy; only the paths differ from the
+   main site, since v2 sits one directory down.
+   ══════════════════════════════════════════════════════════════════════ */
+const CDN_SRI = {
+  'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js': 'sha384-3TaxGqyHrMuRIWY5Z5WHNIzgNRqGIUJE+mk6tm+g1wkm9Ux2kUyOLfy9AsNWXA6u',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js': 'sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O',
+  'https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js': 'sha384-oV9/r5hoq7qHFHfbghYwt50E2fe8J20vXRW0eIGQl20k40zMEAhSXMCh9ANASVB9'
+};
+
+const loadScript = src => new Promise((res, rej) => {
+  const s = document.createElement('script');
+  s.src = src;
+  if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.crossOrigin = 'anonymous'; }
+  s.onload = res;
+  s.onerror = () => rej(new Error('Failed to load ' + src));
+  document.head.appendChild(s);
+});
+
+let badgeDepsReady = false;
+const badgeTemplates = new Map();   // model id -> {model, layerRows, inputRows}
+let projSettingsTmpl;
+
+const errMsg = e => (e && e.message) || String(e) || 'Unknown error';
+const projectSettings = () => projSettingsTmpl ??=
+  fetch('../badge/project_settings_template.json').then(r => r.json()).catch(() => null);
+
+async function loadBadgeDeps() {
+  if (badgeDepsReady) return;
+  await loadScript('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js');
+  await loadScript('https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js');
+  await loadScript('https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js');
+  await loadScript('../shared/3mf.js?v=' + VERSION);
+  await loadScript('../badgemaker/geometry.js?v=' + VERSION);
+  await loadBuiltinFont('../badge/LEGO.TTF');
+  badgeDepsReady = true;
+}
+
+const badgeModelFor = catId => catId
+  ? bmModels.find(m => String(m.category_id) === String(catId)) || null : null;
+const hasBadgeTemplate = catId => !!badgeModelFor(catId);
+
+function badgeModelOrThrow(catId) {
+  const m = badgeModelFor(catId);
+  if (!m) throw new Error('No BadgeMak3r model is linked to "' + catName(catId) + '" — set its Category in BadgeMak3r');
+  return m;
+}
+
+async function loadBadgeTemplate(model) {
+  if (badgeTemplates.has(model.id)) return badgeTemplates.get(model.id);
+  await loadBadgeDeps();
+  const [layerRows, inputRows] = await Promise.all([
+    sbGet('badgemaker_layers', '?model_id=eq.' + model.id + '&order=layer_order'),
+    sbGet('badgemaker_inputs', '?model_id=eq.' + model.id + '&order=input_order')
+  ]);
+  // Custom fonts must be parsed before modelFromRows can resolve fontObj.
+  const fontIds = [...new Set(layerRows.map(r => r.font_id).filter(id => id != null && !getCachedFont(id)))];
+  if (fontIds.length) {
+    const fonts = await sbGet('badgemaker_fonts', '?id=in.(' + fontIds.join(',') + ')&select=id,data_base64');
+    for (const f of fonts) parseAndCacheFont(f.id, f.data_base64);
+  }
+  const tmpl = { model, layerRows, inputRows };
+  badgeTemplates.set(model.id, tmpl);
+  return tmpl;
+}
+
+// The raw {Name: value} map the bindings expect, straight from the stored
+// option string rather than v2's display-oriented parseOpts().
+function optsMap(line) {
+  const out = {};
+  String(line.options || '').split('||').forEach(p => {
+    const i = p.indexOf(':');
+    if (i >= 0) out[p.slice(0, i).trim()] = p.slice(i + 1).trim();
+  });
+  return out;
+}
+const badgeName = o => String((o && o['Text']) || 'NAME').toUpperCase();
+
+// geometry.js builds from its own globals `inputs` and `layerConfig`.
+function buildBadge(tmpl, orderOpts, name, projTmpl) {
+  const m = modelFromRows(tmpl.layerRows, tmpl.inputRows);
+  const warnings = applyOrderBindings(m, orderOpts,
+    n => (colours.find(c => c.name.toLowerCase() === String(n).toLowerCase()) || {}).code || null);
+  inputs = m.inputs; layerConfig = m.layerConfig;
+  const objects = buildExportObjects();
+  if (!objects.length) throw new Error('Template "' + tmpl.model.name + '" produced no geometry');
+  return { zip: _badgeBuildZip(_badgeBuild3MF(objects, name, projTmpl)), warnings };
+}
+
+function saveBlob(data, filename, type) {
+  const u = URL.createObjectURL(new Blob([data], { type }));
+  const a = document.createElement('a');
+  a.href = u; a.download = filename; a.click();
+  URL.revokeObjectURL(u);
+}
+const MIME_3MF = 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml';
+
+async function generateBadge(orderId, rowId) {
+  const o = orders.find(x => x.id === orderId);
+  const l = o && o.lines.find(x => String(x.id) === String(rowId));
+  if (!l) return;
+  toast('Generating badge…');
+  try {
+    const opts = optsMap(l);
+    const name = badgeName(opts);
+    const tmpl = await loadBadgeTemplate(badgeModelOrThrow(l.cat_id));
+    const { zip, warnings } = buildBadge(tmpl, opts, name, await projectSettings());
+    saveBlob(zip, name + '.3mf', MIME_3MF);
+    toast(warnings.length ? name + '.3mf — ' + warnings.join(' · ') : 'Downloaded ' + name + '.3mf');
+  } catch (e) {
+    toast('Badge failed: ' + errMsg(e), 'err');
+  }
+}
+
+/* ── Batch ─────────────────────────────────────────────────────────── */
+// Duplicate names in one order get " 2", " 3"… so files don't overwrite.
+function filenameMap(items) {
+  const totals = {}, counters = {};
+  const key = it => badgeName(it.opts);
+  items.forEach(it => { totals[key(it)] = (totals[key(it)] || 0) + 1; });
+  return { next(n) { counters[n] = (counters[n] || 0) + 1; return totals[n] > 1 ? n + ' ' + counters[n] + '.3mf' : n + '.3mf'; } };
+}
+
+function buildOuterZip(entries) {
+  const enc = new TextEncoder();
+  const crc32 = d => { let c = 0xFFFFFFFF; for (let i = 0; i < d.length; i++) { c ^= d[i]; for (let j = 0; j < 8; j++) c = (c >>> 1) ^ (c & 1 ? 0xEDB88320 : 0); } return (c ^ 0xFFFFFFFF) >>> 0; };
+  const parts = [], cd = []; let off = 0;
+  for (const { name, data } of entries) {
+    const nb = enc.encode(name), crc = crc32(data);
+    const loc = new Uint8Array(30 + nb.length + data.length), dv = new DataView(loc.buffer);
+    dv.setUint32(0, 0x04034b50, true); dv.setUint16(4, 20, true); dv.setUint16(6, 0, true); dv.setUint16(8, 0, true); dv.setUint16(10, 0, true); dv.setUint16(12, 0, true); dv.setUint32(14, crc, true); dv.setUint32(18, data.length, true); dv.setUint32(22, data.length, true); dv.setUint16(26, nb.length, true); dv.setUint16(28, 0, true);
+    loc.set(nb, 30); loc.set(data, 30 + nb.length); parts.push(loc);
+    const ce = new Uint8Array(46 + nb.length), cv = new DataView(ce.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true); cv.setUint16(8, 0, true); cv.setUint16(10, 0, true); cv.setUint16(12, 0, true); cv.setUint16(14, 0, true); cv.setUint32(16, crc, true); cv.setUint32(20, data.length, true); cv.setUint32(24, data.length, true); cv.setUint16(28, nb.length, true); cv.setUint16(30, 0, true); cv.setUint16(32, 0, true); cv.setUint16(34, 0, true); cv.setUint16(36, 0, true); cv.setUint32(38, 0, true); cv.setUint32(42, off, true);
+    ce.set(nb, 46); cd.push(ce); off += loc.length;
+  }
+  const cdSize = cd.reduce((s, c) => s + c.length, 0);
+  const eocd = new Uint8Array(22), ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true); ev.setUint16(4, 0, true); ev.setUint16(6, 0, true); ev.setUint16(8, entries.length, true); ev.setUint16(10, entries.length, true); ev.setUint32(12, cdSize, true); ev.setUint32(16, off, true); ev.setUint16(20, 0, true);
+  const all = [...parts, ...cd, eocd];
+  const res = new Uint8Array(all.reduce((s, p) => s + p.length, 0));
+  let p = 0; for (const a of all) { res.set(a, p); p += a.length; }
+  return res;
+}
+
+function badgeItemsFor(o) {
+  return o.lines.filter(l => hasBadgeTemplate(l.cat_id)).map(l => ({ catId: l.cat_id, opts: optsMap(l) }));
+}
+
+let batchState = null;   // {orderId, items, customer, phase, done, total, label, msg, sub}
+
+function openBadgeBatch(orderId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  const items = badgeItemsFor(o);
+  if (!items.length) { toast('No items in this order have a badge template', 'err'); return; }
+  batchState = { orderId, items, customer: o.customer || 'badges', phase: 'choose', done: 0, total: items.length };
+  renderBatch();
+}
+function closeBadgeBatch() { batchState = null; renderBatch(); }
+
+function batchProgress(done, total, label) {
+  Object.assign(batchState, { phase: 'progress', done, total, label });
+  renderBatch();
+}
+
+async function runBadgeLoop(onProgress) {
+  const entries = [], warnings = new Set(), names = filenameMap(batchState.items);
+  const projTmpl = await projectSettings();
+  for (let i = 0; i < batchState.items.length; i++) {
+    const it = batchState.items[i];
+    const name = badgeName(it.opts);
+    onProgress(i, batchState.items.length, name);
+    await new Promise(r => setTimeout(r, 0));   // let the progress bar paint
+    const tmpl = await loadBadgeTemplate(badgeModelOrThrow(it.catId));
+    const r = buildBadge(tmpl, it.opts, name, projTmpl);
+    r.warnings.forEach(w => warnings.add(name + ': ' + w));
+    entries.push({ name: names.next(name), data: r.zip });
+  }
+  return { entries, warnings: [...warnings] };
+}
+
+async function generateAllBadgesZip() {
+  const total = batchState.items.length;
+  batchProgress(0, total, 'Starting…');
+  try {
+    const { entries, warnings } = await runBadgeLoop((i, n, name) => batchProgress(i, n, name));
+    batchProgress(total, total, 'Building ZIP…');
+    await new Promise(r => setTimeout(r, 0));
+    const zipName = (batchState.customer.replace(/[^a-z0-9 _-]/gi, '').trim() || 'badges') + '.zip';
+    saveBlob(buildOuterZip(entries), zipName, 'application/zip');
+    Object.assign(batchState, { phase: 'done', msg: entries.length + ' badges downloaded as ' + zipName, sub: warnings.join(' · ') });
+  } catch (e) {
+    Object.assign(batchState, { phase: 'done', msg: 'Badge generation failed', sub: errMsg(e) });
+  }
+  renderBatch();
+}
+
+async function generateAllBadges() {
+  const total = batchState.items.length;
+  batchProgress(0, total * 2, 'Starting…');
+  try {
+    const { entries, warnings } = await runBadgeLoop((i, n, name) => batchProgress(i, n * 2, name));
+    for (let i = 0; i < entries.length; i++) {
+      batchProgress(total + i, total * 2, 'Downloading ' + entries[i].name);
+      saveBlob(entries[i].data, entries[i].name, MIME_3MF);
+      await new Promise(r => setTimeout(r, 250));   // browsers throttle rapid downloads
+    }
+    Object.assign(batchState, { phase: 'done', msg: entries.length + ' badges downloaded', sub: warnings.join(' · ') });
+  } catch (e) {
+    Object.assign(batchState, { phase: 'done', msg: 'Badge generation failed', sub: errMsg(e) });
+  }
+  renderBatch();
+}
+
+function renderBatch() {
+  const host = document.getElementById('batchHost');
+  if (!host) return;
+  if (!batchState) { host.innerHTML = ''; return; }
+  const s = batchState;
+  let body;
+  if (s.phase === 'choose') {
+    body = `<p class="bm-modal-msg">${s.items.length} badge${s.items.length === 1 ? '' : 's'} in ${esc(orderNo(s.orderId))}.</p>
+      <button class="btn batch-option" onclick="generateAllBadges()">
+        <i class="ti ti-files"></i><span><strong>${s.items.length}</strong> individual .3mf files</span></button>
+      <button class="btn primary batch-option" onclick="generateAllBadgesZip()">
+        <i class="ti ti-file-zip"></i><span>One ZIP containing them all</span></button>
+      <div class="bm-modal-btns"><button class="btn" onclick="closeBadgeBatch()">Cancel</button></div>`;
+  } else if (s.phase === 'progress') {
+    const pct = s.total ? Math.round(s.done / s.total * 100) : 0;
+    body = `<p class="bm-modal-msg">Generating badges…</p>
+      <div class="batch-track"><div class="batch-fill" style="width:${pct}%"></div></div>
+      <p class="subtle">${esc(s.label || '')}</p>`;
+  } else {
+    body = `<p class="bm-modal-msg">${esc(s.msg)}</p>
+      ${s.sub ? `<p class="subtle">${esc(s.sub)}</p>` : ''}
+      <div class="bm-modal-btns"><button class="btn primary" onclick="closeBadgeBatch()">Close</button></div>`;
+  }
+  host.innerHTML = `<div class="bm-modal-overlay"><div class="bm-modal">${body}</div></div>`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════

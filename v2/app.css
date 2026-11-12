@@ -555,6 +555,15 @@ td.subtle{font-size:11px;}
 }
 .bm-modal-msg{font-size:13px;line-height:1.45;}
 .bm-modal-btns{display:flex;gap:8px;justify-content:flex-end;}
+.batch-option{
+  width:100%;height:auto;padding:13px;justify-content:flex-start;gap:11px;
+  text-align:left;font-size:13px;
+}
+.batch-option i{font-size:20px;flex-shrink:0;}
+.batch-track{height:6px;border-radius:999px;background:var(--surface2);overflow:hidden;}
+.batch-fill{height:100%;background:var(--green);border-radius:999px;transition:width .2s;}
+.badge-btn{margin-top:6px;}
+
 .bm-modal .adv-text-input{
   height:40px;padding:0 12px;font:inherit;font-size:16px;
   background:var(--surface2);border:1px solid var(--border2);
