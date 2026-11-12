@@ -17,6 +17,8 @@ jobs:
           # already uses. No anon key in CI, and nothing here is reachable
           # from the internet.
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          # Set a repository variable NOTIFY_FROM when the domain moves off resend.dev.
+          NOTIFY_FROM: ${{ vars.NOTIFY_FROM }}
         run: |
           psql "$DB_URL" --no-align --tuples-only --variable ON_ERROR_STOP=1 \
             --command "
@@ -86,7 +88,7 @@ jobs:
               print('No RESEND_API_KEY secret — email not sent'); exit(0)
 
           payload = json.dumps({
-              'from': 'PrintDesk <onboarding@resend.dev>',
+              'from': os.environ.get('NOTIFY_FROM') or 'PrintDesk <onboarding@resend.dev>',
               'to':   [email],
               'subject': f'PrintDesk: {total_qty} items just came in!',
               'text': body

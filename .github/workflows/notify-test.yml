@@ -1,0 +1,63 @@
+name: PrintDesk Send a Test Alert
+
+# Run by hand only. The two cron jobs exit early whenever there is nothing to
+# report, so they never exercise the Resend call — this does, without touching
+# any data. Use it after changing RESEND_API_KEY, the notification address or
+# the from address.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send a test alert
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          # One place to change when the domain moves off resend.dev. Set a
+          # repository variable NOTIFY_FROM to override all three workflows.
+          NOTIFY_FROM: ${{ vars.NOTIFY_FROM }}
+        run: |
+          psql "$DB_URL" --no-align --tuples-only --variable ON_ERROR_STOP=1 \
+            --command "select coalesce((select value from app_settings
+                                         where key = 'notify_email'), '')" > email.txt
+
+          python3 << 'PYEOF'
+          import json, os, urllib.request, urllib.error
+
+          RESEND = os.environ.get('RESEND_API_KEY', '')
+          sender = os.environ.get('NOTIFY_FROM') or 'PrintDesk <onboarding@resend.dev>'
+          email  = open('email.txt').read().strip()
+
+          if not RESEND:
+              print('No RESEND_API_KEY secret — nothing to test'); exit(1)
+          if not email:
+              print('No notify_email set in app_settings — set it in the app first'); exit(1)
+
+          # This repo is public and so is this log: say which domain, not who.
+          print(f'Sending from {sender} to an address at '
+                f'{email.split("@")[-1] if "@" in email else "?"}')
+
+          payload = json.dumps({
+              'from': sender,
+              'to':   [email],
+              'subject': 'PrintDesk: test alert',
+              'text': ('This is a test of the PrintDesk alert emails.\n\n'
+                       'If this arrived, the urgent-item alert and the daily '
+                       'badge digest can both send.\n')
+          }).encode()
+          req = urllib.request.Request(
+              'https://api.resend.com/emails', data=payload,
+              headers={'Authorization': f'Bearer {RESEND}',
+                       'Content-Type': 'application/json'}
+          )
+          try:
+              with urllib.request.urlopen(req) as r:
+                  print('Resend accepted it:', json.loads(r.read()).get('id', '?'))
+          except urllib.error.HTTPError as e:
+              # A sandbox sender only delivers to the Resend account owner, and
+              # a wrong key gives 401 — both land here with a readable reason.
+              print('Resend rejected it:', e.code, e.read().decode()); exit(1)
+          PYEOF
