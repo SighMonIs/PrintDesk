@@ -666,6 +666,8 @@ td.subtle{font-size:11px;}
   .detail-title{font-size:18px;}
   .detail-actions{width:100%;margin-left:0;}
   .detail-actions .btn{flex:1;height:40px;}
+  /* icon buttons keep their size instead of stretching across a wrapped row */
+  .detail-actions .btn.icon{flex:0 0 auto;width:40px;}
   .page{padding:12px 12px 24px;}
   .card-body{padding:12px;}
   .kv-row{flex-direction:column;gap:2px;}

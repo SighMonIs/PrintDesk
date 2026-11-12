@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.7.4';
+const VERSION = '2.8.0';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -191,8 +191,8 @@ const colourCode = name => (colours.find(c => c.name.toLowerCase() === String(na
 async function setOrderStatus(id, status) {
   const o = orders.find(x => x.id === id);
   if (!o || o.status === status) return;
-  const ok = await askConfirm('Set order ' + o.no + ' to "' + meta(status).label + '"? This applies to every item in the order.', 'Set ' + meta(status).label);
-  if (!ok) return;
+  // No confirm: moving a stage is a single tap you can tap straight back,
+  // and the toast offers an undo for a mis-tap.
   const was = o.status;
   o.status = status;
   o.lines.forEach(l => { l.status = status; });
@@ -207,8 +207,16 @@ async function setOrderStatus(id, status) {
     // never before. Without this v2 could complete an order and silently leave
     // the inventory ledger short.
     if (status === 'Complete') await consumeInventory(o.lines, id);
-    toast(o.no + ' → ' + meta(status).label);
     render();
+    showUndo(o.no + ' → ' + meta(status).label, async () => {
+      const e2 = await sbPatch('orders', '?order_id=eq.' + encodeURIComponent(id), { status: was });
+      if (e2) { toast('Undo failed: ' + (e2.message || ''), 'err'); return; }
+      o.status = was; o.lines.forEach(l => { l.status = was; });
+      render();
+      // Stock already drawn down by a completion stays drawn down — the
+      // ledger is append-only, so correct it in Stock if that matters.
+      toast(o.no + ' back to ' + meta(was).label + (status === 'Complete' ? ' — stock stays used' : ''));
+    });
   }
 }
 
