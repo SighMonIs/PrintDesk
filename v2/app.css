@@ -414,6 +414,28 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
 .field-hint{font-size:10.5px;color:var(--muted);line-height:1.45;}
 .form-row input:disabled{opacity:.55;cursor:not-allowed;}
 
+/* A whole-header toggle button, styled to match a plain .card-hdr */
+.card-hdr-toggle{
+  width:100%;background:transparent;border:none;
+  border-bottom:1px solid var(--border);
+  font:inherit;color:inherit;cursor:pointer;text-align:left;
+}
+.card-hdr-toggle:hover{background:var(--surface2);}
+.card-hdr-toggle .right{margin-left:auto;}
+.card-hdr-toggle .chev{
+  font-size:14px;color:var(--muted);flex-shrink:0;
+  transition:transform .15s;
+}
+.card-hdr-toggle .chev.open{transform:rotate(180deg);}
+
+/* Five rows tall, then scroll — a regular customer's history must not push
+   the line items off the screen. */
+.related-scroll{
+  /* fallback; render() measures a real row and sets the exact height */
+  max-height:195px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+
 .related-row{
   display:flex;align-items:center;gap:9px;width:100%;
   padding:10px 14px;border:none;border-bottom:1px solid var(--border);

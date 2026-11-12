@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.6.1';
+const VERSION = '2.7.0';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -50,6 +50,7 @@ let view = 'dashboard';
 let selected = null;
 let chip = 'open';   // restored from localStorage once lsGet is defined (see boot)
 let showDetail = false;   // phone: detail takes over the screen
+let relatedOpen = true;   // restored from localStorage in boot()
 let loading = true;
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
@@ -1022,21 +1023,44 @@ function linkCustomer(name) {
 }
 
 // Other orders from the same customer, so you can hop between them.
+// Collapsible, and capped at five rows tall so a regular customer's history
+// never pushes the line items off the screen.
+function toggleRelated() {
+  relatedOpen = !relatedOpen;
+  lsSet('v2_related_open', relatedOpen ? '1' : '0');
+  render();
+}
+
+// Measure a real row rather than assuming its height, so exactly five show
+// and the sixth is cleanly off the edge whatever the font ends up being.
+const RELATED_VISIBLE = 5;
+function capRelatedHeight() {
+  const box = document.querySelector('.related-scroll');
+  if (!box) return;
+  const rows = box.querySelectorAll('.related-row');
+  if (rows.length <= RELATED_VISIBLE) { box.style.maxHeight = 'none'; return; }
+  box.style.maxHeight = (rows[0].getBoundingClientRect().height * RELATED_VISIBLE) + 'px';
+}
+
 function relatedOrders(o) {
   const others = orders.filter(x => x.id !== o.id &&
     (o.customerId ? x.customerId === o.customerId : x.customer === o.customer));
   if (!others.length) return '';
   return `<div class="card">
-    <div class="card-hdr"><i class="ti ti-link"></i><h3>Other orders from ${esc(o.customer || 'this customer')}</h3>
-      <div class="right subtle">${others.length}</div></div>
-    <div class="card-body flush">
-      ${others.slice(0, 8).map(x => `<button class="related-row" onclick="pick('${esc(x.id)}')">
+    <button class="card-hdr card-hdr-toggle" onclick="toggleRelated()" aria-expanded="${relatedOpen}">
+      <i class="ti ti-link"></i>
+      <h3>Other orders from ${esc(o.customer || 'this customer')}</h3>
+      <span class="right subtle">${others.length}</span>
+      <i class="ti ti-chevron-down chev${relatedOpen ? ' open' : ''}"></i>
+    </button>
+    ${relatedOpen ? `<div class="card-body flush related-scroll">
+      ${others.map(x => `<button class="related-row" onclick="pick('${esc(x.id)}')">
         <span class="mono">${esc(x.no)}</span>
         <span class="subtle">${esc(fmtDate(x.date))}</span>
         ${pill(x.status)}
         <span class="mono related-total">${money(x.total)}</span>
       </button>`).join('')}
-    </div>
+    </div>` : ''}
   </div>`;
 }
 
@@ -2556,6 +2580,7 @@ function render() {
     : RENDER[view]();
 
   if (view === 'calculator') calcRun();   // fill the results after the inputs exist
+  capRelatedHeight();
 
   // Back arrow belongs to the phone detail view only.
   document.getElementById('backBtn').classList.toggle('hide', !(view === 'orders' && showDetail));
@@ -2572,6 +2597,7 @@ function showApp() {
 
 (async function boot() {
   chip = lsGet('v2_filter') || 'open';
+  relatedOpen = lsGet('v2_related_open') !== '0';
   const ok = await restoreSession();
   document.getElementById('bootSplash').remove();
   if (ok) showApp();
