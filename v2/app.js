@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.7.0';
+const VERSION = '2.7.2';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -50,7 +50,7 @@ let view = 'dashboard';
 let selected = null;
 let chip = 'open';   // restored from localStorage once lsGet is defined (see boot)
 let showDetail = false;   // phone: detail takes over the screen
-let relatedOpen = true;   // restored from localStorage in boot()
+let relatedOpen = false;  // collapsed by default; restored from localStorage in boot()
 let loading = true;
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
@@ -689,14 +689,6 @@ function orderDetail(o) {
   return `<div class="detail">
 
     <div class="detail-hdr">
-      <div class="detail-hdr-main">
-        <div class="detail-title">${esc(o.no)} <span class="detail-id">${esc(o.id)}</span></div>
-        <div class="detail-sub">
-          <span>${esc(o.customer || 'No customer')}</span>
-          <span>Ordered ${esc(fmtDate(o.date))}${age != null ? ` · ${age}d ago` : ''}</span>
-          <span>${o.units} units · ${o.lines.length} ${o.lines.length === 1 ? 'line' : 'lines'}</span>
-        </div>
-      </div>
       <div class="detail-actions">
         ${next && isOpen(o) ? `<button class="btn success" onclick="advance('${esc(o.id)}')"><i class="ti ${next.icon}"></i> Mark ${esc(next.label)}</button>` : ''}
         <button class="btn ${o.paid ? '' : 'primary'}" onclick="togglePaid('${esc(o.id)}')">
@@ -716,6 +708,8 @@ function orderDetail(o) {
       <div class="card">
         <div class="card-hdr"><i class="ti ti-user"></i><h3>Customer</h3></div>
         <div class="card-body kv">
+          <div class="kv-row"><div class="k">Order</div><div class="v">${esc(o.no)} <span class="detail-id">${esc(o.id)}</span></div></div>
+          <div class="kv-row"><div class="k">Ordered</div><div class="v">${esc(fmtDate(o.date))}${age != null ? ` <span class="subtle">· ${age}d ago</span>` : ''}</div></div>
           <div class="kv-row"><div class="k">Name</div><div class="v">${esc(o.customer || '—')}</div></div>
           ${c.email ? `<div class="kv-row"><div class="k">Email</div><div class="v"><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div></div>` : ''}
           ${c.phone ? `<div class="kv-row"><div class="k">Phone</div><div class="v"><a href="tel:${esc(String(c.phone).replace(/\s/g, ''))}">${esc(c.phone)}</a></div></div>` : ''}
@@ -2597,7 +2591,7 @@ function showApp() {
 
 (async function boot() {
   chip = lsGet('v2_filter') || 'open';
-  relatedOpen = lsGet('v2_related_open') !== '0';
+  relatedOpen = lsGet('v2_related_open') === '1';
   const ok = await restoreSession();
   document.getElementById('bootSplash').remove();
   if (ok) showApp();

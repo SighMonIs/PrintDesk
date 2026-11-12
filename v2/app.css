@@ -259,6 +259,8 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
 .detail-id{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400;}
 .detail-sub{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;}
 .detail-actions{margin-left:auto;display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;}
+/* no title beside them any more, so don't push them to the right edge */
+.detail-hdr > .detail-actions:only-child{margin-left:0;}
 
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);}
 .card-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);}
