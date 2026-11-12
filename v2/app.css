@@ -326,6 +326,12 @@ code{font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1
 .form-row textarea{height:auto;padding:9px 10px;resize:vertical;line-height:1.4;}
 .form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--accent2);}
 .form-row .mt6{margin-top:6px;}
+/* a record you are looking at rather than editing: same grid, text not inputs */
+.form-row .ro{
+  display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);
+  line-height:1.45;white-space:pre-wrap;word-break:break-word;
+  padding:1px 0 9px;border-bottom:1px solid var(--border);min-height:19px;
+}
 .form-row-pair{flex-direction:row;gap:10px;}
 .form-row-pair > div{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
 /* Number stepper — the native spinner is hidden and replaced with buttons

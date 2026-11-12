@@ -10,7 +10,7 @@
           v2 so it can be tested against production without risk.
    ══════════════════════════════════════════════════════════════════════ */
 
-const VERSION = '2.8.1';
+const VERSION = '2.9.0';
 
 /* ── Pipeline ──────────────────────────────────────────────────────────
    The database values stay exactly as the live site writes them; only the
@@ -636,7 +636,10 @@ function pipeline(o) {
 function table(cols, body) {
   return `<div class="tbl-wrap"><table>
     <thead><tr>${cols.map(c => `<th class="${c.cls || ''}">${esc(c.h)}</th>`).join('')}</tr></thead>
-    <tbody>${body.map(r => `<tr${r.click ? ` class="clickable" onclick="${r.click}"` : ''}>`
+    <tbody>${body.map(r => `<tr${r.click
+      // A link or button inside the row is its own target — mailto, tel and the
+      // order pills must not also trigger the row.
+      ? ` class="clickable" onclick="if(event.target.closest('a,button'))return;${r.click}"` : ''}>`
       // .cv is display:contents on a wide screen and a flex group on a phone,
       // so stacked cells keep their content together next to the label.
       + r.cells.map((cell, i) => `<td class="${cols[i].cls || ''}" data-label="${esc(cols[i].h)}"><span class="cv">${cell}</span></td>`).join('')
@@ -731,7 +734,7 @@ function orderDetail(o) {
           <div class="kv-row"><div class="k">Order</div><div class="v">${esc(o.no)} <span class="detail-id">${esc(o.id)}</span></div></div>
           <div class="kv-row"><div class="k">Ordered</div><div class="v">${esc(fmtDate(o.date))}${age != null ? ` <span class="subtle">· ${age}d ago</span>` : ''}</div></div>
           <div class="kv-row"><div class="k">Name</div><div class="v">${c.id
-            ? `<a href="#" class="record-link" onclick="event.preventDefault();openRecord('customer','${esc(c.id)}')">${esc(o.customer)}<i class="ti ti-arrow-up-right"></i></a>`
+            ? `<a href="#" class="record-link" onclick="event.preventDefault();openRecord('customer','${esc(c.id)}',1)">${esc(o.customer)}<i class="ti ti-arrow-up-right"></i></a>`
             : esc(o.customer || '—')}</div></div>
           ${c.email ? `<div class="kv-row"><div class="k">Email</div><div class="v"><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div></div>` : ''}
           ${c.phone ? `<div class="kv-row"><div class="k">Phone</div><div class="v"><a href="tel:${esc(String(c.phone).replace(/\s/g, ''))}">${esc(c.phone)}</a></div></div>` : ''}
@@ -1211,18 +1214,17 @@ function viewCustomers() {
       <span class="right"><button class="btn sm" onclick="openRecord('customer')"><i class="ti ti-plus"></i> Add customer</button></span></div>
     ${table(
       [{ h: 'Customer' }, { h: 'Contact' }, { h: 'Address', cls: 'subtle' },
-       { h: 'Orders', cls: 'num mono' }, { h: 'Lifetime', cls: 'num mono' }, { h: 'Open' }, { h: '', cls: 'num' }],
+       { h: 'Orders', cls: 'num mono' }, { h: 'Lifetime', cls: 'num mono' }, { h: 'Open' }],
       list.map(c => {
         const os = ordersOf(c), open = os.filter(isOpen);
-        return { cells: [
+        return { click: `openRecord('customer','${esc(c.id)}',1)`, cells: [
           `<div class="cellrow">${avatar(c.name)}<div>${esc(c.name)}</div></div>`,
           (c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '') +
             (c.phone ? `<div class="subtle"><a href="tel:${esc(String(c.phone).replace(/\s/g, ''))}">${esc(c.phone)}</a></div>` : '') || '<span class="subtle">—</span>',
           esc(c.address || '—'),
           String(os.length),
           money(os.filter(o => o.status !== 'Cancelled').reduce((s, o) => s + o.total, 0)),
-          open.length ? open.slice(0, 3).map(o => `<a href="#" onclick="event.preventDefault();pick('${esc(o.id)}')">${pill(o.status)}</a>`).join(' ') : '<span class="subtle">—</span>',
-          `<button class="btn sm ghost" onclick="openRecord('customer','${esc(c.id)}')"><i class="ti ti-pencil"></i></button>`
+          open.length ? open.slice(0, 3).map(o => `<a href="#" onclick="event.preventDefault();pick('${esc(o.id)}')">${pill(o.status)}</a>`).join(' ') : '<span class="subtle">—</span>'
         ] };
       })
     )}
@@ -1742,7 +1744,9 @@ const FORMS = {
 
 let record = null;   // {kind, id|null, data:{}, opts:[] for products}
 
-function openRecord(kind, id) {
+// ro: open read-only (a record you are looking at, not editing) — the Edit
+// button on the page switches it over.
+function openRecord(kind, id, ro) {
   const spec = FORMS[kind];
   const existing = id ? spec.list().find(x => String(x.id) === String(id)) : null;
   const data = {};
@@ -1752,7 +1756,7 @@ function openRecord(kind, id) {
   });
   // Remember where this was opened from, so Cancel goes back there rather
   // than dumping you in the list — you may have arrived from an order.
-  record = { kind, id: id || null, data, ret: { view, selected, showDetail } };
+  record = { kind, id: id || null, data, ro: !!(ro && id), ret: { view, selected, showDetail } };
   view = spec.back;   // the form renders inside that view's page
   if (kind === 'product') {
     record.opts = id
@@ -1762,6 +1766,8 @@ function openRecord(kind, id) {
   showDetail = true;
   render();
 }
+
+function editRecord() { if (record) { record.ro = false; render(); } }
 
 function closeRecord() {
   const ret = record && record.ret;
@@ -1860,6 +1866,18 @@ function recordForm() {
   const spec = FORMS[record.kind];
   const d = record.data;
 
+  // Looking rather than editing: the same grid, values as plain text.
+  const readOnly = f => {
+    const v = d[f.k];
+    const shown = f.type === 'check' ? (v ? 'Yes' : 'No')
+      : f.type === 'colour' && v ? `<span class="sw" style="background:${esc(v)}"></span><span class="mono">${esc(v)}</span>`
+      : f.type === 'email' && v ? `<a href="mailto:${esc(v)}">${esc(v)}</a>`
+      : f.type === 'tel' && v ? `<a href="tel:${esc(String(v).replace(/\s/g, ''))}">${esc(v)}</a>`
+      : f.type === 'number' ? esc(String(v))
+      : String(v || '').trim() ? esc(String(v)) : '<span class="subtle">—</span>';
+    return `<div class="form-row"><label>${esc(f.label)}</label><div class="ro">${shown}</div></div>`;
+  };
+
   const field = f => {
     const v = d[f.k];
     if (f.type === 'check') {
@@ -1890,24 +1908,27 @@ function recordForm() {
   return `<div class="detail">
     <div class="detail-hdr">
       <div class="detail-hdr-main">
-        <div class="detail-title">${record.id ? 'Edit ' : 'New '}${esc(spec.title.toLowerCase())}</div>
+        <div class="detail-title">${record.ro ? esc(d.name || spec.title) : (record.id ? 'Edit ' : 'New ') + esc(spec.title.toLowerCase())}</div>
         ${record.id ? `<div class="detail-sub"><span class="mono">${esc(record.id)}</span></div>` : ''}
       </div>
       <div class="detail-actions">
-        <button class="btn" onclick="closeRecord()">Cancel</button>
-        <button class="btn primary" id="recSave" onclick="saveRecord()"><i class="ti ti-check"></i> Save</button>
+        ${record.ro
+          ? `<button class="btn" onclick="closeRecord()"><i class="ti ti-arrow-left"></i> Back</button>
+             <button class="btn primary" onclick="editRecord()"><i class="ti ti-pencil"></i> Edit</button>`
+          : `<button class="btn" onclick="closeRecord()">Cancel</button>
+             <button class="btn primary" id="recSave" onclick="saveRecord()"><i class="ti ti-check"></i> Save</button>`}
       </div>
     </div>
 
     <div class="card"><div class="card-body form-grid">
-      ${spec.fields.map(field).join('')}
+      ${spec.fields.map(record.ro ? readOnly : field).join('')}
     </div></div>
 
-    ${record.kind === 'product' ? productOptionsEditor() : ''}
-    ${record.kind === 'invitem' && record.id ? receiptsEditor() : ''}
+    ${record.kind === 'product' && !record.ro ? productOptionsEditor() : ''}
+    ${record.kind === 'invitem' && record.id && !record.ro ? receiptsEditor() : ''}
     ${record.kind === 'customer' && record.id ? customerOrdersCard() : ''}
 
-    ${record.id ? `<div class="card">
+    ${record.id && !record.ro ? `<div class="card">
       <div class="card-hdr"><i class="ti ti-trash"></i><h3>Remove</h3></div>
       <div class="card-body">
         <button class="btn danger" onclick="archiveRecord('${record.kind}','${esc(record.id)}','${esc(d.name || '').replace(/'/g, "\\'")}')">
